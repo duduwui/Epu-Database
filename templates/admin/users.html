@@ -123,8 +123,8 @@
           <label class="form-label mb-1" style="font-size: 0.85rem">Shift</label>
           <select id="shiftFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Shifts</option>
-            <option value="morning">☀ Morning</option>
-            <option value="night">☽ Night</option>
+            <option value="morning">â˜€ Morning</option>
+            <option value="night">â˜½ Night</option>
           </select>
         </div>
         <div class="col-md-2 smart-filter student-filter d-none">
@@ -237,8 +237,8 @@
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '—' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}</td>
+                  <td class="user-email">{{ user.email or 'â€”' }}</td>
+                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'â€”' }}</td>
                   <td class="text-center">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
@@ -336,8 +336,8 @@
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '—' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}</td>
+                  <td class="user-email">{{ user.email or 'â€”' }}</td>
+                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'â€”' }}</td>
                   <td class="text-center">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
@@ -439,8 +439,8 @@
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '—' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}</td>
+                  <td class="user-email">{{ user.email or 'â€”' }}</td>
+                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'â€”' }}</td>
                   <td class="text-center">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
@@ -503,7 +503,7 @@
     <div class="modal-content">
       <div
         class="modal-header"
-        style="background: linear-gradient(135deg, #0000ff 0%, #0000cc 100%); color: white"
+        style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
         <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Add New User</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -603,7 +603,7 @@
     <div class="modal-content">
       <div
         class="modal-header"
-        style="background: linear-gradient(135deg, #0000ff 0%, #0000cc 100%); color: white"
+        style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
         <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit User</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -841,7 +841,7 @@
             const row = document.getElementById('user-row-' + userId);
             if (row) {
               row.querySelector('.user-fullname').textContent = data.user.full_name;
-              row.querySelector('.user-email').textContent = data.user.email || '—';
+              row.querySelector('.user-email').textContent = data.user.email || 'â€”';
 
               // Update button data
               const btn = row.querySelector('.edit-user-btn');
@@ -939,7 +939,7 @@
                       <div><strong class="user-fullname">${newUser.full_name}</strong></div>
                       <small class="text-muted">@${newUser.username}</small>
                     </td>
-                    <td class="user-email">${newUser.email || '—'}</td>
+                    <td class="user-email">${newUser.email || 'â€”'}</td>
                     <td><span class="badge bg-danger">Admin</span></td>
                     <td>
                       <button
@@ -976,7 +976,7 @@
                       <div><strong class="user-fullname">${newUser.full_name}</strong></div>
                       <small class="text-muted">@${newUser.username}</small>
                     </td>
-                    <td class="user-email">${newUser.email || '—'}</td>
+                    <td class="user-email">${newUser.email || 'â€”'}</td>
                     <td><span class="badge bg-info">Teacher</span></td>
                     <td>
                       <button
@@ -1007,7 +1007,7 @@
                       <div><strong class="user-fullname">${newUser.full_name}</strong></div>
                       <small class="text-muted">@${newUser.username}</small>
                     </td>
-                    <td class="user-email">${newUser.email || '—'}</td>
+                    <td class="user-email">${newUser.email || 'â€”'}</td>
                     <td><span class="badge bg-success">Student</span></td>
                     <td>
                       <button

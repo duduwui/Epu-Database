@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %} {% block title %}Upload Lecture File - Teacher{% endblock %} {% block
+{% extends 'base.html' %} {% block title %}Upload Lecture File - Teacher{% endblock %} {% block
 content %}
 <div class="container-fluid py-4">
   <div class="row mb-4">
@@ -198,7 +198,7 @@ content %}
     } else {
       checkboxContainer.innerHTML = matchingSubjects.map(subject => `
         <div class="col-md-6">
-          <div class="form-check class-checkbox-item">
+          <label class="form-check class-checkbox-item" for="assignment_${subject.assignment_id}">
             <input
               class="form-check-input class-checkbox"
               type="checkbox"
@@ -206,10 +206,10 @@ content %}
               value="${subject.assignment_id}"
               id="assignment_${subject.assignment_id}"
             >
-            <label class="form-check-label" for="assignment_${subject.assignment_id}">
+            <span class="form-check-label">
               <i class="bi bi-mortarboard me-1"></i>${formatClassName(subject.class_name)}
-            </label>
-          </div>
+            </span>
+          </label>
         </div>
       `).join('');
     }
@@ -262,20 +262,47 @@ content %}
     padding: 10px 15px;
     background: #f8f9fa;
     border-radius: 8px;
-    border: 1px solid #e9ecef;
+    border: 2px solid #e9ecef;
     transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
   }
   .class-checkbox-item:hover {
     background: #e7f1ff;
-    border-color: #0000ff;
+    border-color: #1C0770;
+    transform: translateX(3px);
   }
-  .class-checkbox-item .form-check-input:checked + .form-check-label {
-    color: #0000ff;
-    font-weight: 500;
+  .class-checkbox-item:active {
+    transform: translateX(3px) scale(0.98);
+  }
+  .class-checkbox-item .form-check-input {
+    width: 20px;
+    height: 20px;
+    margin-top: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .class-checkbox-item .form-check-label,
+  .class-checkbox-item span.form-check-label {
+    cursor: pointer;
+    margin-bottom: 0;
+    flex: 1;
+    padding-left: 5px;
+  }
+  .class-checkbox-item .form-check-input:checked + span.form-check-label {
+    color: #1C0770;
+    font-weight: 600;
   }
   .class-checkbox-item .form-check-input:checked {
-    background-color: #0000ff;
-    border-color: #0000ff;
+    background-color: #1C0770;
+    border-color: #1C0770;
+  }
+  .class-checkbox-item:has(.form-check-input:checked) {
+    background: #e7f1ff;
+    border-color: #1C0770;
   }
 </style>
 {% endblock %}

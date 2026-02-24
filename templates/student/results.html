@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% block title %}Results - Student{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 1000px;">
+  
+  {% if not results %}
+  <!-- No Results Yet / Not Released -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body text-center py-5">
+      {% if grades_exist %}
+        <i class="bi bi-lock-fill text-muted" style="font-size: 4rem; color: #1C0770 !important;"></i>
+        <h4 class="mt-3 fw-semibold" style="color: #1C0770;">Results Not Yet Released</h4>
+        <p class="text-muted mt-2 mb-1">Your semester results have been recorded and are currently under review.</p>
+        <p class="text-muted">Results will be officially released once the administration finalises and publishes them.</p>
+        <a href="{{ url_for('student_grades') }}" class="btn btn-outline-secondary mt-3">
+          <i class="bi bi-clipboard-data me-2"></i>View My Grades
+        </a>
+      {% else %}
+        <i class="bi bi-hourglass-split text-muted" style="font-size: 4rem"></i>
+        <h4 class="mt-3 text-muted">No Results Available Yet</h4>
+        <p class="text-muted">Your final results will appear here once your grades have been recorded and officially released.</p>
+        <a href="{{ url_for('student_grades') }}" class="btn btn-outline-secondary mt-3">
+          <i class="bi bi-clipboard-data me-2"></i>View My Grades
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  
+  <!-- Results Header -->
+  <div class="card shadow mb-4" style="border-top: 5px solid #1C0770;">
+    <div class="card-body">
+      <div class="row align-items-center mb-3">
+        <div class="col-auto">
+          <i class="bi bi-mortarboard-fill text-primary" style="font-size: 3rem;"></i>
+        </div>
+        <div class="col text-end">
+          <h6 class="text-muted mb-1">Technical Institute of Management</h6>
+          <h6 class="text-muted mb-1">ERBIL POLYTECHNIC UNIVERSITY</h6>
+          <p class="mb-0 small text-muted">Department of Management Information Systems</p>
+        </div>
+      </div>
+      
+      <hr class="my-3">
+      
+      <div class="row">
+        <div class="col-md-6 text-end">
+          <p class="mb-1"><strong>Student Name:</strong> {{ student.full_name }}</p>
+          <p class="mb-1"><strong>Student ID:</strong> {{ student.student_number }}</p>
+        </div>
+        <div class="col-md-6 text-end">
+          <p class="mb-1"><strong>Semester:</strong>
+            {% if student.semester %}{{ student.semester }}{% else %}1{% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grade Scale Reference -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light text-center">
+      <h6 class="mb-0">Grade Scale</h6>
+    </div>
+    <div class="card-body p-3">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered text-center mb-0">
+          <thead>
+            <tr class="table-secondary">
+              <th>F</th>
+              <th>D-</th>
+              <th>D</th>
+              <th>D+</th>
+              <th>C-</th>
+              <th>C</th>
+              <th>C+</th>
+              <th>B-</th>
+              <th>B</th>
+              <th>B+</th>
+              <th>A-</th>
+              <th>A</th>
+              <th>A+</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0</td>
+              <td>60</td>
+              <td>63</td>
+              <td>67</td>
+              <td>70</td>
+              <td>73</td>
+              <td>77</td>
+              <td>80</td>
+              <td>83</td>
+              <td>87</td>
+              <td>90</td>
+              <td>93</td>
+              <td>97</td>
+            </tr>
+            <tr>
+              <td>59</td>
+              <td>62</td>
+              <td>66</td>
+              <td>69</td>
+              <td>72</td>
+              <td>76</td>
+              <td>79</td>
+              <td>82</td>
+              <td>86</td>
+              <td>89</td>
+              <td>92</td>
+              <td>96</td>
+              <td>100</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div class="card shadow">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th class="text-end pe-4">Subject</th>
+              <th class="text-center">Credits</th>
+              <th class="text-center">Score %</th>
+              <th class="text-center">Grade</th>
+              <th class="text-center">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in results %}
+            <tr class="{% if not result.passed %}table-danger{% endif %}">
+              <td class="text-end pe-4 fw-semibold">{{ result.subject_name }}</td>
+              <td class="text-center text-muted">{{ result.credits }}</td>
+              <td class="text-center">{{ result.percentage }}%</td>
+              <td class="text-center">
+                <span class="badge {% if result.letter_grade.startswith('A') %}bg-success
+                  {% elif result.letter_grade.startswith('B') %}bg-primary
+                  {% elif result.letter_grade.startswith('C') %}bg-warning
+                  {% elif result.letter_grade.startswith('D') %}bg-info
+                  {% else %}bg-danger{% endif %} px-2 py-1">
+                  {{ result.letter_grade }}
+                </span>
+              </td>
+              <td class="text-center fw-bold">
+                <span class="{% if result.passed %}text-success{% else %}text-danger{% endif %}">
+                  {{ result.weighted_score }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="table-dark fw-bold">
+              <td class="text-end pe-4">Total</td>
+              <td class="text-center">{{ total_credits_possible }}</td>
+              <td class="text-center">—</td>
+              <td class="text-center">—</td>
+              <td class="text-center fs-5">{{ total_weighted_score }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Explanation -->
+  <div class="alert alert-light border mt-3">
+    <small class="text-muted">
+      <i class="bi bi-info-circle me-1"></i>
+      <strong>Result</strong> = Score% &times; (Credits &divide; 100).
+      &nbsp;|&nbsp; Maximum possible per subject = Credits.
+      &nbsp;|&nbsp; Maximum possible total = {{ total_credits_possible }}.
+    </small>
+  </div>
+
+  <!-- Footer Note -->
+  <div class="alert alert-info mt-4 text-center">
+    <small>
+
+      This document is for information purposes only and cannot be used officially.
+    </small>
+  </div>
+
+  <!-- Print Button -->
+  <div class="text-center mb-4">
+    <button onclick="window.print()" class="btn btn-primary btn-lg">
+      <i class="bi bi-printer me-2"></i>Print
+    </button>
+  </div>
+
+  {% endif %}
+</div>
+
+<style>
+  @media print {
+    .navbar, .btn, .alert { display: none !important; }
+    .card { border: 1px solid #000 !important; box-shadow: none !important; }
+  }
+</style>
+{% endblock %}

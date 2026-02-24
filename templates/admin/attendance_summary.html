@@ -1,0 +1,578 @@
+{% extends 'base.html' %} {% block title %}Attendance Summary - Admin{% endblock %} {% block content
+%}
+<div class="container-fluid mt-4">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-bar-chart me-2"></i>Student Attendance Summary</h3>
+    <a href="{{ url_for('admin_attendance_records') }}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="card mb-3">
+    <div class="card-body p-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small mb-1">Semester</label>
+          <select class="form-select form-select-sm" onchange="applyFilters()">
+            <option value="">All</option>
+            {% for sem in semesters %}
+            <option value="{{ sem }}" {% if selected_semester == sem %}selected{% endif %}>
+              Semester {{ sem }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">Shift</label>
+          <select class="form-select form-select-sm" onchange="applyFilters()">
+            <option value="">All</option>
+            {% for shift in shifts %}
+            <option value="{{ shift }}" {% if selected_shift == shift %}selected{% endif %}>
+              {{ shift|capitalize }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">Class</label>
+          <select class="form-select form-select-sm" onchange="applyFilters()">
+            <option value="">All</option>
+            {% for section in sections %}
+            <option value="{{ section }}" {% if selected_section == section %}selected{% endif %}>
+              {{ section }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">Search Student</label>
+          <input
+            type="text"
+            class="form-control form-control-sm"
+            id="searchName"
+            placeholder="Type name..."
+            oninput="filterStudents()"
+          />
+        </div>
+        <div class="col-md-2">
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-secondary" onclick="setPageSize(10)">
+              10
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="setPageSize(25)">
+              25
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary active"
+              onclick="setPageSize(50)"
+            >
+              50
+            </button>
+          </div>
+        </div>
+        <div class="col-md-1">
+          {% if selected_semester or selected_shift or selected_section %}
+          <a href="?" class="btn btn-sm btn-outline-secondary w-100">Clear</a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="mt-2">
+        <small class="text-muted" id="pageInfo">Showing {{ students|length }} students</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student List -->
+  <div id="studentsList">
+    {% for student in students %}
+    <div
+      class="card mb-2 student-card"
+      data-name="{{ student.student_name }}"
+      data-semester="{{ student.semester }}"
+      data-student-id="{{ student.student_id }}"
+      data-index="{{ loop.index }}"
+      style="border: 1px solid #dee2e6"
+    >
+      <div
+        class="card-header py-2 px-3"
+        style="cursor: pointer; background-color: #fff; border-bottom: 1px solid #dee2e6"
+        data-bs-toggle="collapse"
+        data-bs-target="#student-{{ student.student_id }}"
+        data-semester="{{ student.semester }}"
+      >
+        <div class="row align-items-center">
+          <div class="col-md-1">
+            <small class="text-muted">#{{ loop.index }}</small>
+          </div>
+          <div class="col-md-2">
+            <small class="text-muted d-block" style="font-size: 0.75rem"
+              >{{ student.student_number or '-' }}</small
+            >
+          </div>
+          <div class="col-md-5">
+            <strong>{{ student.student_name }}</strong>
+          </div>
+          <div class="col-md-4 text-end">
+            <small class="text-muted"
+              >Sem {{ student.semester }} | {{ student.shift }} | Class {{ student.section }}</small
+            >
+          </div>
+        </div>
+      </div>
+      <div class="card-body collapse p-3" id="student-{{ student.student_id }}">
+        <div class="row g-2">
+          <div class="col-md-9">
+            <label class="form-label small mb-1"
+              >Select Subject (or "All Subjects" for overview)</label
+            >
+            <select class="form-select form-select-sm" id="subject-select-{{ student.student_id }}">
+              <option value="">-- Loading subjects... --</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary btn-sm w-100" data-student-id="{{ student.student_id }}">
+              <i class="bi bi-eye me-1"></i>View
+            </button>
+          </div>
+        </div>
+
+        <!-- Attendance Details Section (Hidden initially) -->
+        <div id="attendance-details-{{ student.student_id }}" class="mt-4" style="display: none">
+          <hr />
+          <div id="attendance-content-{{ student.student_id }}">
+            <!-- Content loaded via AJAX -->
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  <div class="d-flex justify-content-center mt-3" id="paginationControls">
+    <nav>
+      <ul class="pagination" id="paginationNumbers"></ul>
+    </nav>
+  </div>
+
+  <div id="noResults" class="card" style="display: none">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-search" style="font-size: 3rem"></i>
+      <p class="mt-2">No students match your search</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPage = 1;
+  let pageSize = 50;
+  let allCards = [];
+  let filteredCards = [];
+  let expandedStudents = new Set();
+
+  // Apply filters function
+  function applyFilters() {
+    const selects = document.querySelectorAll('select.form-select-sm');
+    const semester = selects[0].value;
+    const shift = selects[1].value;
+    const section = selects[2].value;
+
+    let url = '?';
+    if (semester) url += 'semester=' + semester + '&';
+    if (shift) url += 'shift=' + shift + '&';
+    if (section) url += 'section=' + section;
+
+    window.location.href = url.endsWith('&')
+      ? url.slice(0, -1)
+      : url === '?'
+        ? '{{ url_for("admin_attendance_summary") }}'
+        : url;
+  }
+
+  // Load subjects when student card is expanded
+  document.addEventListener('shown.bs.collapse', function (event) {
+    const studentId = event.target.id.replace('student-', '');
+    const cardHeader = event.target.previousElementSibling;
+    const semester = cardHeader.getAttribute('data-semester');
+
+    if (!expandedStudents.has(studentId)) {
+      loadSubjects(studentId, semester);
+      expandedStudents.add(studentId);
+    }
+  });
+
+  // Add click event to view attendance buttons
+  document.addEventListener('click', function (event) {
+    if (event.target.closest('.btn-primary[data-student-id]')) {
+      const button = event.target.closest('.btn-primary[data-student-id]');
+      const studentId = button.getAttribute('data-student-id');
+      viewAttendance(studentId);
+    }
+  });
+
+  function loadSubjects(studentId, semester) {
+    const selectElement = document.getElementById('subject-select-' + studentId);
+    selectElement.innerHTML = '<option value="">-- Loading subjects... --</option>';
+
+    fetch(`/admin/api/subjects-by-semester/${semester}`)
+      .then((response) => response.json())
+      .then((subjects) => {
+        if (subjects.length === 0) {
+          selectElement.innerHTML =
+            '<option value="">No subjects available for this semester</option>';
+        } else {
+          selectElement.innerHTML = '<option value="">-- Select a Subject --</option>';
+          // Add "All Subjects" option
+          const allOption = document.createElement('option');
+          allOption.value = 'all';
+          allOption.textContent = 'All Subjects';
+          selectElement.appendChild(allOption);
+          // Add individual subjects
+          subjects.forEach((subject) => {
+            const option = document.createElement('option');
+            option.value = subject.id;
+            option.textContent = subject.name;
+            selectElement.appendChild(option);
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading subjects:', error);
+        selectElement.innerHTML = '<option value="">Error loading subjects</option>';
+      });
+  }
+
+  function viewAttendance(studentId) {
+    const selectElement = document.getElementById('subject-select-' + studentId);
+    const subjectId = selectElement.value;
+
+    if (!subjectId) {
+      alert('Please select a subject first');
+      return;
+    }
+
+    const detailsDiv = document.getElementById('attendance-details-' + studentId);
+    const contentDiv = document.getElementById('attendance-content-' + studentId);
+
+    // Show loading state
+    detailsDiv.style.display = 'block';
+    contentDiv.innerHTML =
+      '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+    // Fetch attendance data
+    fetch(`/admin/api/student-attendance/${studentId}/${subjectId}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          contentDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          return;
+        }
+
+        if (data.records.length === 0) {
+          contentDiv.innerHTML =
+            '<div class="alert alert-info">No attendance records found for this subject</div>';
+          return;
+        }
+
+        // Build HTML for attendance details
+        let html = `
+                <h6 class="mb-3">${selectElement.options[selectElement.selectedIndex].text}</h6>
+                
+                <!-- Summary Statistics -->
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.present}</div>
+                            <small class="text-muted">Present</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.absent}</div>
+                            <small class="text-muted">Absent</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.late}</div>
+                            <small class="text-muted">Late</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.excused}</div>
+                            <small class="text-muted">Excused</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.total}</div>
+                            <small class="text-muted">Total</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h4 mb-0">${data.summary.percentage}%</div>
+                            <small class="text-muted">Rate</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Attendance Records Table -->
+                <h6 class="mb-2 small">Detailed Records</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                ${subjectId === 'all' ? '<th>Subject</th>' : ''}
+                                <th>Teacher</th>
+                                <th>Status</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+        data.records.forEach((record) => {
+          const statusBadge = getStatusBadge(record.status);
+          const formattedDate = new Date(record.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          });
+          html += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        ${subjectId === 'all' ? `<td><small>${record.subject_name}</small></td>` : ''}
+                        <td>${record.teacher_name || 'N/A'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${record.notes || '-'}</td>
+                    </tr>
+                `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+        contentDiv.innerHTML = html;
+      })
+      .catch((error) => {
+        console.error('Error loading attendance:', error);
+        contentDiv.innerHTML =
+          '<div class="alert alert-danger">Error loading attendance data</div>';
+      });
+  }
+
+  function getStatusBadge(status) {
+    const badges = {
+      present: '<small class="text-success">Present</small>',
+      absent: '<small class="text-danger">Absent</small>',
+      late: '<small class="text-warning">Late</small>',
+      excused: '<small class="text-info">Excused</small>',
+    };
+    return badges[status] || status;
+  }
+
+  function filterStudents() {
+    const searchValue = document.getElementById('searchName').value.toLowerCase().trim();
+
+    if (searchValue === '') {
+      filteredCards = allCards;
+    } else {
+      // Separate cards into two groups: starts-with and contains
+      const startsWithCards = [];
+      const containsCards = [];
+
+      allCards.forEach((card) => {
+        const name = card.dataset.name.toLowerCase();
+
+        if (name.startsWith(searchValue)) {
+          startsWithCards.push(card);
+        } else if (name.includes(searchValue)) {
+          containsCards.push(card);
+        }
+      });
+
+      // Sort each group alphabetically by name
+      const sortAlphabetically = (a, b) => {
+        return a.dataset.name.localeCompare(b.dataset.name);
+      };
+
+      startsWithCards.sort(sortAlphabetically);
+      containsCards.sort(sortAlphabetically);
+
+      // Combine: starts-with first, then contains
+      filteredCards = [...startsWithCards, ...containsCards];
+    }
+
+    currentPage = 1;
+    renderPage();
+  }
+
+  function setPageSize(size) {
+    pageSize = size;
+    currentPage = 1;
+
+    // Update button states
+    document.querySelectorAll('.btn-group button').forEach((btn) => {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    renderPage();
+  }
+
+  function renderPage() {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    // First hide all cards
+    allCards.forEach((card) => {
+      card.style.display = 'none';
+    });
+
+    // Then show only the filtered cards that are on the current page
+    let visibleCount = 0;
+    filteredCards.forEach((card, index) => {
+      if (index >= startIndex && index < endIndex) {
+        card.style.display = '';
+        visibleCount++;
+      }
+    });
+
+    // Show/hide no results
+    if (filteredCards.length === 0) {
+      document.getElementById('noResults').style.display = '';
+      document.getElementById('paginationControls').style.display = 'none';
+    } else {
+      document.getElementById('noResults').style.display = 'none';
+      document.getElementById('paginationControls').style.display =
+        filteredCards.length > pageSize ? '' : 'none';
+    }
+
+    // Update page info
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) {
+      const showing = Math.min(endIndex, filteredCards.length);
+      pageInfo.textContent = `Showing ${startIndex + 1}-${showing} of ${filteredCards.length}`;
+    }
+
+    renderPagination();
+  }
+
+  function renderPagination() {
+    const totalPages = Math.ceil(filteredCards.length / pageSize);
+    const paginationNumbers = document.getElementById('paginationNumbers');
+    paginationNumbers.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    // Previous button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>`;
+    paginationNumbers.appendChild(prevLi);
+
+    // Page numbers
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    if (startPage > 1) {
+      const li = document.createElement('li');
+      li.className = 'page-item';
+      li.innerHTML = '<a class="page-link" href="#" onclick="changePage(1); return false;">1</a>';
+      paginationNumbers.appendChild(li);
+
+      if (startPage > 2) {
+        const ellipsis = document.createElement('li');
+        ellipsis.className = 'page-item disabled';
+        ellipsis.innerHTML = '<span class="page-link">...</span>';
+        paginationNumbers.appendChild(ellipsis);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      const li = document.createElement('li');
+      li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+      li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>`;
+      paginationNumbers.appendChild(li);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        const ellipsis = document.createElement('li');
+        ellipsis.className = 'page-item disabled';
+        ellipsis.innerHTML = '<span class="page-link">...</span>';
+        paginationNumbers.appendChild(ellipsis);
+      }
+
+      const li = document.createElement('li');
+      li.className = 'page-item';
+      li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${totalPages}); return false;">${totalPages}</a>`;
+      paginationNumbers.appendChild(li);
+    }
+
+    // Next button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>`;
+    paginationNumbers.appendChild(nextLi);
+  }
+
+  function changePage(page) {
+    const totalPages = Math.ceil(filteredCards.length / pageSize);
+    if (page < 1 || page > totalPages) return;
+
+    currentPage = page;
+    renderPage();
+    window.scrollTo(0, 0);
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function () {
+    allCards = Array.from(document.querySelectorAll('.student-card'));
+    filteredCards = allCards;
+    renderPage();
+  });
+</script>
+
+<style>
+  .student-card {
+    transition: box-shadow 0.2s;
+  }
+
+  .student-card:hover {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+
+  .pagination {
+    margin: 0;
+  }
+
+  .page-link {
+    color: #495057;
+    border-color: #dee2e6;
+  }
+
+  .page-item.active .page-link {
+    background-color: #495057;
+    border-color: #495057;
+  }
+</style>
+{% endblock %}

@@ -9,11 +9,21 @@ content %}
         <p>{{ subject.name }} - {{ subject.class_name|replace_section }}</p>
       </div>
       <div class="col-auto">
+        <button onclick="publishGrades()" class="btn btn-success me-2" id="publishBtn">
+          <i class="bi bi-send-check me-1"></i>Publish Grades
+        </button>
         <a href="{{ url_for('teacher_grades') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Back
         </a>
       </div>
     </div>
+  </div>
+
+  <!-- Draft Mode Alert -->
+  <div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Draft Mode:</strong> Grades you save are not visible to students yet. Click "Publish Grades" when you're ready to make them visible.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
 
   {% if not components %}
@@ -179,7 +189,7 @@ content %}
 
       <form
         method="POST"
-        action="{{ url_for('teacher_add_grades', subject_id=subject.id) }}"
+        action="{{ url_for('teacher_add_grades', subject_id=subject.id, class_id=subject.class_id) }}"
         id="gradeForm"
       >
         <input type="hidden" name="student_id" id="studentIdInput" />
@@ -287,6 +297,43 @@ content %}
 
 <script>
   let currentModal = null;
+
+  // Publish all draft grades for this subject
+  function publishGrades() {
+    if (!confirm('Are you sure you want to publish all grades for this subject? Students will be able to see their grades.')) {
+      return;
+    }
+
+    const publishBtn = document.getElementById('publishBtn');
+    publishBtn.disabled = true;
+    publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Publishing...';
+
+    fetch('/teacher/grades/publish/{{ subject.id }}/{{ subject.class_id }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('âœ“ ' + data.message);
+        // Hide the draft alert
+        const draftAlert = document.querySelector('.alert-warning');
+        if (draftAlert) draftAlert.remove();
+      } else {
+        alert('âœ— ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Failed to publish grades. Please try again.');
+    })
+    .finally(() => {
+      publishBtn.disabled = false;
+      publishBtn.innerHTML = '<i class="bi bi-send-check me-1"></i>Publish Grades';
+    });
+  }
 
   // Validate score input - prevent values > max
   function validateScoreInput(input) {
@@ -419,7 +466,7 @@ content %}
               const input = input1 || input2 || input3;
 
               if (input) {
-                console.log(`  ✓ Setting value to: ${grade.score}`);
+                console.log(`  âœ“ Setting value to: ${grade.score}`);
                 input.value = grade.score;
                 input.style.backgroundColor = '#d4edda'; // Light green background
                 setTimeout(() => {
@@ -427,7 +474,7 @@ content %}
                 }, 50);
                 successCount++;
               } else {
-                console.log(`  ✗ INPUT NOT FOUND for component_${grade.component_id}`);
+                console.log(`  âœ— INPUT NOT FOUND for component_${grade.component_id}`);
                 failCount++;
               }
             });

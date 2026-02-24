@@ -93,8 +93,8 @@
                 <label class="form-label">Shift <span class="text-danger">*</span></label>
                 <select name="shift" id="shift" class="form-select" required>
                   <option value="">Select shift...</option>
-                  <option value="morning">☀️ Morning</option>
-                  <option value="night">🌙 Night</option>
+                  <option value="morning">â˜€ï¸ Morning</option>
+                  <option value="night">ðŸŒ™ Night</option>
                 </select>
               </div>
               <div class="col-md-4">
@@ -181,7 +181,7 @@
   }
 
   .card-header-custom {
-    background: linear-gradient(135deg, #0000ff 0%, #3565a8 100%);
+    background: linear-gradient(135deg, #1C0770 0%, #3565a8 100%);
     color: white;
     padding: 20px 24px;
     display: flex;
@@ -209,7 +209,7 @@
     align-items: center;
     gap: 10px;
     font-weight: 600;
-    color: #0000ff;
+    color: #1C0770;
     margin-bottom: 16px;
     padding-bottom: 10px;
     border-bottom: 2px solid #e8f0f8;
@@ -241,7 +241,7 @@
   }
 
   .input-group-custom .form-control:focus {
-    border-color: #0000ff;
+    border-color: #1C0770;
     box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.15);
   }
 
@@ -253,13 +253,13 @@
   }
 
   .form-select:focus {
-    border-color: #0000ff;
+    border-color: #1C0770;
     box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.15);
   }
 
   .form-label {
     font-weight: 500;
-    color: #0000cc;
+    color: #150558;
     margin-bottom: 8px;
     font-size: 0.9rem;
   }
@@ -279,12 +279,12 @@
   }
 
   .form-actions .btn-primary {
-    background: linear-gradient(135deg, #0000ff 0%, #3565a8 100%);
+    background: linear-gradient(135deg, #1C0770 0%, #3565a8 100%);
     border: none;
   }
 
   .form-actions .btn-primary:hover {
-    background: linear-gradient(135deg, #0000cc 0%, #0000ff 100%);
+    background: linear-gradient(135deg, #150558 0%, #1C0770 100%);
     transform: translateY(-1px);
   }
 
@@ -298,7 +298,7 @@
   }
 
   .recent-header {
-    background: #0000ff;
+    background: #1C0770;
     color: white;
     padding: 16px 20px;
     font-weight: 600;
@@ -376,7 +376,7 @@
 
   .student-name {
     font-weight: 600;
-    color: #0000cc;
+    color: #150558;
     margin-bottom: 2px;
   }
 
@@ -391,7 +391,7 @@
     padding: 4px 10px;
     border-radius: 20px;
     background: #e8f0f8;
-    color: #0000ff;
+    color: #1C0770;
   }
 
   /* Tips Card */
@@ -424,7 +424,7 @@
   }
 
   .tip-item kbd {
-    background: #0000ff;
+    background: #1C0770;
     color: white;
     padding: 2px 8px;
     border-radius: 4px;
@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     const initials = student.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
-    const shiftLabel = student.shift === 'morning' ? '☀️ Morning' : '🌙 Night';
+    const shiftLabel = student.shift === 'morning' ? 'â˜€ï¸ Morning' : 'ðŸŒ™ Night';
     
     const item = document.createElement('div');
     item.className = 'student-item';
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="student-name">${student.name}</div>
         <div class="student-id">${student.student_number}</div>
       </div>
-      <span class="student-badge">Sem ${student.semester} • ${shiftLabel}</span>
+      <span class="student-badge">Sem ${student.semester} â€¢ ${shiftLabel}</span>
     `;
     
     // Insert at top

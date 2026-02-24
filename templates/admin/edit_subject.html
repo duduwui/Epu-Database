@@ -57,6 +57,20 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">Credits <span class="text-danger">*</span></label>
+                            <input
+                                type="number"
+                                name="credits"
+                                class="form-control"
+                                required
+                                min="1"
+                                max="30"
+                                value="{{ subject.credits or 6 }}"
+                            />
+                            <small class="text-muted">Credit hours for this subject (1-30). Total per semester should equal 30.</small>
+                        </div>
+
                         <!-- Teacher assignments are managed in the Teachers tab -->
                         
                         <div class="mb-3">

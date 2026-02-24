@@ -576,6 +576,138 @@ def get_students_filtered(year=None, class_id=None):
 
 
 # =============================================
+# STUDENT ENROLLMENT QUERIES
+# =============================================
+
+def get_available_subjects_for_student(student_id):
+    """Get subjects available for student's semester (enrolled + not enrolled)"""
+    query = """
+        SELECT s.*, 
+               CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled
+        FROM students st
+        JOIN classes c ON st.class_id = c.id
+        JOIN subjects s ON s.semester = c.semester
+        LEFT JOIN student_enrollments se ON se.student_id = st.id AND se.subject_id = s.id
+        WHERE st.id = %s
+        ORDER BY s.name
+    """
+    return execute_query(query, (student_id,), fetch_all=True)
+
+
+def get_enrolled_subjects_for_student(student_id):
+    """Get subjects student is enrolled in"""
+    query = """
+        SELECT s.*, se.enrolled_at
+        FROM student_enrollments se
+        JOIN subjects s ON se.subject_id = s.id
+        WHERE se.student_id = %s
+        ORDER BY s.name
+    """
+    return execute_query(query, (student_id,), fetch_all=True)
+
+
+def enroll_student_in_subject(student_id, subject_id):
+    """Enroll a student in a subject"""
+    # First check if already enrolled
+    check_query = "SELECT id FROM student_enrollments WHERE student_id = %s AND subject_id = %s"
+    existing = execute_query(check_query, (student_id, subject_id), fetch_one=True)
+    if existing:
+        return False  # Already enrolled
+    
+    # Insert new enrollment
+    query = """
+        INSERT INTO student_enrollments (student_id, subject_id)
+        VALUES (%s, %s)
+        RETURNING id
+    """
+    result = execute_query(query, (student_id, subject_id), fetch_one=True)
+    return result is not None
+
+
+def unenroll_student_from_subject(student_id, subject_id):
+    """Unenroll a student from a subject"""
+    query = "DELETE FROM student_enrollments WHERE student_id = %s AND subject_id = %s"
+    execute_query(query, (student_id, subject_id))
+    return True
+
+
+def get_enrolled_students_for_subject(subject_id, class_id=None):
+    """Get all students enrolled in a specific subject, optionally filtered by class"""
+    query = """
+        SELECT s.*, u.full_name, u.username, u.email, c.name as class_name,
+               se.enrolled_at
+        FROM student_enrollments se
+        JOIN students s ON se.student_id = s.id
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN classes c ON s.class_id = c.id
+        WHERE se.subject_id = %s
+    """
+    params = [subject_id]
+    
+    # Filter by class if provided (to show only students from specific section)
+    if class_id:
+        query += " AND s.class_id = %s"
+        params.append(class_id)
+    
+    query += " ORDER BY u.full_name"
+    return execute_query(query, tuple(params), fetch_all=True)
+
+
+# =============================================
+# ENROLLMENT PERIODS QUERIES
+# =============================================
+
+def create_enrollment_period(semester, start_date, end_date, description, created_by):
+    """Create a new enrollment period for a semester"""
+    query = """
+        INSERT INTO enrollment_periods (semester, start_date, end_date, description, created_by)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+    """
+    return execute_insert_returning(query, (semester, start_date, end_date, description, created_by))
+
+
+def get_active_enrollment_period(semester):
+    """Get active enrollment period for a semester (if any)"""
+    query = """
+        SELECT * FROM enrollment_periods
+        WHERE semester = %s
+        AND CURRENT_TIMESTAMP BETWEEN start_date AND end_date
+        ORDER BY created_at DESC
+        LIMIT 1
+    """
+    return execute_query(query, (semester,), fetch_one=True)
+
+
+def get_all_enrollment_periods(semester=None):
+    """Get all enrollment periods, optionally filtered by semester"""
+    query = """
+        SELECT ep.*, u.full_name as created_by_name
+        FROM enrollment_periods ep
+        LEFT JOIN users u ON ep.created_by = u.id
+    """
+    if semester:
+        query += " WHERE ep.semester = %s"
+        query += " ORDER BY ep.created_at DESC"
+        return execute_query(query, (semester,), fetch_all=True)
+    else:
+        query += " ORDER BY ep.semester, ep.created_at DESC"
+        return execute_query(query, fetch_all=True)
+
+
+def is_enrollment_active(semester):
+    """Check if enrollment is currently active for a semester"""
+    period = get_active_enrollment_period(semester)
+    return period is not None
+
+
+def delete_enrollment_period(period_id):
+    """Delete an enrollment period"""
+    query = "DELETE FROM enrollment_periods WHERE id = %s"
+    return execute_query(query, (period_id,))
+
+
+# =============================================
 # SUBJECT QUERIES
 # =============================================
 
@@ -586,7 +718,7 @@ def get_subject_count_by_class(class_id):
     return result['count'] if result else 0
 
 
-def create_subject(name, semester, description=None):
+def create_subject(name, semester, description=None, credits=6):
     """Create a new subject for a specific semester or return existing subject ID"""
     # Check if subject with this name already exists in this semester
     existing = execute_query(
@@ -598,11 +730,11 @@ def create_subject(name, semester, description=None):
         return existing['id']
     
     query = """
-        INSERT INTO subjects (name, semester, description)
-        VALUES (%s, %s, %s)
+        INSERT INTO subjects (name, semester, description, credits)
+        VALUES (%s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (name, semester, description))
+    return execute_insert_returning(query, (name, semester, description, credits))
 
 
 def get_subject_by_name_and_class(name, class_id):
@@ -681,7 +813,7 @@ def get_unique_subjects_by_semester():
 def get_subjects_grouped_by_semester():
     """Get all subjects grouped by semester with their assignment info"""
     query = """
-        SELECT s.id, s.name, s.semester, s.description,
+        SELECT s.id, s.name, s.semester, s.description, s.credits, s.results_published,
                c.year, c.section,
                ta.id as assignment_id,
                t.id as teacher_id, u.full_name as teacher_name
@@ -736,13 +868,13 @@ def get_subject_by_id(subject_id):
     return execute_query(query, (subject_id,), fetch_one=True)
 
 
-def update_subject(subject_id, name, semester, description=None):
-    """Update a subject's name, semester and description"""
+def update_subject(subject_id, name, semester, description=None, credits=6):
+    """Update a subject's name, semester, description and credits"""
     query = """
-        UPDATE subjects SET name = %s, semester = %s, description = %s
+        UPDATE subjects SET name = %s, semester = %s, description = %s, credits = %s
         WHERE id = %s
     """
-    return execute_query(query, (name, semester, description, subject_id))
+    return execute_query(query, (name, semester, description, credits, subject_id))
 
 
 def update_subject_teacher(assignment_id, teacher_id):
@@ -859,18 +991,18 @@ def get_attendance_dates(subject_id):
 # GRADES QUERIES
 # =============================================
 
-def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes=None, component_id=None):
-    """Add a grade for a student"""
+def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes=None, component_id=None, published=False):
+    """Add a grade for a student (default unpublished/draft)"""
     query = """
-        INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id))
+    return execute_insert_returning(query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
 
 
-def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, component_id, notes=None):
-    """Update existing grade or insert new one for a student/component combination"""
+def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, component_id, notes=None, published=False):
+    """Update existing grade or insert new one for a student/component combination (default unpublished/draft)"""
     print(f"\n>>> UPSERT_GRADE CALLED <<<")
     print(f"  student_id: {student_id}")
     print(f"  subject_id: {subject_id}")
@@ -881,6 +1013,7 @@ def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, m
     print(f"  date: {date}")
     print(f"  grade_type: {grade_type}")
     print(f"  title: {title}")
+    print(f"  published: {published}")
     
     # First, check if a grade exists for this student and component
     check_query = """
@@ -897,22 +1030,22 @@ def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, m
         # Update existing grade
         update_query = """
             UPDATE grades 
-            SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s
+            SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s, published = %s
             WHERE id = %s
             RETURNING id
         """
-        result = execute_insert_returning(update_query, (score, max_score, date, notes, grade_type, title, existing['id']))
+        result = execute_insert_returning(update_query, (score, max_score, date, notes, grade_type, title, published, existing['id']))
         print(f"  Update result: {result}")
         return result
     else:
         print(f"  No existing grade - INSERTING")
         # Insert new grade
         insert_query = """
-            INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """
-        result = execute_insert_returning(insert_query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id))
+        result = execute_insert_returning(insert_query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
         print(f"  Insert result: {result}")
         return result
 
@@ -942,18 +1075,90 @@ def get_grades_by_subject(subject_id):
     return execute_query(query, (subject_id,), fetch_all=True)
 
 
+def get_student_grades_for_subject(student_id, subject_id):
+    """Get student's grades for a specific subject with component details (only published grades for students)"""
+    query = """
+        SELECT 
+            gc.id as component_id,
+            gc.component_type,
+            gc.component_name,
+            gc.max_score,
+            gc.weight_percentage,
+            gc.display_order,
+            g.score,
+            g.date as grade_date,
+            g.published
+        FROM grade_components gc
+        LEFT JOIN grades g ON gc.id = g.component_id 
+            AND g.student_id = %s 
+            AND g.subject_id = %s
+            AND g.published = TRUE
+        WHERE gc.subject_id = %s
+        ORDER BY gc.display_order, gc.component_type, gc.id
+    """
+    return execute_query(query, (student_id, subject_id, subject_id), fetch_all=True)
+
+
+def publish_grades_for_subject(subject_id, class_id):
+    """Publish all draft grades for a specific subject and class"""
+    query = """
+        UPDATE grades 
+        SET published = TRUE
+        WHERE subject_id = %s 
+        AND student_id IN (
+            SELECT id FROM students WHERE class_id = %s
+        )
+        AND published = FALSE
+    """
+    return execute_query(query, (subject_id, class_id))
+
+
+def get_unpublished_grade_count(subject_id, class_id):
+    """Get count of unpublished grades for a subject/class"""
+    query = """
+        SELECT COUNT(*) as count
+        FROM grades g
+        JOIN students s ON g.student_id = s.id
+        WHERE g.subject_id = %s 
+        AND s.class_id = %s
+        AND g.published = FALSE
+    """
+    result = execute_query(query, (subject_id, class_id), fetch_one=True)
+    return result['count'] if result else 0
+
+
+def toggle_subject_results_published(subject_id, published):
+    """Admin: Toggle results visibility for a subject (final transcript)"""
+    query = """
+        UPDATE subjects 
+        SET results_published = %s
+        WHERE id = %s
+    """
+    return execute_query(query, (published, subject_id))
+
+
+def publish_semester_results(semester):
+    """Admin: Publish all subject results for an entire semester"""
+    query = """
+        UPDATE subjects 
+        SET results_published = TRUE
+        WHERE semester = %s
+    """
+    return execute_query(query, (semester,))
+
+
 # =============================================
 # HOMEWORK QUERIES
 # =============================================
 
-def create_homework(class_id, subject_id, teacher_id, title, description, due_date):
+def create_homework(class_id, subject_id, teacher_id, title, description, due_date, filename=None, file_path=None, file_type=None, file_size=None):
     """Create a new homework assignment"""
     query = """
-        INSERT INTO homework (class_id, subject_id, teacher_id, title, description, due_date)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO homework (class_id, subject_id, teacher_id, title, description, due_date, filename, file_path, file_type, file_size)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (class_id, subject_id, teacher_id, title, description, due_date))
+    return execute_insert_returning(query, (class_id, subject_id, teacher_id, title, description, due_date, filename, file_path, file_type, file_size))
 
 
 def get_homework_by_class(class_id):
@@ -971,7 +1176,7 @@ def get_homework_by_class(class_id):
 
 
 def get_homework_by_teacher(teacher_id):
-    """Get all homework created by a teacher"""
+    """Get all homework created by a teacher (with file information)"""
     query = """
         SELECT h.*, s.name as subject_name, c.name as class_name
         FROM homework h

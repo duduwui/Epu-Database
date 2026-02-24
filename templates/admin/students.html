@@ -6,12 +6,12 @@
 <style>
     /* Pagination styling for better visibility */
     #paginationControls .page-link {
-        color: #0000ff;
+        color: #1C0770;
         font-weight: 600;
     }
     #paginationControls .page-item.active .page-link {
-        background-color: #0000ff;
-        border-color: #0000ff;
+        background-color: #1C0770;
+        border-color: #1C0770;
         color: #ffffff !important;
         font-weight: 700;
     }
@@ -19,7 +19,7 @@
         color: #6c757d;
     }
     #paginationControls .page-link:hover {
-        color: #0000cc;
+        color: #150558;
         background-color: #e9ecef;
     }
 </style>
@@ -87,8 +87,8 @@
                     <label class="form-label mb-1" style="font-size:0.8rem;">Shift</label>
                     <select name="shift" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">All Shifts</option>
-                        <option value="morning" {{ 'selected' if request.args.get('shift') == 'morning' }}>☀ Morning</option>
-                        <option value="night" {{ 'selected' if request.args.get('shift') == 'night' }}>☽ Night</option>
+                        <option value="morning" {{ 'selected' if request.args.get('shift') == 'morning' }}>â˜€ Morning</option>
+                        <option value="night" {{ 'selected' if request.args.get('shift') == 'night' }}>â˜½ Night</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -237,7 +237,7 @@
 <div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header" style="background: linear-gradient(135deg, #0000ff 0%, #0000cc 100%); color: white;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white;">
                 <h5 class="modal-title" id="editStudentModalLabel">
                     <i class="bi bi-pencil-square me-2"></i>Edit Student
                 </h5>
@@ -294,8 +294,8 @@
                             <label for="edit_shift" class="form-label">Shift <span class="text-danger">*</span></label>
                             <select class="form-select" id="edit_shift" name="shift" required>
                                 <option value="">Select Shift</option>
-                                <option value="morning">☀ Morning</option>
-                                <option value="night">☽ Night</option>
+                                <option value="morning">â˜€ Morning</option>
+                                <option value="night">â˜½ Night</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -596,7 +596,7 @@ function renderPagination() {
     // Previous button
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">«</a>`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">Â«</a>`;
     paginationControls.appendChild(prevLi);
     
     // Page numbers
@@ -646,7 +646,7 @@ function renderPagination() {
     // Next button
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">»</a>`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">Â»</a>`;
     paginationControls.appendChild(nextLi);
 }
 
@@ -699,7 +699,7 @@ function printStudents() {
     const sem = document.getElementById('filterSemester');
     const yearText = year.options[year.selectedIndex].text;
     const semText = sem.options[sem.selectedIndex].text;
-    const title = 'Student List' + (year.value ? ' — ' + yearText : '') + (sem.value ? ' — ' + semText : '');
+    const title = 'Student List' + (year.value ? ' â€” ' + yearText : '') + (sem.value ? ' â€” ' + semText : '');
 
     const win = window.open('', '_blank');
     win.document.write(`
@@ -707,12 +707,12 @@ function printStudents() {
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
             body { padding: 20px; font-size: 13px; }
-            h3 { margin-bottom: 15px; color: #0000cc; }
+            h3 { margin-bottom: 15px; color: #150558; }
             .no-print { display: none !important; }
             .badge { padding: 4px 8px; font-size: 11px; }
             @media print { .no-print { display: none !important; } }
         </style></head><body>
-        <h3><img src="" style="height:30px;margin-right:8px;">EPU MIS — ${title}</h3>
+        <h3><img src="" style="height:30px;margin-right:8px;">EPU MIS â€” ${title}</h3>
         <p style="font-size:11px;color:#666;">Printed: ${new Date().toLocaleString()} &nbsp;|&nbsp; Total: ${filteredRows.length} students</p>
         ${printContent}
         <script>setTimeout(()=>{window.print();window.close();},400)<\/script>

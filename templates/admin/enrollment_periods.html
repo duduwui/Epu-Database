@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+{% block title %}Enrollment Periods - MIS System{% endblock %}
+{% block content %}
+<div class="container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2><i class="bi bi-calendar-range me-2"></i>Enrollment Period Management</h2>
+        <p class="text-muted mb-0">Control when students can enroll and unenroll from subjects</p>
+      </div>
+      <div class="col-auto">
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#addPeriodModal"
+        >
+          <i class="bi bi-plus-lg me-1"></i>Create Enrollment Period
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Stats -->
+  <div class="row mb-4 g-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 bg-light text-center py-3">
+        <div class="fs-3 fw-bold text-success">{{ periods|selectattr('is_active')|list|length }}</div>
+        <small class="text-muted">Active Periods</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 bg-light text-center py-3">
+        <div class="fs-3 fw-bold text-dark">{{ periods|length }}</div>
+        <small class="text-muted">Total Periods</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 bg-light text-center py-3">
+        <div class="fs-3 fw-bold text-warning">{{ periods|rejectattr('is_active')|selectattr('is_upcoming')|list|length }}</div>
+        <small class="text-muted">Upcoming</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 bg-light text-center py-3">
+        <div class="fs-3 fw-bold text-muted">{{ periods|rejectattr('is_active')|rejectattr('is_upcoming')|list|length }}</div>
+        <small class="text-muted">Expired</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Periods by Semester -->
+  {% for semester in [1, 2, 3, 4] %}
+    {% set semester_periods = periods|selectattr('semester', 'equalto', semester)|list %}
+    {% if semester_periods %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-bookmark-fill me-2"></i>Semester {{ semester }} - Enrollment Periods
+          <span class="badge bg-white text-primary ms-2">{{ semester_periods|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 15%;">Status</th>
+                  <th style="width: 20%;">Start Date</th>
+                  <th style="width: 20%;">End Date</th>
+                  <th style="width: 25%;">Description</th>
+                  <th style="width: 15%;">Created By</th>
+                  <th style="width: 5%;" class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for period in semester_periods %}
+                <tr>
+                  <td>
+                    {% if period.is_active %}
+                      <span class="badge bg-success">
+                        <i class="bi bi-check-circle me-1"></i>Active
+                      </span>
+                    {% elif period.is_upcoming %}
+                      <span class="badge bg-warning">
+                        <i class="bi bi-clock me-1"></i>Upcoming
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">
+                        <i class="bi bi-x-circle me-1"></i>Expired
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <i class="bi bi-calendar-check me-1 text-muted"></i>
+                    {{ period.start_date.strftime('%Y-%m-%d %H:%M') }}
+                  </td>
+                  <td>
+                    <i class="bi bi-calendar-x me-1 text-muted"></i>
+                    {{ period.end_date.strftime('%Y-%m-%d %H:%M') }}
+                  </td>
+                  <td>
+                    <small>{{ period.description or '-' }}</small>
+                  </td>
+                  <td>
+                    <small class="text-muted">{{ period.creator_name }}</small>
+                  </td>
+                  <td class="text-center">
+                    <form method="POST" action="{{ url_for('admin_delete_enrollment_period', period_id=period.id) }}" 
+                          style="display: inline;">
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Period">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <!-- Empty State -->
+  {% if not periods %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-calendar-x display-1 text-muted mb-3"></i>
+        <h5 class="text-muted">No Enrollment Periods Created</h5>
+        <p class="text-muted">Create your first enrollment period to allow students to enroll in subjects.</p>
+        <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addPeriodModal">
+          <i class="bi bi-plus-lg me-1"></i>Create First Period
+        </button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Toast Notification -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="toast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMessage">
+        Success!
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Period Modal -->
+<div class="modal fade" id="addPeriodModal" tabindex="-1" aria-labelledby="addPeriodModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('admin_add_enrollment_period') }}" id="addPeriodForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addPeriodModalLabel">
+            <i class="bi bi-calendar-plus me-2"></i>Create Enrollment Period
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="semester" class="form-label">Semester *</label>
+            <select class="form-select" id="semester" name="semester" required>
+              <option value="">Select Semester</option>
+              <option value="1">Semester 1</option>
+              <option value="2">Semester 2</option>
+              <option value="3">Semester 3</option>
+              <option value="4">Semester 4</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="start_date" class="form-label">Start Date & Time *</label>
+            <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
+            <small class="text-muted">When students can start enrolling</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="end_date" class="form-label">End Date & Time *</label>
+            <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
+            <small class="text-muted">When enrollment window closes</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="description" class="form-label">Description (Optional)</label>
+            <textarea class="form-control" id="description" name="description" rows="2" 
+                      placeholder="e.g., Regular enrollment period for Spring 2024"></textarea>
+            <small class="text-muted">Additional notes about this enrollment period</small>
+          </div>
+
+          <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Note:</strong> Students will only be able to enroll/unenroll during the specified time window.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="createPeriodBtn">
+            <i class="bi bi-check-lg me-1"></i>Create Period
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap components
+    const addModal = new bootstrap.Modal(document.getElementById('addPeriodModal'));
+    const toast = new bootstrap.Toast(document.getElementById('toast'));
+
+    // Form submission with AJAX
+    document.getElementById('addPeriodForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const startDate = new Date(document.getElementById('start_date').value);
+      const endDate = new Date(document.getElementById('end_date').value);
+      
+      // Client-side validation
+      if (endDate <= startDate) {
+        alert('End date must be after start date!');
+        return false;
+      }
+
+      const formData = new FormData(this);
+      const btn = document.getElementById('createPeriodBtn');
+      
+      // Disable button and show loading state
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creating...';
+      
+      // Send AJAX request
+      fetch('/admin/enrollment-periods/add', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Close modal
+          addModal.hide();
+          
+          // Reset form
+          this.reset();
+          
+          // Show success toast
+          document.getElementById('toastMessage').textContent = data.message;
+          toast.show();
+          
+          // Reload page after short delay
+          setTimeout(() => location.reload(), 800);
+        } else {
+          alert('Error: ' + (data.error || data.message || 'Failed to create enrollment period'));
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while creating the enrollment period.');
+      })
+      .finally(() => {
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Create Period';
+      });
+    });
+
+    // Delete with AJAX
+    document.querySelectorAll('form[action*="/delete"]').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!confirm('Are you sure you want to delete this enrollment period?')) {
+          return;
+        }
+        
+        const btn = this.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
+        fetch(this.action, {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Remove the row immediately for instant feedback
+            const row = this.closest('tr');
+            row.style.opacity = '0.5';
+            
+            document.getElementById('toastMessage').textContent = data.message;
+            toast.show();
+            
+            // Quick reload
+            setTimeout(() => location.reload(), 500);
+          } else {
+            alert('Error: ' + (data.error || 'Failed to delete enrollment period'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while deleting the enrollment period.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-trash"></i>';
+        });
+      });
+    });
+
+    // Set minimum datetime to current time
+    const now = new Date();
+    const minDateTime = now.toISOString().slice(0, 16);
+    document.getElementById('start_date').min = minDateTime;
+    document.getElementById('end_date').min = minDateTime;
+
+    // Update end date minimum when start date changes
+    document.getElementById('start_date').addEventListener('change', function() {
+      document.getElementById('end_date').min = this.value;
+    });
+  });
+</script>
+
+<style>
+  .page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+  }
+  
+  .page-header h2 {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  
+  .card {
+    border: none;
+  }
+  
+  .card-header {
+    font-weight: 600;
+  }
+</style>
+
+{% endblock %}

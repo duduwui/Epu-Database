@@ -1,0 +1,3 @@
+# Ignore all HTML template files to prevent auto-formatting breaking Jinja2 syntax
+templates/**/*.html
+*.html

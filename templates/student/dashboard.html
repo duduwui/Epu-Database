@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %} {% block title %}Dashboard - Student{% endblock %} {% block content %}
+{% extends 'base.html' %} {% block title %}Dashboard - Student{% endblock %} {% block content %}
 <div class="container" style="max-width: 100%; overflow-x: hidden">
   <!-- Welcome Header -->
   <div class="row mb-3">
@@ -36,16 +36,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3 mb-2">
-      <div class="card shadow-sm h-100 border-0">
-        <div class="card-body text-center py-2">
-          <i class="bi bi-clipboard-data text-primary" style="font-size: 1.5rem"></i>
-          <h5 class="mb-0 mt-1">{{ grades|length }}</h5>
-          <small class="text-muted" style="font-size: 0.7rem">Grades</small>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 mb-2">
+    <div class="col-6 col-md-4 mb-2">
       <div class="card shadow-sm h-100 border-0">
         <div class="card-body text-center py-2">
           <i class="bi bi-journal-text text-warning" style="font-size: 1.5rem"></i>
@@ -54,7 +45,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3 mb-2">
+    <div class="col-6 col-md-4 mb-2">
       <div class="card shadow-sm h-100 border-0">
         <div class="card-body text-center py-2">
           <i class="bi bi-book text-info" style="font-size: 1.5rem"></i>
@@ -129,6 +120,14 @@
                 <div>
                   <strong>{{ hw.title }}</strong>
                   <small class="text-muted d-block">{{ hw.subject_name }}</small>
+                  {% if hw.filename %}
+                  <small class="text-success">
+                    <i class="bi bi-paperclip"></i>
+                    <a href="{{ url_for('download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
+                      {{ hw.filename }}
+                    </a>
+                  </small>
+                  {% endif %}
                 </div>
                 {% if hw.due_date.isoformat() < today %}
                 <span class="badge bg-secondary align-self-center">Past</span>
@@ -151,51 +150,6 @@
 
     <!-- Right Column -->
     <div class="col-lg-6">
-      <!-- Grades -->
-      <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header bg-white border-0 py-3">
-          <i class="bi bi-clipboard-data me-2 text-primary"></i><strong>Grades</strong>
-        </div>
-        <div class="card-body p-0">
-          {% if grades %}
-          <div class="table-responsive" style="max-height: 260px; overflow-y: auto">
-            <table class="table table-hover mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Subject</th>
-                  <th>Title</th>
-                  <th>Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for grade in grades[:8] %}
-                <tr>
-                  <td>{{ grade.subject_name }}</td>
-                  <td>
-                    {{ grade.title }} <small class="text-muted">({{ grade.grade_type }})</small>
-                  </td>
-                  <td>
-                    {% set pct = (grade.score / grade.max_score * 100) if grade.max_score else 0 %}
-                    <strong
-                      class="{% if pct >= 60 %}text-success{% elif pct >= 40 %}text-warning{% else %}text-danger{% endif %}"
-                    >
-                      {{ grade.score }}/{{ grade.max_score }}
-                    </strong>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% else %}
-          <div class="text-center py-4 text-muted">
-            <i class="bi bi-clipboard-x fs-3"></i>
-            <p class="mb-0 mt-2">No grades yet</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
       <!-- Weekly Topics -->
       <div class="card shadow-sm mb-4 border-0">
         <div class="card-header bg-white border-0 py-3">
@@ -351,7 +305,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 16px 20px;
-      background: #0000ff;
+      background: #1C0770;
       color: #fff;
     }
     .scheduler-brand {

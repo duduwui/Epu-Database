@@ -63,7 +63,12 @@ content %}
           class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2"
         >
           <span>Semester 1</span>
-          <span class="badge bg-white text-primary">{{ sem1_subjects|length }}/5</span>
+          <div>
+            <button class="btn btn-sm btn-light publish-semester-btn" data-semester="1" title="Publish Final Results for Semester 1">
+              <i class="bi bi-send-check me-1"></i>Publish Results
+            </button>
+            <span class="badge bg-white text-primary ms-2">{{ sem1_subjects|length }}/5</span>
+          </div>
         </div>
         <ul class="list-group list-group-flush">
           {% for subject in sem1_subjects %}
@@ -71,7 +76,10 @@ content %}
             class="list-group-item d-flex justify-content-between align-items-center py-2"
             id="subject-row-{{ subject.id }}"
           >
-            <span class="subject-name">{{ subject.name }}</span>
+            <div>
+              <span class="subject-name">{{ subject.name }}</span>
+              <span class="badge bg-secondary ms-2">{{ subject.credits or 6 }} cr</span>
+            </div>
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
@@ -87,6 +95,7 @@ content %}
                 data-year="1"
                 data-semester="{{ subject.semester }}"
                 data-description="{{ subject.description or '' }}"
+                data-credits="{{ subject.credits or 6 }}"
               >
                 <i class="bi bi-pencil"></i>
               </button>
@@ -116,7 +125,12 @@ content %}
           class="card-header bg-info text-white d-flex justify-content-between align-items-center py-2"
         >
           <span>Semester 2</span>
-          <span class="badge bg-white text-info">{{ sem2_subjects|length }}/5</span>
+          <div>
+            <button class="btn btn-sm btn-light publish-semester-btn" data-semester="2" title="Publish Final Results for Semester 2">
+              <i class="bi bi-send-check me-1"></i>Publish Results
+            </button>
+            <span class="badge bg-white text-info ms-2">{{ sem2_subjects|length }}/5</span>
+          </div>
         </div>
         <ul class="list-group list-group-flush">
           {% for subject in sem2_subjects %}
@@ -124,7 +138,10 @@ content %}
             class="list-group-item d-flex justify-content-between align-items-center py-2"
             id="subject-row-{{ subject.id }}"
           >
-            <span class="subject-name">{{ subject.name }}</span>
+            <div>
+              <span class="subject-name">{{ subject.name }}</span>
+              <span class="badge bg-secondary ms-2">{{ subject.credits or 6 }} cr</span>
+            </div>
             <div>
               <button
                 class="btn btn-sm btn-outline-secondary py-0 px-2 edit-subject-btn"
@@ -133,6 +150,7 @@ content %}
                 data-year="1"
                 data-semester="{{ subject.semester }}"
                 data-description="{{ subject.description or '' }}"
+                data-credits="{{ subject.credits or 6 }}"
               >
                 <i class="bi bi-pencil"></i>
               </button>
@@ -170,7 +188,12 @@ content %}
           class="card-header bg-success text-white d-flex justify-content-between align-items-center py-2"
         >
           <span>Semester 3</span>
-          <span class="badge bg-white text-success">{{ sem3_subjects|length }}/5</span>
+          <div>
+            <button class="btn btn-sm btn-light publish-semester-btn" data-semester="3" title="Publish Final Results for Semester 3">
+              <i class="bi bi-send-check me-1"></i>Publish Results
+            </button>
+            <span class="badge bg-white text-success ms-2">{{ sem3_subjects|length }}/5</span>
+          </div>
         </div>
         <ul class="list-group list-group-flush">
           {% for subject in sem3_subjects %}
@@ -178,7 +201,10 @@ content %}
             class="list-group-item d-flex justify-content-between align-items-center py-2"
             id="subject-row-{{ subject.id }}"
           >
-            <span class="subject-name">{{ subject.name }}</span>
+            <div>
+              <span class="subject-name">{{ subject.name }}</span>
+              <span class="badge bg-secondary ms-2">{{ subject.credits or 6 }} cr</span>
+            </div>
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
@@ -194,6 +220,7 @@ content %}
                 data-year="2"
                 data-semester="{{ subject.semester }}"
                 data-description="{{ subject.description or '' }}"
+                data-credits="{{ subject.credits or 6 }}"
               >
                 <i class="bi bi-pencil"></i>
               </button>
@@ -223,7 +250,12 @@ content %}
           class="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-2"
         >
           <span>Semester 4</span>
-          <span class="badge bg-white text-warning">{{ sem4_subjects|length }}/5</span>
+          <div>
+            <button class="btn btn-sm btn-light publish-semester-btn" data-semester="4" title="Publish Final Results for Semester 4">
+              <i class="bi bi-send-check me-1"></i>Publish Results
+            </button>
+            <span class="badge bg-white text-warning ms-2">{{ sem4_subjects|length }}/5</span>
+          </div>
         </div>
         <ul class="list-group list-group-flush">
           {% for subject in sem4_subjects %}
@@ -231,7 +263,10 @@ content %}
             class="list-group-item d-flex justify-content-between align-items-center py-2"
             id="subject-row-{{ subject.id }}"
           >
-            <span class="subject-name">{{ subject.name }}</span>
+            <div>
+              <span class="subject-name">{{ subject.name }}</span>
+              <span class="badge bg-secondary ms-2">{{ subject.credits or 6 }} cr</span>
+            </div>
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
@@ -247,6 +282,7 @@ content %}
                 data-year="2"
                 data-semester="{{ subject.semester }}"
                 data-description="{{ subject.description or '' }}"
+                data-credits="{{ subject.credits or 6 }}"
               >
                 <i class="bi bi-pencil"></i>
               </button>
@@ -284,7 +320,7 @@ content %}
     <div class="modal-content">
       <div
         class="modal-header"
-        style="background: linear-gradient(135deg, #0000ff 0%, #0000cc 100%); color: white"
+        style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
         <h5 class="modal-title"><i class="bi bi-journal-plus me-2"></i>Add New Subject</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -311,6 +347,20 @@ content %}
               <option value="3">Semester 3</option>
               <option value="4">Semester 4</option>
             </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Credits <span class="text-danger">*</span></label>
+            <input
+              type="number"
+              name="credits"
+              id="addSubjectCredits"
+              class="form-control"
+              required
+              min="1"
+              max="30"
+              value="6"
+            />
+            <small class="text-muted">Credit hours (1-30)</small>
           </div>
           <div class="mb-3 mt-3">
             <label class="form-label">Description</label>
@@ -340,7 +390,7 @@ content %}
     <div class="modal-content">
       <div
         class="modal-header"
-        style="background: linear-gradient(135deg, #0000ff 0%, #0000cc 100%); color: white"
+        style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
         <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Subject</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -360,6 +410,20 @@ content %}
               <option value="3">Semester 3</option>
               <option value="4">Semester 4</option>
             </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Credits <span class="text-danger">*</span></label>
+            <input
+              type="number"
+              name="credits"
+              id="editSubjectCredits"
+              class="form-control"
+              required
+              min="1"
+              max="30"
+              value="6"
+            />
+            <small class="text-muted">Credit hours (1-30)</small>
           </div>
           <div class="mb-3 mt-3">
             <label class="form-label">Description</label>
@@ -411,6 +475,7 @@ content %}
         document.getElementById('editSubjectName').value = this.dataset.name;
         document.getElementById('editSubjectSemester').value = this.dataset.semester;
         document.getElementById('editSubjectDescription').value = this.dataset.description || '';
+        document.getElementById('editSubjectCredits').value = this.dataset.credits || 6;
         editModal.show();
       });
     });
@@ -484,6 +549,56 @@ content %}
           addBtn.disabled = false;
           addBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Add Subject';
         });
+    });
+
+    // Publish Semester Results
+    document.querySelectorAll('.publish-semester-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const semester = this.dataset.semester;
+        
+        const confirmMsg = `Publish final results for Semester ${semester}?\n\nThis will make all subject results for this semester visible to students in their Results/Transcript page.\n\nAre you sure?`;
+        
+        if (!confirm(confirmMsg)) return;
+        
+        // Disable button during request
+        const originalHTML = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Publishing...';
+        
+        // Send AJAX request
+        fetch(`/admin/publish-semester-results/${semester}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Show success message
+            document.getElementById('toastMessage').textContent = data.message;
+            toast.show();
+            
+            // Update button appearance
+            this.classList.remove('btn-light');
+            this.classList.add('btn-success');
+            this.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Published';
+            
+            // Reload after a moment
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            alert('Error: ' + data.message);
+            this.innerHTML = originalHTML;
+            this.disabled = false;
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while publishing results.');
+          this.innerHTML = originalHTML;
+          this.disabled = false;
+        });
+      });
     });
   });
 </script>

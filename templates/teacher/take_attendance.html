@@ -2,7 +2,7 @@
 extra_css %}
 <style>
   .attendance-table th {
-    background: #0000ff;
+    background: #1C0770;
     color: white;
     font-weight: 500;
     padding: 12px 15px;
@@ -51,15 +51,15 @@ extra_css %}
     outline: none;
   }
   .student-row.selected td {
-    border-top: 2px solid #0000ff;
-    border-bottom: 2px solid #0000ff;
+    border-top: 2px solid #1C0770;
+    border-bottom: 2px solid #1C0770;
   }
   .student-row.selected td:first-child {
-    border-left: 4px solid #0000ff;
+    border-left: 4px solid #1C0770;
     padding-left: 12px;
   }
   .student-row.selected td:last-child {
-    border-right: 2px solid #0000ff;
+    border-right: 2px solid #1C0770;
   }
   .student-row.present.selected {
     background: #d1ebdb;
@@ -93,7 +93,7 @@ extra_css %}
   }
   .status-badge.late {
     background: #c9a962;
-    color: #0000cc;
+    color: #150558;
   }
   .status-badge.excused {
     background: #5a8ac4;
@@ -157,11 +157,11 @@ extra_css %}
 
   .keyboard-hint {
     background: #e8f0f8;
-    border-left: 4px solid #0000ff;
+    border-left: 4px solid #1C0770;
   }
   .key-badge {
     display: inline-block;
-    background: #0000ff;
+    background: #1C0770;
     color: white;
     padding: 2px 8px;
     border-radius: 4px;
@@ -180,7 +180,7 @@ extra_css %}
       </div>
       <div class="col-auto">
         <a
-          href="{{ url_for('teacher_attendance_logs', subject_id=subject.id) }}"
+          href="{{ url_for('teacher_attendance_logs', subject_id=subject.id, class_id=subject.class_id) }}"
           class="btn btn-outline-info me-2"
         >
           <i class="bi bi-journal-text me-1"></i>View Logs
@@ -222,7 +222,7 @@ extra_css %}
   <div class="alert keyboard-hint py-2 mb-3">
     <span class="key-badge">Click</span> or <span class="key-badge">Enter</span> toggle P/A
     <span class="mx-2">|</span>
-    <span class="key-badge">↑</span><span class="key-badge">↓</span> or
+    <span class="key-badge">â†‘</span><span class="key-badge">â†“</span> or
     <span class="key-badge">Tab</span> navigate
     <span class="mx-2">|</span>
     <span class="key-badge">Right-click</span> for Late/Excused
@@ -295,7 +295,7 @@ extra_css %}
 <form
   id="attendanceForm"
   method="POST"
-  action="{{ url_for('teacher_take_attendance', subject_id=subject.id) }}"
+  action="{{ url_for('teacher_take_attendance', subject_id=subject.id, class_id=subject.class_id) }}"
   style="display: none"
 >
   <input type="hidden" name="date" id="formDate" />
@@ -538,7 +538,7 @@ extra_css %}
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
 
     // Send AJAX request
-    fetch('{{ url_for("teacher_take_attendance", subject_id=subject.id) }}', {
+    fetch('{{ url_for("teacher_take_attendance", subject_id=subject.id, class_id=subject.class_id) }}', {
       method: 'POST',
       body: formData,
     })

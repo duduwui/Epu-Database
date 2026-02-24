@@ -64,7 +64,8 @@ content %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
               <div>
                 <strong>{{ subject_name }}</strong>
-                <br /><small class="text-muted">{{ data.count }} class(es)</small>
+                <span class="badge bg-secondary ms-2">{{ data.credits or 6 }} cr</span>
+                <br /><small class="text-muted">{{ data.classes|join(', ') }}</small>
               </div>
               <span class="badge bg-navy">Active</span>
             </li>
@@ -160,7 +161,7 @@ content %}
       <div class="current-view">
         <i class="bi bi-eye"></i>
         <span
-          ><strong id="displaySem">Sem 1</strong> · <strong id="displayShift">Morning</strong> ·
+          ><strong id="displaySem">Sem 1</strong> Â· <strong id="displayShift">Morning</strong> Â·
           Class <strong id="displaySection">A</strong></span
         >
       </div>
@@ -197,7 +198,7 @@ content %}
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    background: #0000ff;
+    background: #1C0770;
     color: #fff;
   }
   .scheduler-brand {
@@ -293,7 +294,7 @@ content %}
     background: #fff;
     font-size: 0.8rem;
     font-weight: 500;
-    color: #0000ff;
+    color: #1C0770;
     cursor: pointer;
     transition: all 0.15s;
     display: flex;
@@ -301,13 +302,13 @@ content %}
     gap: 5px;
   }
   .chip:hover {
-    border-color: #0000ff;
-    color: #0000cc;
+    border-color: #1C0770;
+    color: #150558;
     background: #e8f0f8;
   }
   .chip.active {
-    background: #0000ff;
-    border-color: #0000ff;
+    background: #1C0770;
+    border-color: #1C0770;
     color: #fff;
   }
   .chip i {

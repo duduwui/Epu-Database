@@ -41,10 +41,18 @@
                   >{{ hw.description[:50] }}{% if hw.description|length > 50 %}...{% endif %}</small
                 >
                 {% endif %}
+                {% if hw.filename %}
+                <br /><small class="text-success">
+                  <i class="bi bi-paperclip"></i>
+                  <a href="{{ url_for('download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
+                    {{ hw.filename }} ({{ (hw.file_size / 1024) | round(1) if hw.file_size else 0 }} KB)
+                  </a>
+                </small>
+                {% endif %}
               </td>
               <td>{{ hw.subject_name }}</td>
               <td><span class="badge bg-navy">{{ hw.class_name|replace_section }}</span></td>
-              <td>{{ hw.due_date }}</td>
+              <td>{{ hw.due_date.strftime('%d/%m/%Y') }}</td>
               <td>
                 {% if hw.due_date.isoformat() < today %}
                 <span class="badge bg-secondary">Past Due</span>

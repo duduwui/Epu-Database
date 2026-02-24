@@ -1,0 +1,14 @@
+{
+  "files.associations": {
+    "*.html": "jinja-html"
+  },
+  "[html]": {
+    "editor.formatOnSave": false,
+    "editor.formatOnPaste": false
+  },
+  "[jinja-html]": {
+    "editor.formatOnSave": false,
+    "editor.formatOnPaste": false
+  },
+  "prettier.disableLanguages": ["html", "jinja-html"]
+}

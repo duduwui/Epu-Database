@@ -1,0 +1,311 @@
+{% extends 'base.html' %} {% block title %}Attendance Records - Admin{% endblock %} {% block content
+%}
+<div class="container-fluid mt-4">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-calendar-check me-2"></i>Teacher Attendance Records</h3>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small">Teacher Name</label>
+          <input
+            type="text"
+            class="form-control form-control-sm"
+            id="searchFilter"
+            placeholder="Search teacher name..."
+          />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Shift</label>
+          <select class="form-select form-select-sm" id="shiftFilter">
+            <option value="">All Shifts</option>
+            <option value="morning">Morning</option>
+            <option value="night">Night</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Semester</label>
+          <select class="form-select form-select-sm" id="semesterFilter">
+            <option value="">All Semesters</option>
+            <option value="1">Semester 1</option>
+            <option value="2">Semester 2</option>
+            <option value="3">Semester 3</option>
+            <option value="4">Semester 4</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Date</label>
+          <input type="date" class="form-control form-control-sm" id="dateFilter" />
+        </div>
+        <div class="col-md-1">
+          <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
+            Clear
+          </button>
+        </div>
+        <div class="col-md-2">
+          <a href="{{ url_for('admin_attendance_summary') }}" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-bar-chart me-1"></i>Summary
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendance Submissions -->
+  <div id="submissionsList">
+    {% if submissions %} {% for submission in submissions %}
+    <div
+      class="card mb-2 attendance-card"
+      data-teacher="{{ submission.teacher_name or 'Unknown' }}"
+      data-shift="{{ submission.shift }}"
+      data-semester="{{ submission.semester }}"
+      data-date="{{ submission.date.strftime('%Y-%m-%d') }}"
+    >
+      <div
+        class="card-header"
+        style="cursor: pointer; background-color: #fff; border-bottom: 1px solid #e0e0e0"
+        onclick="toggleDetails('details-{{ loop.index }}')"
+      >
+        <div class="row align-items-center">
+          <div class="col-md-2">
+            <strong>{{ submission.date.strftime('%b %d, %Y') }}</strong>
+          </div>
+          <div class="col-md-2">
+            <small class="text-muted">Teacher:</small><br />
+            {{ submission.teacher_name or 'Unknown' }}
+          </div>
+          <div class="col-md-2">
+            <small class="text-muted">Subject:</small><br />
+            {{ submission.subject_name }}
+          </div>
+          <div class="col-md-2">
+            <small class="text-muted">Class:</small><br />
+            Sem {{ submission.semester }} - {{ submission.section }}
+          </div>
+          <div class="col-md-1">
+            <small class="text-muted">Shift:</small><br />
+            {{ submission.shift|capitalize }}
+          </div>
+          <div class="col-md-3 text-end">
+            <small class="text-muted"
+              >{{ submission.submitted_at.strftime('%I:%M %p') if submission.submitted_at else '-'
+              }}</small
+            ><br />
+            <div class="mt-1">
+              <span class="count-badge count-present">{{ submission.present_count }}</span>
+              <span class="count-badge count-absent">{{ submission.absent_count }}</span>
+              <span class="count-badge count-late">{{ submission.late_count }}</span>
+              <span class="count-badge count-excused">{{ submission.excused_count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body collapse" id="details-{{ loop.index }}">
+        <h6 class="mb-3">Student Attendance Details</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in submission.students %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ student.student_name }}</td>
+                <td>
+                  {% if student.status == 'present' %}
+                  <span class="status-badge status-present">Present</span>
+                  {% elif student.status == 'absent' %}
+                  <span class="status-badge status-absent">Absent</span>
+                  {% elif student.status == 'late' %}
+                  <span class="status-badge status-late">Late</span>
+                  {% elif student.status == 'excused' %}
+                  <span class="status-badge status-excused">Excused</span>
+                  {% endif %}
+                </td>
+                <td>{{ student.notes or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %} {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-inbox" style="font-size: 3rem"></i>
+        <p class="mt-2">No attendance records found</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div id="noResults" class="card" style="display: none">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-search" style="font-size: 3rem"></i>
+      <p class="mt-2">No records match your filters</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleDetails(id) {
+    const element = document.getElementById(id);
+    const bsCollapse = new bootstrap.Collapse(element, {
+      toggle: true,
+    });
+  }
+
+  function applyFilters() {
+    const search = document.getElementById('searchFilter').value.toLowerCase();
+    const shift = document.getElementById('shiftFilter').value.toLowerCase();
+    const semester = document.getElementById('semesterFilter').value;
+    const date = document.getElementById('dateFilter').value;
+
+    const cards = document.querySelectorAll('.attendance-card');
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const teacher = card.dataset.teacher.toLowerCase();
+      const cardShift = card.dataset.shift.toLowerCase();
+      const cardSemester = card.dataset.semester;
+      const cardDate = card.dataset.date;
+
+      let show = true;
+
+      // Search filter (teacher name only)
+      if (search && !teacher.includes(search)) {
+        show = false;
+      }
+
+      // Shift filter
+      if (shift && cardShift !== shift) {
+        show = false;
+      }
+
+      // Semester filter
+      if (semester && cardSemester !== semester) {
+        show = false;
+      }
+
+      // Date filter
+      if (date && cardDate !== date) {
+        show = false;
+      }
+
+      if (show) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    // Show/hide no results message
+    document.getElementById('submissionsList').style.display = visibleCount > 0 ? '' : 'none';
+    document.getElementById('noResults').style.display = visibleCount > 0 ? 'none' : '';
+  }
+
+  function clearFilters() {
+    document.getElementById('searchFilter').value = '';
+    document.getElementById('shiftFilter').value = '';
+    document.getElementById('semesterFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    applyFilters();
+  }
+
+  // Add event listeners to all filters
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('searchFilter').addEventListener('input', applyFilters);
+    document.getElementById('shiftFilter').addEventListener('change', applyFilters);
+    document.getElementById('semesterFilter').addEventListener('change', applyFilters);
+    document.getElementById('dateFilter').addEventListener('change', applyFilters);
+  });
+</script>
+
+<style>
+  .attendance-card {
+    border: 1px solid #e0e0e0;
+  }
+
+  .attendance-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s;
+  }
+
+  .card-header small.text-muted {
+    font-size: 0.75rem;
+    color: #999 !important;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .status-present {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .status-absent {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+
+  .status-late {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .status-excused {
+    background-color: #e3f2fd;
+    color: #1565c0;
+  }
+
+  .count-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  .count-present {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .count-absent {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .count-late {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .count-excused {
+    background-color: #d1ecf1;
+    color: #0c5460;
+  }
+</style>
+{% endblock %}

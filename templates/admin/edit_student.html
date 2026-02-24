@@ -80,8 +80,8 @@
                                 <label class="form-label">Shift <span class="text-danger">*</span></label>
                                 <select name="shift" class="form-select" required>
                                     <option value="">Select shift...</option>
-                                    <option value="morning" {{ 'selected' if student.shift == 'morning' }}>☀ Morning</option>
-                                    <option value="night" {{ 'selected' if student.shift == 'night' }}>☽ Night</option>
+                                    <option value="morning" {{ 'selected' if student.shift == 'morning' }}>â˜€ Morning</option>
+                                    <option value="night" {{ 'selected' if student.shift == 'night' }}>â˜½ Night</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -151,7 +151,7 @@ function updateSemesterOptions(preserveSemester) {
     }
 }
 
-// Initialize on page load — preserve the student's actual semester
+// Initialize on page load â€” preserve the student's actual semester
 document.addEventListener('DOMContentLoaded', function() {
     const studentSemester = {{ student.semester or 1 }};
     updateSemesterOptions(studentSemester);

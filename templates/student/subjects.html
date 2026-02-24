@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+{% block title %}My Subjects - Student{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 1400px;">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card bg-primary text-white shadow-sm">
+        <div class="card-body py-3">
+          <div class="row align-items-center">
+            <div class="col">
+              <h5 class="mb-1">
+                <i class="bi bi-journal-bookmark me-2"></i>My Subjects
+              </h5>
+              <p class="mb-0 opacity-75" style="font-size: 0.9rem">
+                {% if class_info %}
+                <i class="bi bi-calendar3 me-1"></i>Year {{ class_info.year }} - Semester {{ class_info.semester }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-building me-1"></i>Section {{ class_info.section }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-clock me-1"></i>{{ class_info.shift|capitalize }} Shift
+                {% else %}
+                <i class="bi bi-exclamation-triangle me-1"></i>Not assigned to a class yet
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not class_info %}
+  <!-- Not Assigned Message -->
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    You are not assigned to a class yet. Please contact the admin to assign you to a semester.
+  </div>
+  {% else %}
+
+  <!-- Enrollment Period Status -->
+  {% if enrollment_active %}
+  <div class="alert alert-success mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <i class="bi bi-clock-history me-2"></i>
+        <strong>Enrollment Period Active!</strong>
+        <span class="ms-2">You can enroll or unenroll in subjects until the deadline.</span>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="d-flex align-items-center justify-content-end">
+          <i class="bi bi-hourglass-split me-2"></i>
+          <strong class="text-success" id="countdown"></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const endDate = new Date('{{ enrollment_period.end_date }}').getTime();
+    
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = endDate - now;
+      
+      if (distance < 0) {
+        document.getElementById('countdown').innerHTML = "EXPIRED";
+        document.getElementById('countdown').className = "text-danger";
+        // Disable all enroll/unenroll buttons
+        document.querySelectorAll('.enroll-btn, .unenroll-btn').forEach(btn => {
+          btn.disabled = true;
+          btn.classList.add('disabled');
+        });
+        return;
+      }
+      
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      
+      let timeStr = "";
+      if (days > 0) timeStr += days + "d ";
+      timeStr += hours + "h " + minutes + "m " + seconds + "s";
+      
+      document.getElementById('countdown').innerHTML = timeStr;
+    }
+    
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+  {% else %}
+  <div class="alert alert-warning mb-4">
+    <i class="bi bi-lock me-2"></i>
+    <strong>Enrollment Period Closed</strong>
+    <span class="ms-2">The enrollment period has ended or not started yet. You cannot enroll or unenroll at this time.</span>
+  </div>
+  {% endif %}
+
+  <!-- Instructions -->
+  <div class="alert alert-info mb-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>How to enroll:</strong> Click the "Enroll" button next to any subject you want to take this semester. 
+    Once enrolled, the subject will move to the "Enrolled Subjects" section.
+  </div>
+
+  {% if subjects %}
+  
+  <!-- Enrolled Subjects -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+      <i class="bi bi-check-circle me-2"></i>Enrolled Subjects
+      <span class="badge bg-white text-success ms-2" id="enrolledCount">{{ subjects|selectattr('is_enrolled')|list|length }}</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="enrolledTable">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 50%;">Subject Name</th>
+              <th style="width: 15%;">Credits</th>
+              <th style="width: 20%;">Description</th>
+              <th style="width: 15%;" class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set enrolled_subjects = subjects|selectattr('is_enrolled')|list %}
+            {% if enrolled_subjects %}
+              {% for subject in enrolled_subjects %}
+              <tr id="subject-{{ subject.id }}" data-subject-id="{{ subject.id }}">
+                <td><strong>{{ subject.name }}</strong></td>
+                <td><span class="badge bg-secondary">{{ subject.credits or 6 }} cr</span></td>
+                <td><small class="text-muted">{{ (subject.description[:50] + '...') if subject.description and subject.description|length > 50 else (subject.description or '-') }}</small></td>
+                <td class="text-center">
+                  <button class="btn btn-sm btn-outline-danger unenroll-btn" onclick="unenrollSubject({{ subject.id }}, this)" {% if not enrollment_active %}disabled{% endif %}>
+                    <i class="bi bi-x-circle me-1"></i>Unenroll
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr id="noEnrolledMsg">
+                <td colspan="4" class="text-center text-muted py-3">
+                  <i class="bi bi-inbox me-2"></i>No enrolled subjects yet. Enroll from the available subjects below.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Subjects -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-info text-white">
+      <i class="bi bi-list-ul me-2"></i>Available Subjects
+      <span class="badge bg-white text-info ms-2" id="availableCount">{{ subjects|rejectattr('is_enrolled')|list|length }}</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="availableTable">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 50%;">Subject Name</th>
+              <th style="width: 15%;">Credits</th>
+              <th style="width: 20%;">Description</th>
+              <th style="width: 15%;" class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set available_subjects = subjects|rejectattr('is_enrolled')|list %}
+            {% if available_subjects %}
+              {% for subject in available_subjects %}
+              <tr id="subject-{{ subject.id }}" data-subject-id="{{ subject.id }}">
+                <td><strong>{{ subject.name }}</strong></td>
+                <td><span class="badge bg-secondary">{{ subject.credits or 6 }} cr</span></td>
+                <td><small class="text-muted">{{ (subject.description[:50] + '...') if subject.description and subject.description|length > 50 else (subject.description or '-') }}</small></td>
+                <td class="text-center">
+                  <button class="btn btn-sm btn-primary enroll-btn" onclick="enrollSubject({{ subject.id }}, this)" {% if not enrollment_active %}disabled{% endif %}>
+                    <i class="bi bi-plus-circle me-1"></i>Enroll
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr id="noAvailableMsg">
+                <td colspan="4" class="text-center text-muted py-3">
+                  <i class="bi bi-check-all me-2"></i>All subjects enrolled!
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    No subjects available for Semester {{ class_info.semester }} yet. Please contact the admin.
+  </div>
+  {% endif %}
+  
+  {% endif %}
+</div>
+
+<script>
+function enrollSubject(subjectId, button) {
+  const row = button.closest('tr');
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enrolling...';
+  
+  fetch(`/student/subjects/enroll/${subjectId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Move row to enrolled table
+      moveToEnrolled(row, subjectId);
+    } else {
+      alert('Error: ' + (data.error || 'Failed to enroll'));
+      button.disabled = false;
+      button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll';
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred. Please try again.');
+    button.disabled = false;
+    button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll';
+  });
+}
+
+function unenrollSubject(subjectId, button) {
+  if (!confirm('Are you sure you want to unenroll from this subject?')) {
+    return;
+  }
+  
+  const row = button.closest('tr');
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Unenrolling...';
+  
+  fetch(`/student/subjects/unenroll/${subjectId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Move row to available table
+      moveToAvailable(row, subjectId);
+    } else {
+      alert('Error: ' + (data.error || 'Failed to unenroll'));
+      button.disabled = false;
+      button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll';
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred. Please try again.');
+    button.disabled = false;
+    button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll';
+  });
+}
+
+function moveToEnrolled(row, subjectId) {
+  // Get row data
+  const cells = row.querySelectorAll('td');
+  const name = cells[0].innerHTML;
+  const credits = cells[1].innerHTML;
+  const description = cells[2].innerHTML;
+  
+  // Remove from available table
+  row.remove();
+  
+  // Remove "no available" message if exists
+  const noAvailableMsg = document.getElementById('noAvailableMsg');
+  if (noAvailableMsg) noAvailableMsg.remove();
+  
+  // Add to enrolled table
+  const enrolledTbody = document.querySelector('#enrolledTable tbody');
+  
+  // Remove "no enrolled" message if exists
+  const noEnrolledMsg = document.getElementById('noEnrolledMsg');
+  if (noEnrolledMsg) noEnrolledMsg.remove();
+  
+  const newRow = document.createElement('tr');
+  newRow.id = `subject-${subjectId}`;
+  newRow.setAttribute('data-subject-id', subjectId);
+  newRow.innerHTML = `
+    <td>${name}</td>
+    <td>${credits}</td>
+    <td>${description}</td>
+    <td class="text-center">
+      <button class="btn btn-sm btn-outline-danger" onclick="unenrollSubject(${subjectId}, this)">
+        <i class="bi bi-x-circle me-1"></i>Unenroll
+      </button>
+    </td>
+  `;
+  enrolledTbody.appendChild(newRow);
+  
+  // Add animation
+  newRow.classList.add('table-success');
+  setTimeout(() => newRow.classList.remove('table-success'), 1000);
+  
+  // Update counts
+  updateCounts();
+  
+  // Check if available table is empty
+  if (document.querySelectorAll('#availableTable tbody tr[data-subject-id]').length === 0) {
+    const availableTbody = document.querySelector('#availableTable tbody');
+    availableTbody.innerHTML = `<tr id="noAvailableMsg">
+      <td colspan="4" class="text-center text-muted py-3">
+        <i class="bi bi-check-all me-2"></i>All subjects enrolled!
+      </td>
+    </tr>`;
+  }
+}
+
+function moveToAvailable(row, subjectId) {
+  // Get row data
+  const cells = row.querySelectorAll('td');
+  const name = cells[0].innerHTML;
+  const credits = cells[1].innerHTML;
+  const description = cells[2].innerHTML;
+  
+  // Remove from enrolled table
+  row.remove();
+  
+  // Remove "no enrolled" message if exists
+  const noEnrolledMsg = document.getElementById('noEnrolledMsg');
+  if (noEnrolledMsg) noEnrolledMsg.remove();
+  
+  // Add to available table
+  const availableTbody = document.querySelector('#availableTable tbody');
+  
+  // Remove "no available" message if exists
+  const noAvailableMsg = document.getElementById('noAvailableMsg');
+  if (noAvailableMsg) noAvailableMsg.remove();
+  
+  const newRow = document.createElement('tr');
+  newRow.id = `subject-${subjectId}`;
+  newRow.setAttribute('data-subject-id', subjectId);
+  newRow.innerHTML = `
+    <td>${name}</td>
+    <td>${credits}</td>
+    <td>${description}</td>
+    <td class="text-center">
+      <button class="btn btn-sm btn-primary" onclick="enrollSubject(${subjectId}, this)">
+        <i class="bi bi-plus-circle me-1"></i>Enroll
+      </button>
+    </td>
+  `;
+  availableTbody.appendChild(newRow);
+  
+  // Update counts
+  updateCounts();
+  
+  // Check if enrolled table is empty
+  if (document.querySelectorAll('#enrolledTable tbody tr[data-subject-id]').length === 0) {
+    const enrolledTbody = document.querySelector('#enrolledTable tbody');
+    enrolledTbody.innerHTML = `<tr id="noEnrolledMsg">
+      <td colspan="4" class="text-center text-muted py-3">
+        <i class="bi bi-inbox me-2"></i>No enrolled subjects yet. Enroll from the available subjects below.
+      </td>
+    </tr>`;
+  }
+}
+
+function updateCounts() {
+  const enrolledCount = document.querySelectorAll('#enrolledTable tbody tr[data-subject-id]').length;
+  const availableCount = document.querySelectorAll('#availableTable tbody tr[data-subject-id]').length;
+  
+  document.getElementById('enrolledCount').textContent = enrolledCount;
+  document.getElementById('availableCount').textContent = availableCount;
+}
+</script>
+
+{% endblock %}

@@ -22,7 +22,7 @@
       <div class="card">
         <div class="card-header"><i class="bi bi-journal-text me-2"></i>Homework Details</div>
         <div class="card-body p-4">
-          <form method="POST" action="{{ url_for('teacher_add_homework') }}">
+          <form method="POST" action="{{ url_for('teacher_add_homework') }}" enctype="multipart/form-data">
             <!-- Subject Selection -->
             <div class="mb-3">
               <label class="form-label">Subject <span class="text-danger">*</span></label>
@@ -93,6 +93,14 @@
             <div class="mb-3">
               <label class="form-label">Due Date <span class="text-danger">*</span></label>
               <input type="date" name="due_date" class="form-control" required />
+              <small class="text-muted">Click to select date from calendar</small>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Attachment <span class="text-muted">(Optional)</span></label>
+              <input type="file" name="file" id="fileInput" class="form-control" 
+                     accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif" />
+              <small class="text-muted">PDF, Word, PowerPoint, Excel, Images, ZIP</small>
             </div>
 
             <hr class="my-4" />
@@ -168,7 +176,7 @@
       // Generate checkboxes with formatted class name (unchecked by default)
       checkboxContainer.innerHTML = matchingSubjects.map(subject => `
         <div class="col-md-6">
-          <div class="form-check class-checkbox-item">
+          <label class="form-check class-checkbox-item" for="assignment_${subject.assignment_id}">
             <input
               class="form-check-input class-checkbox"
               type="checkbox"
@@ -176,10 +184,10 @@
               value="${subject.assignment_id}"
               id="assignment_${subject.assignment_id}"
             >
-            <label class="form-check-label" for="assignment_${subject.assignment_id}">
+            <span class="form-check-label">
               <i class="bi bi-mortarboard me-1"></i>${formatClassName(subject.class_name)}
-            </label>
-          </div>
+            </span>
+          </label>
         </div>
       `).join('');
     }
@@ -234,23 +242,51 @@
 
 <style>
   .class-checkbox-item {
-    padding: 10px 15px;
+    padding: 12px 18px;
     background: #f8f9fa;
     border-radius: 8px;
-    border: 1px solid #e9ecef;
+    border: 2px solid #e9ecef;
     transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
   }
   .class-checkbox-item:hover {
     background: #e7f1ff;
-    border-color: #0000ff;
+    border-color: #1C0770;
+    transform: translateX(3px);
   }
-  .class-checkbox-item .form-check-input:checked + .form-check-label {
-    color: #0000ff;
-    font-weight: 500;
+  .class-checkbox-item:active {
+    transform: translateX(3px) scale(0.98);
+  }
+  .class-checkbox-item .form-check-input {
+    width: 20px;
+    height: 20px;
+    margin-top: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .class-checkbox-item .form-check-label,
+  .class-checkbox-item span.form-check-label {
+    cursor: pointer;
+    margin-bottom: 0;
+    flex: 1;
+    padding-left: 5px;
+  }
+  .class-checkbox-item .form-check-input:checked + .form-check-label,
+  .class-checkbox-item .form-check-input:checked + span.form-check-label {
+    color: #1C0770;
+    font-weight: 600;
   }
   .class-checkbox-item .form-check-input:checked {
-    background-color: #0000ff;
-    border-color: #0000ff;
+    background-color: #1C0770;
+    border-color: #1C0770;
+  }
+  .class-checkbox-item:has(.form-check-input:checked) {
+    background: #e7f1ff;
+    border-color: #1C0770;
   }
 </style>
 {% endblock %}

@@ -17,7 +17,7 @@ content %}
       <div class="card border-0 bg-light">
         <div class="card-body py-3">
           <div class="d-flex align-items-center">
-            <div class="rounded-circle p-3 me-3" style="background: #0000ff">
+            <div class="rounded-circle p-3 me-3" style="background: #1C0770">
               <i class="bi bi-people text-white" style="font-size: 1.5rem"></i>
             </div>
             <div>
@@ -113,7 +113,7 @@ content %}
                 {% if teacher.department %}
                 <span class="badge bg-light text-dark">{{ teacher.department }}</span>
                 {% else %}
-                <span class="text-muted">—</span>
+                <span class="text-muted">â€”</span>
                 {% endif %}
               </td>
               <td>
@@ -122,7 +122,7 @@ content %}
                 {% endif %} {% if teacher.phone %}
                 <small><i class="bi bi-telephone me-1"></i>{{ teacher.phone }}</small>
                 {% endif %} {% if not teacher.email and not teacher.phone %}
-                <span class="text-muted">—</span>
+                <span class="text-muted">â€”</span>
                 {% endif %}
               </td>
               <td class="text-center">
@@ -170,7 +170,7 @@ content %}
 <div class="modal fade" id="teacherModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow">
-      <div class="modal-header text-white" style="background: #0000ff">
+      <div class="modal-header text-white" style="background: #1C0770">
         <div>
           <h5 class="modal-title mb-0" id="modalTeacherName">Teacher</h5>
           <small class="opacity-75" id="modalContact"></small>
@@ -327,7 +327,7 @@ content %}
   .avatar-circle {
     width: 40px;
     height: 40px;
-    background: #0000ff;
+    background: #1C0770;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -356,8 +356,8 @@ content %}
     border-bottom: none;
   }
   #teacherModal .form-check-input:checked {
-    background-color: #0000ff;
-    border-color: #0000ff;
+    background-color: #1C0770;
+    border-color: #1C0770;
   }
 </style>
 
