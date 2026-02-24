@@ -143,6 +143,13 @@ content %}
               <span class="badge bg-secondary ms-2">{{ subject.credits or 6 }} cr</span>
             </div>
             <div>
+              <a
+                href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
+                class="btn btn-sm btn-outline-primary py-0 px-2"
+                title="Grade Distribution"
+              >
+                <i class="bi bi-calculator"></i>
+              </a>
               <button
                 class="btn btn-sm btn-outline-secondary py-0 px-2 edit-subject-btn"
                 data-id="{{ subject.id }}"
