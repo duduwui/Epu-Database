@@ -78,20 +78,22 @@
         <table class="table table-hover mb-0">
           <thead class="table-light">
             <tr>
-              <th class="text-end" style="width: 30%;">Ù†Ù…Ø±Û•ÛŒ ÙˆÛ•Ø±Ú¯ÛŒØ±Ø§Ùˆ / Ù†Ù…Ø±Û•ÛŒ Ø¬ÛŽØ¨Û•Ø¬ÛŒ</th>
-              <th class="text-end" style="width: 70%;"></th>
+              <th class="text-end" style="width: 30%;">Score / Max</th>
+              <th class="text-end" style="width: 70%;">Component</th>
             </tr>
           </thead>
           <tbody>
             {% set component_colors = {
-              'Ø´Û•Ø±Ø¹ÛŒ': 'success',
-              'Ú©ÙˆÛŽØ²': 'info',
-              'Ù†Ø±Ø®Ø§Ù†Ø¯Ù†ÛŒ Ù…Ø§Ù†Ú¯': 'warning',
-              'ØªØ§Ù‚ÛŒÚ©Ø±Ø¯Ù†Û•ÙˆÛ•': 'primary',
-              'Ø¦Ø§Ù…Ø§Ø¯Û•Ø¨ÙˆÙˆÙ†': 'secondary',
-              'Ø¨Û•Ø±Ù†Ø§Ù…Û•': 'dark',
-              'Ø¦Û•Ø±Ú©': 'danger'
+              'homework': 'success',
+              'quiz': 'info',
+              'report': 'warning',
+              'midterm': 'primary',
+              'lab_report': 'secondary',
+              'final': 'danger',
+              'attendance': 'dark'
             } %}
+            {# Types where sub-components are SUMMED (not averaged) #}
+            {% set sum_types = ['midterm', 'final'] %}
             
             {# Group grades by component type #}
             {% set grouped_grades = {} %}
@@ -121,9 +123,14 @@
                 {% set group_total_max.value = group_total_max.value + grade.max_score %}
               {% endfor %}
               
-              {# Calculate group average and add to overall total #}
-              {% set avg_score = ((group_total_score.value|float) / group_count) if group_count > 0 else 0 %}
-              {% set avg_max = ((group_total_max.value|float) / group_count) if group_count > 0 else 0 %}
+              {# For midterm/final: SUM sub-components. For others: AVERAGE. #}
+              {% if component_type in sum_types %}
+                {% set avg_score = group_total_score.value|float %}
+                {% set avg_max = group_total_max.value|float %}
+              {% else %}
+                {% set avg_score = ((group_total_score.value|float) / group_count) if group_count > 0 else 0 %}
+                {% set avg_max = ((group_total_max.value|float) / group_count) if group_count > 0 else 0 %}
+              {% endif %}
               {% set overall_total_score.value = overall_total_score.value + avg_score %}
               {% set overall_total_max.value = overall_total_max.value + avg_max %}
               
@@ -154,17 +161,24 @@
               </tr>
               {% endfor %}
               
-              {# Group Average Row #}
-              {% set avg_score = ((group_total_score.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
-              {% set avg_max = ((group_total_max.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
+              {# Group Total/Average Row #}
+              {% if component_type in sum_types %}
+                {% set display_score = group_total_score.value|round(1) %}
+                {% set display_max = group_total_max.value|round(1) %}
+                {% set row_label = 'Total ' + component_type %}
+              {% else %}
+                {% set display_score = ((group_total_score.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
+                {% set display_max = ((group_total_max.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
+                {% set row_label = 'Average ' + component_type %}
+              {% endif %}
               <tr class="table-light border-bottom border-2">
                 <td class="text-end">
                   <strong class="text-{{ component_colors.get(component_type, 'secondary') }}">
-                    {{ avg_score }} / {{ avg_max }}
+                    {{ display_score }} / {{ display_max }}
                   </strong>
                 </td>
                 <td class="text-end pe-4">
-                  <strong>Ú©Û†ÛŒ Ú¯Ø´ØªÛŒ {{ component_type }}</strong>
+                  <strong>{{ row_label | title }}</strong>
                 </td>
               </tr>
             {% endfor %}
@@ -174,7 +188,7 @@
               <td class="text-end">
                 <span class="badge bg-primary fs-6">{{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|round(1) }}</span>
               </td>
-              <td class="text-end pe-4">Ú©Û†ÛŒ Ú¯Ø´ØªÛŒ (Total Score)</td>
+              <td class="text-end pe-4">Total Score</td>
             </tr>
           </tbody>
         </table>

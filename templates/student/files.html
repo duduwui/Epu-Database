@@ -1,80 +1,156 @@
-ï»¿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}Lecture Files{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="fw-bold"><i class="bi bi-folder2-open me-2"></i>Lecture Files</h2>
-            <p class="text-muted">Download lecture materials from your teachers</p>
-        </div>
+<div class="container">
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2><i class="bi bi-folder2-open me-2"></i>Lecture Files</h2>
+        <p>Download lecture materials from your teachers</p>
+      </div>
     </div>
+  </div>
 
-    {% if grouped_files %}
-    <div class="accordion" id="filesAccordion">
-        {% for subject_name, subject_files in grouped_files.items() %}
-        <div class="accordion-item border-0 shadow-sm mb-3 rounded">
-            <h2 class="accordion-header">
-                <button class="accordion-button {% if not loop.first %}collapsed{% endif %} rounded" type="button" data-bs-toggle="collapse" data-bs-target="#subject{{ loop.index }}">
-                    <i class="bi bi-book me-2 text-primary"></i>
-                    <strong>{{ subject_name }}</strong>
-                    <span class="badge bg-primary ms-2">{{ subject_files|length }} file{% if subject_files|length > 1 %}s{% endif %}</span>
-                </button>
-            </h2>
-            <div id="subject{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#filesAccordion">
-                <div class="accordion-body p-0">
-                    <div class="list-group list-group-flush">
-                        {% for file in subject_files %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-3">
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    {% if file.file_type == 'pdf' %}
-                                    <i class="bi bi-file-earmark-pdf text-danger fs-3"></i>
-                                    {% elif file.file_type in ['doc', 'docx'] %}
-                                    <i class="bi bi-file-earmark-word text-primary fs-3"></i>
-                                    {% elif file.file_type in ['ppt', 'pptx'] %}
-                                    <i class="bi bi-file-earmark-ppt text-warning fs-3"></i>
-                                    {% elif file.file_type in ['xls', 'xlsx'] %}
-                                    <i class="bi bi-file-earmark-excel text-success fs-3"></i>
-                                    {% elif file.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
-                                    <i class="bi bi-file-earmark-image text-info fs-3"></i>
-                                    {% else %}
-                                    <i class="bi bi-file-earmark text-secondary fs-3"></i>
-                                    {% endif %}
-                                </div>
-                                <div>
-                                    <h6 class="mb-0">{{ file.title }}</h6>
-                                    <small class="text-muted">
-                                        {% if file.week_number %}<span class="badge bg-info me-1">Week {{ file.week_number }}</span>{% endif %}
-                                        <i class="bi bi-person me-1"></i>{{ file.teacher_name }}
-                                        <span class="mx-1">|</span>
-                                        <i class="bi bi-calendar me-1"></i>{{ file.uploaded_at.strftime('%b %d, %Y') if file.uploaded_at else 'N/A' }}
-                                    </small>
-                                    {% if file.description %}
-                                    <p class="text-muted small mb-0 mt-1">{{ file.description }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-primary btn-sm">
-                                <i class="bi bi-download me-1"></i>Download
-                            </a>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
+  {% if grouped_files %}
+  <div class="accordion" id="filesAccordion">
+    {% for subject_name, subject_files in grouped_files.items() %}
+    <div class="card mb-3 shadow-sm border-0">
+      <!-- Subject Header (accordion toggle) -->
+      <div class="card-header p-0 border-0">
+        <button class="subject-acc-btn w-100 d-flex justify-content-between align-items-center"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#subj{{ loop.index }}"
+                aria-expanded="{{ 'true' if loop.first else 'false' }}">
+          <div class="d-flex align-items-center gap-3">
+            <div class="subject-icon-box">
+              <i class="bi bi-book-half"></i>
             </div>
+            <div class="text-start">
+              <strong class="fs-6">{{ subject_name }}</strong>
+              <br>
+              <small class="opacity-75">
+                {{ subject_files|length }} file{% if subject_files|length != 1 %}s{% endif %}
+                &nbsp;&middot;&nbsp;
+                Teacher: {{ subject_files[0].teacher_name }}
+              </small>
+            </div>
+          </div>
+          <i class="bi bi-chevron-down acc-chevron"></i>
+        </button>
+      </div>
+
+      <!-- File list (collapsible) -->
+      <div id="subj{{ loop.index }}"
+           class="accordion-collapse collapse {% if loop.first %}show{% endif %}">
+        <div class="list-group list-group-flush">
+          {% for file in subject_files %}
+          <div class="list-group-item file-item d-flex justify-content-between align-items-center py-3 px-4">
+            <div class="d-flex align-items-center gap-3">
+              <!-- File type icon -->
+              <div class="file-icon-wrap">
+                {% if file.file_type == 'pdf' %}
+                <i class="bi bi-file-earmark-pdf text-danger fs-3"></i>
+                {% elif file.file_type in ['doc', 'docx'] %}
+                <i class="bi bi-file-earmark-word text-primary fs-3"></i>
+                {% elif file.file_type in ['ppt', 'pptx'] %}
+                <i class="bi bi-file-earmark-slides text-warning fs-3"></i>
+                {% elif file.file_type in ['xls', 'xlsx'] %}
+                <i class="bi bi-file-earmark-excel text-success fs-3"></i>
+                {% elif file.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
+                <i class="bi bi-file-earmark-image text-info fs-3"></i>
+                {% elif file.file_type in ['zip', 'rar'] %}
+                <i class="bi bi-file-earmark-zip text-secondary fs-3"></i>
+                {% else %}
+                <i class="bi bi-file-earmark text-muted fs-3"></i>
+                {% endif %}
+              </div>
+              <div>
+                <div class="fw-semibold">{{ file.title }}</div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                  {% if file.week_number %}
+                  <span class="badge bg-navy" style="font-size:0.7rem;">Week {{ file.week_number }}</span>
+                  {% endif %}
+                  {% if file.description %}
+                  <small class="text-muted">{{ file.description[:60] }}{% if file.description|length > 60 %}...{% endif %}</small>
+                  {% endif %}
+                  <small class="text-muted">
+                    <i class="bi bi-calendar me-1"></i>{{ file.uploaded_at.strftime('%d %b %Y') if file.uploaded_at else 'N/A' }}
+                  </small>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              {% if file.file_type in ['pdf', 'jpg', 'jpeg', 'png', 'gif'] %}
+              <a href="{{ url_for('view_file', file_id=file.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="View">
+                <i class="bi bi-eye"></i>
+              </a>
+              {% endif %}
+              <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn btn-navy btn-sm">
+                <i class="bi bi-download me-1"></i>Download
+              </a>
+            </div>
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
+      </div>
     </div>
-    {% else %}
-    <div class="card shadow-sm border-0">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-folder-x display-1 text-muted mb-3"></i>
-            <h4 class="text-muted">No Files Available</h4>
-            <p class="text-muted mb-0">Your teachers haven't uploaded any files yet.</p>
-        </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card shadow-sm border-0">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-folder-x display-1 text-muted mb-3"></i>
+      <h4 class="text-muted">No Files Available</h4>
+      <p class="text-muted mb-0">Your teachers haven't uploaded any files yet.</p>
     </div>
-    {% endif %}
+  </div>
+  {% endif %}
 </div>
+
+<style>
+  .subject-acc-btn {
+    background: #1C0770;
+    color: #fff;
+    border: none;
+    padding: 14px 20px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .subject-acc-btn[aria-expanded="false"] {
+    border-radius: 8px;
+  }
+  .subject-acc-btn:hover { background: #2d0fa8; }
+  .subject-acc-btn[aria-expanded="true"] .acc-chevron { transform: rotate(180deg); }
+  .acc-chevron { transition: transform 0.2s; font-size: 1rem; }
+
+  .subject-icon-box {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .file-item {
+    transition: background 0.15s;
+  }
+  .file-item:hover {
+    background: #f8f7ff;
+  }
+
+  .btn-navy {
+    background: #1C0770;
+    color: #fff;
+    border: none;
+  }
+  .btn-navy:hover {
+    background: #2d0fa8;
+    color: #fff;
+  }
+</style>
 {% endblock %}
