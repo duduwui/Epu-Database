@@ -317,12 +317,12 @@ content %}
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        alert('âœ“ ' + data.message);
+        alert('\u2714 ' + data.message);
         // Hide the draft alert
         const draftAlert = document.querySelector('.alert-warning');
         if (draftAlert) draftAlert.remove();
       } else {
-        alert('âœ— ' + data.message);
+        alert('\u2718 ' + data.message);
       }
     })
     .catch(error => {
@@ -466,7 +466,7 @@ content %}
               const input = input1 || input2 || input3;
 
               if (input) {
-                console.log(`  âœ“ Setting value to: ${grade.score}`);
+                console.log(`  \u2714 Setting value to: ${grade.score}`);
                 input.value = grade.score;
                 input.style.backgroundColor = '#d4edda'; // Light green background
                 setTimeout(() => {
@@ -474,7 +474,7 @@ content %}
                 }, 50);
                 successCount++;
               } else {
-                console.log(`  âœ— INPUT NOT FOUND for component_${grade.component_id}`);
+                console.log(`  \u2718 INPUT NOT FOUND for component_${grade.component_id}`);
                 failCount++;
               }
             });

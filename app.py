@@ -231,9 +231,11 @@ def teacher_dashboard():
         if name not in grouped_subjects:
             grouped_subjects[name] = {'count': 0, 'classes': [], 'credits': s.get('credits', 6)}
         grouped_subjects[name]['count'] += 1
-        # Short format: Sec A - S1 - Morning
-        class_info = f"Sec {s.get('section', '')} - S{s.get('semester', '')} - {s.get('shift', '')}"
-        grouped_subjects[name]['classes'].append(class_info)
+        grouped_subjects[name]['classes'].append({
+            'section': s.get('section', ''),
+            'semester': s.get('semester', ''),
+            'shift': s.get('shift', 'morning'),
+        })
     
     return render_template('teacher/dashboard.html', 
                          teacher=teacher,
@@ -1121,18 +1123,16 @@ def admin_assign_subject_to_teacher(teacher_id):
         # Create or get the subject for this semester
         subject_id = db.create_subject(subject_name, semester)
         if subject_id:
-            # Check if assignment already exists
-            existing = db.get_subject_by_name_and_class(subject_name, class_id)
-            if existing and existing.get('assignment_id'):
-                # Update the existing assignment's teacher
-                result = db.update_subject_teacher(existing['assignment_id'], teacher_id)
-                if result:
-                    success_count += 1
+            # Always create a new assignment for this teacher+subject+class.
+            # Multiple teachers can be assigned to the same subject+class independently.
+            # assign_teacher_to_subject uses ON CONFLICT DO NOTHING so duplicates are safe.
+            assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id)
+            if assignment_id:
+                success_count += 1
             else:
-                # Assign teacher to this subject for this class
-                assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id)
-                if assignment_id:
-                    success_count += 1
+                # assignment_id is None means it already existed (ON CONFLICT DO NOTHING)
+                # Still count as success since the assignment is already there
+                success_count += 1
     
     if success_count > 0:
         flash(f'Subject "{subject_name}" assigned to {success_count} class(es) in Semester {semester} successfully!', 'success')
@@ -1154,6 +1154,87 @@ def admin_unassign_subject(assignment_id):
         flash('Error unassigning subject.', 'danger')
     
     return redirect(url_for('admin_teachers'))
+
+
+@app.route('/admin/teachers/unassign-subject-ajax/<int:assignment_id>', methods=['POST'])
+@admin_required
+def admin_unassign_subject_ajax(assignment_id):
+    """AJAX: Remove a teacher assignment without page reload"""
+    result = db.remove_teacher_assignment(assignment_id)
+    if result is not None:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Could not remove assignment'}), 400
+
+
+@app.route('/admin/teachers/<int:teacher_id>/assign-subject-ajax', methods=['POST'])
+@admin_required
+def admin_assign_subject_ajax(teacher_id):
+    """AJAX: Assign a subject to a teacher for multiple classes"""
+    subject_name = request.form.get('subject_name', '').strip()
+    class_ids = request.form.getlist('class_ids')
+
+    if not subject_name or not class_ids:
+        return jsonify({'success': False, 'error': 'Please select a subject and at least one class.'}), 400
+
+    # Get subject semester
+    conn = db.get_db_connection()
+    semester = None
+    if conn:
+        cur = conn.cursor()
+        cur.execute("SELECT semester FROM subjects WHERE LOWER(name) = LOWER(%s) AND semester IS NOT NULL LIMIT 1", (subject_name,))
+        row = cur.fetchone()
+        if row:
+            semester = row[0]
+        cur.close()
+        conn.close()
+
+    if not semester:
+        conn2 = db.get_db_connection()
+        if conn2:
+            cur2 = conn2.cursor()
+            cur2.execute("SELECT DISTINCT semester FROM classes WHERE id = ANY(%s)", (class_ids,))
+            rows = cur2.fetchall()
+            semester = rows[0][0] if len(rows) == 1 else None
+            cur2.close()
+            conn2.close()
+
+    if not semester:
+        return jsonify({'success': False, 'error': 'Could not determine semester.'}), 400
+
+    success_count = 0
+    new_assignments = []
+    for class_id in class_ids:
+        subject_id = db.create_subject(subject_name, semester)
+        if subject_id:
+            assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id)
+            success_count += 1
+            # Get class info for return
+            conn3 = db.get_db_connection()
+            if conn3:
+                cur3 = conn3.cursor()
+                cur3.execute("""
+                    SELECT ta.id as assignment_id, s.name, c.year, c.section, c.shift, c.semester
+                    FROM teacher_assignments ta
+                    JOIN subjects s ON ta.subject_id = s.id
+                    JOIN classes c ON ta.class_id = c.id
+                    WHERE ta.teacher_id = %s AND ta.subject_id = %s AND ta.class_id = %s
+                """, (teacher_id, subject_id, class_id))
+                row = cur3.fetchone()
+                if row:
+                    new_assignments.append({
+                        'assignment_id': row[0],
+                        'name': row[1],
+                        'year': row[2],
+                        'section': row[3],
+                        'shift': row[4],
+                        'semester': row[5]
+                    })
+                cur3.close()
+                conn3.close()
+
+    if success_count > 0:
+        return jsonify({'success': True, 'count': success_count, 'assignments': new_assignments})
+    return jsonify({'success': False, 'error': 'Error assigning subject.'}), 400
 
 
 # =============================================
@@ -2560,7 +2641,32 @@ def teacher_homework():
     homework = db.get_homework_by_teacher(teacher['id']) or []
     subjects = db.get_subjects_by_teacher(teacher['id']) or []
     today = date.today().isoformat()
-    return render_template('teacher/homework.html', homework=homework, subjects=subjects, today=today)
+    
+    # Group homework rows by (title, subject_name, due_date) so same HW sent
+    # to multiple classes appears as one row with expandable class list.
+    grouped = {}
+    for hw in homework:
+        due_iso = hw['due_date'].isoformat() if hasattr(hw['due_date'], 'isoformat') else str(hw['due_date'])
+        key = (hw['title'], hw['subject_name'], due_iso)
+        if key not in grouped:
+            grouped[key] = {
+                'ids': [],
+                'title': hw['title'],
+                'description': hw.get('description', ''),
+                'filename': hw.get('filename'),
+                'file_size': hw.get('file_size'),
+                'first_id': hw['id'],   # used for file download
+                'subject_name': hw['subject_name'],
+                'due_date': hw['due_date'],
+                'due_iso': due_iso,
+                'classes': [],
+            }
+        grouped[key]['ids'].append(hw['id'])
+        grouped[key]['classes'].append(hw['class_name'])
+    
+    grouped_homework = list(grouped.values())
+    return render_template('teacher/homework.html', grouped_homework=grouped_homework,
+                           homework=homework, subjects=subjects, today=today)
 
 
 @app.route('/teacher/homework/add', methods=['GET', 'POST'])
@@ -2663,6 +2769,33 @@ def teacher_delete_homework(homework_id):
         flash('Homework marked as done and removed successfully!', 'success')
     else:
         flash('Error: Could not delete homework. You can only delete your own homework.', 'danger')
+    
+    return redirect(url_for('teacher_homework'))
+
+
+@app.route('/teacher/homework/delete-group', methods=['POST'])
+@teacher_required
+def teacher_delete_homework_group():
+    """Delete a group of homework rows (same HW sent to multiple classes) at once"""
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash('Teacher profile not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    ids_raw = request.form.get('homework_ids', '')
+    deleted = 0
+    for id_str in ids_raw.split(','):
+        try:
+            hw_id = int(id_str.strip())
+            if db.delete_homework(hw_id, teacher['id']):
+                deleted += 1
+        except (ValueError, TypeError):
+            continue
+    
+    if deleted:
+        flash(f'Homework marked as done and removed ({deleted} class(es)).', 'success')
+    else:
+        flash('Could not delete homework.', 'danger')
     
     return redirect(url_for('teacher_homework'))
 
@@ -2819,7 +2952,31 @@ def teacher_files():
     
     files = db.get_lecture_files_by_teacher(teacher['id']) or []
     subjects = db.get_subjects_by_teacher(teacher['id']) or []
-    return render_template('teacher/files.html', files=files, subjects=subjects)
+    
+    # Group file rows by (title, subject_name, week_number, file_name) so a file
+    # uploaded to multiple classes shows as one row with an expandable class list.
+    grouped = {}
+    for f in files:
+        key = (f['title'], f['subject_name'], f.get('week_number'), f.get('file_name'))
+        if key not in grouped:
+            grouped[key] = {
+                'ids': [],
+                'first_id': f['id'],
+                'title': f['title'],
+                'subject_name': f['subject_name'],
+                'file_name': f.get('file_name'),
+                'file_type': f.get('file_type'),
+                'file_size': f.get('file_size'),
+                'week_number': f.get('week_number'),
+                'file_path': f.get('file_path'),
+                'uploaded_at': f.get('uploaded_at'),
+                'classes': [],
+            }
+        grouped[key]['ids'].append(f['id'])
+        grouped[key]['classes'].append(f.get('class_name', ''))
+    
+    grouped_files = list(grouped.values())
+    return render_template('teacher/files.html', grouped_files=grouped_files, files=files, subjects=subjects)
 
 
 @app.route('/teacher/files/upload', methods=['GET', 'POST'])
@@ -2931,6 +3088,40 @@ def teacher_delete_file(file_id):
         flash('File deleted successfully!', 'success')
     else:
         flash('File not found or access denied.', 'danger')
+    
+    return redirect(url_for('teacher_files'))
+
+
+@app.route('/teacher/files/delete-group', methods=['POST'])
+@teacher_required
+def teacher_delete_file_group():
+    """Delete all class copies of a grouped lecture file at once"""
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash('Teacher profile not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    ids_raw = request.form.get('file_ids', '')
+    physical_deleted = False
+    deleted = 0
+    for id_str in ids_raw.split(','):
+        try:
+            fid = int(id_str.strip())
+            file_info = db.get_lecture_file_by_id(fid)
+            if file_info and file_info['teacher_id'] == teacher['id']:
+                # Delete physical file only once (all rows share same path)
+                if not physical_deleted and file_info.get('file_path') and os.path.exists(file_info['file_path']):
+                    os.remove(file_info['file_path'])
+                    physical_deleted = True
+                db.delete_lecture_file(fid)
+                deleted += 1
+        except (ValueError, TypeError):
+            continue
+    
+    if deleted:
+        flash(f'File deleted from {deleted} class(es) successfully!', 'success')
+    else:
+        flash('Could not delete file.', 'danger')
     
     return redirect(url_for('teacher_files'))
 

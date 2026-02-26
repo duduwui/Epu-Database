@@ -131,6 +131,7 @@
                         <button type="button" class="btn btn-outline-secondary active" onclick="changePageSize(25)">25</button>
                         <button type="button" class="btn btn-outline-secondary" onclick="changePageSize(50)">50</button>
                         <button type="button" class="btn btn-outline-secondary" onclick="changePageSize(100)">100</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="changePageSize(99999)">All</button>
                     </div>
                 </div>
                 <nav>
@@ -294,8 +295,8 @@
                             <label for="edit_shift" class="form-label">Shift <span class="text-danger">*</span></label>
                             <select class="form-select" id="edit_shift" name="shift" required>
                                 <option value="">Select Shift</option>
-                                <option value="morning">â˜€ Morning</option>
-                                <option value="night">â˜½ Night</option>
+                                <option value="morning">Morning</option>
+                                <option value="night">Night</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -596,7 +597,7 @@ function renderPagination() {
     // Previous button
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">Â«</a>`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">«</a>`;
     paginationControls.appendChild(prevLi);
     
     // Page numbers
@@ -646,7 +647,7 @@ function renderPagination() {
     // Next button
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">Â»</a>`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">»</a>`;
     paginationControls.appendChild(nextLi);
 }
 

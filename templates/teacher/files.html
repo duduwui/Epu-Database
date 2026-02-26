@@ -25,7 +25,188 @@
             <i class="bi bi-files me-2"></i>My Uploaded Files
         </div>
         <div class="card-body">
-            {% if files %}
+            {% if grouped_files %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Subject</th>
+                            <th>Classes</th>
+                            <th>Week</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grp in grouped_files %}
+                        {% set grp_idx = loop.index %}
+                        <tr>
+                            <!-- File info -->
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if grp.file_type in ['pdf'] %}
+                                    <i class="bi bi-file-pdf text-danger fs-4 me-2"></i>
+                                    {% elif grp.file_type in ['doc', 'docx'] %}
+                                    <i class="bi bi-file-word text-primary fs-4 me-2"></i>
+                                    {% elif grp.file_type in ['ppt', 'pptx'] %}
+                                    <i class="bi bi-file-ppt text-warning fs-4 me-2"></i>
+                                    {% elif grp.file_type in ['xls', 'xlsx'] %}
+                                    <i class="bi bi-file-excel text-success fs-4 me-2"></i>
+                                    {% elif grp.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
+                                    <i class="bi bi-file-image text-info fs-4 me-2"></i>
+                                    {% elif grp.file_type in ['zip', 'rar'] %}
+                                    <i class="bi bi-file-zip text-secondary fs-4 me-2"></i>
+                                    {% else %}
+                                    <i class="bi bi-file-text fs-4 me-2"></i>
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ grp.title }}</strong>
+                                        <br><small class="text-muted">{{ grp.file_name }}</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Subject -->
+                            <td>{{ grp.subject_name }}</td>
+
+                            <!-- Classes (expandable) -->
+                            <td>
+                                {% if grp.classes | length == 1 %}
+                                  <span class="badge bg-navy">{{ grp.classes[0] | replace('Section', 'Class') }}</span>
+                                {% else %}
+                                  <button class="hw-expand-btn" data-bs-toggle="collapse" data-bs-target="#fclasses-{{ grp_idx }}" aria-expanded="false">
+                                    <i class="bi bi-layers-fill me-1"></i>{{ grp.classes | length }} Classes
+                                    <i class="bi bi-chevron-down expand-arrow ms-1"></i>
+                                  </button>
+                                  <div class="collapse" id="fclasses-{{ grp_idx }}">
+                                    <div class="class-expand-list">
+                                      {% for cls in grp.classes %}
+                                      {% set parts = cls.split(' - ') %}
+                                      {% set section = parts[2].replace('Section ', '').replace('Class ', '') if parts|length > 2 else '' %}
+                                      {% set shift = parts[3].lower() if parts|length > 3 else 'morning' %}
+                                      <span class="class-mini-chip">
+                                        <span class="cmc-sem">{{ parts[1] if parts|length > 1 else '' }}</span>
+                                        <span class="cmc-class">Class {{ section }}</span>
+                                        {% if 'morning' in shift %}
+                                        <span class="cmc-shift cmc-morning"><i class="bi bi-sun-fill"></i></span>
+                                        {% else %}
+                                        <span class="cmc-shift cmc-night"><i class="bi bi-moon-fill"></i></span>
+                                        {% endif %}
+                                      </span>
+                                      {% endfor %}
+                                    </div>
+                                  </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Week -->
+                            <td>
+                                {% if grp.week_number %}
+                                <span class="badge bg-navy-light">Week {{ grp.week_number }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Size -->
+                            <td>
+                                {% if grp.file_size %}
+                                  {% if grp.file_size < 1024 %}{{ grp.file_size }} B
+                                  {% elif grp.file_size < 1048576 %}{{ (grp.file_size / 1024)|round(1) }} KB
+                                  {% else %}{{ (grp.file_size / 1048576)|round(2) }} MB
+                                  {% endif %}
+                                {% else %}-{% endif %}
+                            </td>
+
+                            <!-- Uploaded -->
+                            <td>{{ grp.uploaded_at.strftime('%Y-%m-%d') if grp.uploaded_at else '-' }}</td>
+
+                            <!-- Actions -->
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    {% if grp.file_type in ['pdf', 'jpg', 'jpeg', 'png', 'gif'] %}
+                                    <a href="{{ url_for('view_file', file_id=grp.first_id) }}" class="btn btn-outline-primary btn-sm" target="_blank" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('download_file', file_id=grp.first_id) }}" class="btn btn-outline-success btn-sm" title="Download">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <form action="{{ url_for('teacher_delete_file_group') }}" method="POST" class="d-inline"
+                                          onsubmit="return confirm('Delete this file from all {{ grp.classes|length }} class(es)?');">
+                                        <input type="hidden" name="file_ids" value="{{ grp.ids | join(',') }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <span class="badge bg-navy fs-6">Total Files: {{ grouped_files|length }}</span>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-folder text-muted" style="font-size: 4rem"></i>
+                <h5 class="mt-3">No Files Uploaded Yet</h5>
+                <p class="text-muted">Upload lecture materials for your students to access.</p>
+                <a href="{{ url_for('teacher_upload_file') }}" class="btn btn-primary">
+                    <i class="bi bi-cloud-upload me-1"></i>Upload Your First File
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+  .hw-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #1C0770;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .hw-expand-btn:hover { background: #2d0fa8; }
+  .hw-expand-btn[aria-expanded="true"] .expand-arrow { transform: rotate(180deg); }
+  .expand-arrow { transition: transform 0.2s; font-size: 0.7rem; }
+
+  .class-expand-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 0 2px;
+  }
+  .class-mini-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .cmc-sem { background: #1C0770; color: #fff; padding: 4px 7px; }
+  .cmc-class { padding: 4px 7px; background: #f0edff; color: #1C0770; }
+  .cmc-shift { padding: 4px 6px; font-size: 0.65rem; }
+  .cmc-morning { background: #e8eaf6; color: #3949ab; }
+  .cmc-night { background: #ede7f6; color: #5e35b1; }
+</style>
+{% endblock %}
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>

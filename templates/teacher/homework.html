@@ -18,60 +18,90 @@
   <!-- Homework List -->
   <div class="card">
     <div class="card-body">
-      {% if homework %}
+      {% if grouped_homework %}
       <div class="table-responsive">
-        <table class="table table-hover">
+        <table class="table table-hover align-middle">
           <thead>
             <tr>
               <th>Title</th>
               <th>Subject</th>
-              <th>Semester</th>
+              <th>Classes</th>
               <th>Due Date</th>
               <th>Status</th>
               <th width="100">Action</th>
             </tr>
           </thead>
           <tbody>
-            {% for hw in homework %}
+            {% for grp in grouped_homework %}
+            {% set grp_idx = loop.index %}
             <tr>
+              <!-- Title + file -->
               <td>
-                <strong>{{ hw.title }}</strong>
-                {% if hw.description %}
-                <br /><small class="text-muted"
-                  >{{ hw.description[:50] }}{% if hw.description|length > 50 %}...{% endif %}</small
-                >
+                <strong>{{ grp.title }}</strong>
+                {% if grp.description %}
+                <br /><small class="text-muted">{{ grp.description[:60] }}{% if grp.description|length > 60 %}...{% endif %}</small>
                 {% endif %}
-                {% if hw.filename %}
+                {% if grp.filename %}
                 <br /><small class="text-success">
                   <i class="bi bi-paperclip"></i>
-                  <a href="{{ url_for('download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
-                    {{ hw.filename }} ({{ (hw.file_size / 1024) | round(1) if hw.file_size else 0 }} KB)
+                  <a href="{{ url_for('download_homework_file', homework_id=grp.first_id) }}" target="_blank" class="text-decoration-none">
+                    {{ grp.filename }} ({{ (grp.file_size / 1024) | round(1) if grp.file_size else 0 }} KB)
                   </a>
                 </small>
                 {% endif %}
               </td>
-              <td>{{ hw.subject_name }}</td>
-              <td><span class="badge bg-navy">{{ hw.class_name|replace_section }}</span></td>
-              <td>{{ hw.due_date.strftime('%d/%m/%Y') }}</td>
+
+              <!-- Subject -->
+              <td>{{ grp.subject_name }}</td>
+
+              <!-- Classes (expandable) -->
               <td>
-                {% if hw.due_date.isoformat() < today %}
+                {% if grp.classes | length == 1 %}
+                  <span class="badge bg-navy">{{ grp.classes[0] | replace('Section', 'Class') }}</span>
+                {% else %}
+                  <button class="hw-expand-btn" data-bs-toggle="collapse" data-bs-target="#classes-{{ grp_idx }}" aria-expanded="false">
+                    <i class="bi bi-layers-fill me-1"></i>{{ grp.classes | length }} Classes
+                    <i class="bi bi-chevron-down expand-arrow ms-1"></i>
+                  </button>
+                  <div class="collapse" id="classes-{{ grp_idx }}">
+                    <div class="class-expand-list">
+                      {% for cls in grp.classes %}
+                      {% set parts = cls.split(' - ') %}
+                      {% set section = parts[2].replace('Section ', '').replace('Class ', '') if parts|length > 2 else '' %}
+                      {% set shift = parts[3].lower() if parts|length > 3 else 'morning' %}
+                      <span class="class-mini-chip">
+                        <span class="cmc-sem">{{ parts[1] if parts|length > 1 else '' }}</span>
+                        <span class="cmc-class">Class {{ section }}</span>
+                        {% if 'morning' in shift %}
+                        <span class="cmc-shift cmc-morning"><i class="bi bi-sun-fill"></i></span>
+                        {% else %}
+                        <span class="cmc-shift cmc-night"><i class="bi bi-moon-fill"></i></span>
+                        {% endif %}
+                      </span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+              </td>
+
+              <!-- Due date -->
+              <td>{{ grp.due_date.strftime('%d/%m/%Y') }}</td>
+
+              <!-- Status -->
+              <td>
+                {% if grp.due_iso < today %}
                 <span class="badge bg-secondary">Past Due</span>
                 {% else %}
                 <span class="badge bg-navy-light">Active</span>
                 {% endif %}
               </td>
+
+              <!-- Done (batch delete) -->
               <td>
-                <form
-                  method="POST"
-                  action="{{ url_for('teacher_delete_homework', homework_id=hw.id) }}"
-                  style="display: inline"
-                  onsubmit="
-                    return confirm(
-                      'Are you sure you want to mark this homework as done? This will permanently delete it.'
-                    );
-                  "
-                >
-                  <button type="submit" class="btn btn-success btn-sm" title="Mark as Done">
+                <form method="POST" action="{{ url_for('teacher_delete_homework_group') }}"
+                  onsubmit="return confirm('Mark all {{ grp.classes|length }} class(es) as done and delete?');">
+                  <input type="hidden" name="homework_ids" value="{{ grp.ids | join(',') }}">
+                  <button type="submit" class="btn btn-success btn-sm">
                     <i class="bi bi-check-circle"></i> Done
                   </button>
                 </form>
@@ -94,4 +124,72 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Expand button */
+  .hw-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #1C0770;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .hw-expand-btn:hover {
+    background: #2d0fa8;
+  }
+  .hw-expand-btn[aria-expanded="true"] .expand-arrow {
+    transform: rotate(180deg);
+  }
+  .expand-arrow {
+    transition: transform 0.2s;
+    font-size: 0.7rem;
+  }
+
+  /* Class chip inside expanded list */
+  .class-expand-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 0 2px;
+  }
+  .class-mini-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .cmc-sem {
+    background: #1C0770;
+    color: #fff;
+    padding: 4px 7px;
+  }
+  .cmc-class {
+    padding: 4px 7px;
+    background: #f0edff;
+    color: #1C0770;
+  }
+  .cmc-shift {
+    padding: 4px 6px;
+    font-size: 0.65rem;
+  }
+  .cmc-morning {
+    background: #e8eaf6;
+    color: #3949ab;
+  }
+  .cmc-night {
+    background: #ede7f6;
+    color: #5e35b1;
+  }
+</style>
 {% endblock %}

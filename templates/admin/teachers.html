@@ -368,6 +368,8 @@ content %}
     const classesDataEl = document.getElementById('classesData');
     let teachersData = {};
     let classesData = [];
+    let currentTeacherId = null;
+    let currentTeacherKey = null;
 
     if (teachersDataEl) {
       try {
@@ -447,14 +449,15 @@ content %}
       const email = row.dataset.teacherEmail;
       const phone = row.dataset.teacherPhone;
 
+      currentTeacherId = teacherId;
+      currentTeacherKey = teacherKey;
+
       document.getElementById('modalTeacherName').textContent = row.dataset.teacherName;
       document.getElementById('modalContact').innerHTML =
         (email ? '<i class="bi bi-envelope me-1"></i>' + email : '') +
         (email && phone ? ' &nbsp;|&nbsp; ' : '') +
         (phone ? '<i class="bi bi-telephone me-1"></i>' + phone : '');
       document.getElementById('assignTeacherId').value = teacherId;
-      document.getElementById('quickAssignForm').action =
-        '/admin/teachers/' + teacherId + '/assign-subject';
 
       // Reset form
       document.getElementById('filterMorning').checked = true;
@@ -462,8 +465,18 @@ content %}
       document.getElementById('classCheckboxes').innerHTML =
         '<span class="text-muted small">Select a subject first</span>';
 
-      // Get subjects and calculate stats
-      const subjects = teachersData[teacherKey] || [];
+      refreshSubjectsList();
+
+      // Collapse form on open
+      const assignForm = document.getElementById('assignForm');
+      if (assignForm.classList.contains('show')) {
+        new bootstrap.Collapse(assignForm, { toggle: true });
+      }
+    });
+
+    // --- Refresh the subjects list and stats in the modal from local data ---
+    function refreshSubjectsList() {
+      const subjects = teachersData[currentTeacherKey] || [];
       const uniqueNames = [...new Set(subjects.map((s) => s.name))];
       const morningCount = subjects.filter((s) => s.shift === 'morning').length;
       const nightCount = subjects.filter((s) => s.shift === 'night').length;
@@ -497,11 +510,11 @@ content %}
             classes.forEach((c) => {
               const shiftLabel = c.shift === 'morning' ? 'Morning' : 'Evening';
               html += `
-              <div class="d-inline-flex align-items-center bg-light border rounded px-2 py-1">
+              <div class="d-inline-flex align-items-center bg-light border rounded px-2 py-1" id="assign-chip-${c.assignment_id}">
                 <span class="small">Year ${c.year} - ${c.section} - ${shiftLabel}</span>
-                <form action="/admin/teachers/unassign-subject/${c.assignment_id}" method="POST" class="d-inline ms-2" onsubmit="return confirm('Remove?');">
-                  <button type="submit" class="btn btn-link btn-sm text-danger p-0 lh-1"><i class="bi bi-x"></i></button>
-                </form>
+                <button type="button" class="btn btn-link btn-sm text-danger p-0 lh-1 ms-2 unassign-btn" data-id="${c.assignment_id}" title="Remove">
+                  <i class="bi bi-x"></i>
+                </button>
               </div>`;
             });
             html += `
@@ -517,11 +530,81 @@ content %}
 
       document.getElementById('subjectsList').innerHTML = html;
 
-      // Collapse form on open
-      const assignForm = document.getElementById('assignForm');
-      if (assignForm.classList.contains('show')) {
-        new bootstrap.Collapse(assignForm, { toggle: true });
-      }
+      // Bind unassign buttons
+      document.querySelectorAll('.unassign-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const assignmentId = this.dataset.id;
+          if (!confirm('Remove this assignment?')) return;
+          unassignSubjectAjax(assignmentId);
+        });
+      });
+    }
+
+    // --- AJAX: Unassign subject (modal stays open) ---
+    function unassignSubjectAjax(assignmentId) {
+      fetch('/admin/teachers/unassign-subject-ajax/' + assignmentId, {
+        method: 'POST'
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // Remove from local data
+          const subjects = teachersData[currentTeacherKey] || [];
+          teachersData[currentTeacherKey] = subjects.filter(s => s.assignment_id != assignmentId);
+          refreshSubjectsList();
+        } else {
+          alert('Error: ' + (data.error || 'Could not remove assignment'));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Network error removing assignment.');
+      });
+    }
+
+    // --- AJAX: Assign subject (modal stays open) ---
+    document.getElementById('quickAssignForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const teacherId = currentTeacherId;
+      const btn = this.querySelector('button[type="submit"]');
+      const originalBtnText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Assigning...';
+
+      fetch('/admin/teachers/' + teacherId + '/assign-subject-ajax', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // Add new assignments to local data
+          if (data.assignments) {
+            const existing = teachersData[currentTeacherKey] || [];
+            data.assignments.forEach(a => {
+              // Avoid duplicates
+              if (!existing.find(e => e.assignment_id == a.assignment_id)) {
+                existing.push(a);
+              }
+            });
+            teachersData[currentTeacherKey] = existing;
+          }
+          refreshSubjectsList();
+          // Reset checkboxes
+          document.querySelectorAll('#classCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+        } else {
+          alert('Error: ' + (data.error || 'Could not assign subject'));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Network error assigning subject.');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+      });
     });
   });
 </script>

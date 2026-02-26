@@ -1,28 +1,62 @@
 """
 Database connection and helper functions for MIS System
 """
-import pg8000
-import pg8000.native
+import os
+import sys
+
+# Ensure PostgreSQL libpq is available for psycopg3
+_pg_bin = r"C:\Program Files\PostgreSQL\17\bin"
+if os.path.isdir(_pg_bin) and _pg_bin not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _pg_bin + os.pathsep + os.environ.get("PATH", "")
+
+import psycopg
+from psycopg_pool import ConnectionPool
 from config import config
+
+# =============================================
+# CONNECTION POOL (reuses connections instead of open/close per query)
+# min_size=2: keep 2 idle connections ready
+# max_size=20: allow up to 20 simultaneous connections
+# max_idle=300: close idle connections after 5 minutes
+# =============================================
+_conninfo = psycopg.conninfo.make_conninfo(
+    host=config.DB_HOST,
+    port=int(config.DB_PORT),
+    dbname=config.DB_NAME,
+    user=config.DB_USER,
+    password=config.DB_PASSWORD,
+)
+
+_pool = ConnectionPool(
+    conninfo=_conninfo,
+    min_size=2,
+    max_size=20,
+    max_idle=300,
+    open=True,
+)
 
 
 def get_db_connection():
     """
-    Create and return a database connection.
-    Returns rows as dictionaries using pg8000.
+    Get a connection from the pool.
+    IMPORTANT: caller must return connection via conn.close() (returns to pool, doesn't actually close).
+    For new code, prefer using execute_query/execute_insert_returning instead.
     """
     try:
-        conn = pg8000.connect(
-            host=config.DB_HOST,
-            port=int(config.DB_PORT),
-            database=config.DB_NAME,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD
-        )
+        conn = _pool.getconn()
+        conn.autocommit = False
         return conn
     except Exception as e:
         print(f"Database connection error: {e}")
         return None
+
+
+def return_connection(conn):
+    """Return a connection back to the pool."""
+    try:
+        _pool.putconn(conn)
+    except Exception:
+        pass
 
 
 def row_to_dict(cursor, row):
@@ -35,7 +69,7 @@ def row_to_dict(cursor, row):
 
 def execute_query(query, params=None, fetch_one=False, fetch_all=False):
     """
-    Execute a database query safely.
+    Execute a database query safely using pooled connections.
     
     Args:
         query: SQL query string
@@ -52,7 +86,6 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
     
     try:
         cursor = conn.cursor()
-        # pg8000 requires params to be a tuple or None
         if params is None:
             cursor.execute(query)
         else:
@@ -66,25 +99,29 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
         elif fetch_all:
             rows = cursor.fetchall()
             result = [row_to_dict(cursor, row) for row in rows] if rows else []
-            conn.commit()  # Critical: commit DELETE queries with RETURNING
+            conn.commit()
         else:
             conn.commit()
             result = cursor.rowcount
         
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return result
     
     except Exception as e:
         print(f"Query error: {e}")
-        conn.rollback()
-        conn.close()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
         return [] if fetch_all else None
 
 
 def execute_insert_returning(query, params=None):
     """
     Execute an INSERT query and return the inserted row's ID.
+    Uses pooled connections.
     
     Args:
         query: SQL INSERT query with RETURNING clause
@@ -104,13 +141,16 @@ def execute_insert_returning(query, params=None):
         result = row_to_dict(cursor, row)
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return result['id'] if result else None
     
     except Exception as e:
         print(f"Insert error: {e}")
-        conn.rollback()
-        conn.close()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
         return None
 
 
@@ -1625,7 +1665,7 @@ def assign_teacher_to_subject(teacher_id, subject_id, class_id):
     query = """
         INSERT INTO teacher_assignments (teacher_id, subject_id, class_id, shift)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (teacher_id, subject_id, class_id) DO NOTHING
         RETURNING id
     """
     return execute_insert_returning(query, (teacher_id, subject_id, class_id, class_info['shift']))
