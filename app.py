@@ -15,6 +15,32 @@ from config import config
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
+# Cache static files for 1 hour in the browser
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
+
+# Gzip compress HTML/JSON responses using built-in Python gzip
+import gzip as _gzip
+
+@app.after_request
+def compress_response(response):
+    """Gzip responses >1KB for text/HTML/JSON content types."""
+    if (response.status_code < 200 or response.status_code >= 300
+            or response.direct_passthrough
+            or 'gzip' not in request.accept_encodings):
+        return response
+    content_type = response.content_type or ''
+    if not any(ct in content_type for ct in ('text/', 'application/json', 'application/javascript')):
+        return response
+    data = response.get_data()
+    if len(data) < 1400:  # not worth compressing tiny responses
+        return response
+    compressed = _gzip.compress(data, compresslevel=6)
+    response.set_data(compressed)
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Length'] = len(compressed)
+    response.vary.add('Accept-Encoding')
+    return response
+
 # File Upload Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'zip', 'rar', 'jpg', 'jpeg', 'png', 'gif'}

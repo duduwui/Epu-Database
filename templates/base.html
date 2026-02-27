@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}MIS System{% endblock %}</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Preconnect to CDN domains so browser opens sockets before CSS is parsed -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!-- Bootstrap CSS (render-critical) -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -16,6 +17,15 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
       rel="stylesheet"
     />
+    <!-- Google Fonts loaded async so it never blocks first paint -->
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      onload="this.rel='stylesheet'"
+    />
+    <noscript><link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    /></noscript>
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" />
     {% block extra_css %}{% endblock %}
   </head>
@@ -234,7 +244,7 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 
     <script>
       // Loading Overlay Control
@@ -267,18 +277,23 @@
           });
         });
 
-        // Intercept fetch/AJAX calls to show loading
+        // Intercept fetch/AJAX calls to show loading.
+        // Skip background API calls (schedule save/load, filter AJAX, etc.)
+        // so the spinner doesn't flash on every background request.
+        const BACKGROUND_PATTERNS = ['/api/', '/admin/api/', '/student/api/', '/teacher/api/'];
         const originalFetch = window.fetch;
         window.fetch = function (...args) {
-          showLoading();
+          const url = (typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url)) || '';
+          const isBackground = BACKGROUND_PATTERNS.some((p) => url.includes(p));
+          if (!isBackground) showLoading();
           return originalFetch
             .apply(this, args)
             .then((response) => {
-              hideLoading();
+              if (!isBackground) hideLoading();
               return response;
             })
             .catch((error) => {
-              hideLoading();
+              if (!isBackground) hideLoading();
               throw error;
             });
         };
