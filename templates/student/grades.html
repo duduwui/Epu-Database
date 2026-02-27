@@ -187,14 +187,14 @@
   <!-- Grade Summary Cards -->
   <div class="row mt-4">
     <div class="col-md-4">
-      <div class="card text-center shadow-sm border-primary">
-        <div class="card-body">
+      <div class="card text-center shadow-sm border-primary h-100">
+        <div class="card-body d-flex flex-column justify-content-center">
           {% if subject_info and subject_info.credits and overall_total_max.value > 0 %}
             {% set credits = subject_info.credits %}
             {% set w_score = (overall_total_score.value / overall_total_max.value * credits)|round(2) %}
             <h6 class="text-muted mb-2">Weighted Score</h6>
             <h3 class="mb-0 text-primary">{{ w_score }} / {{ credits }}</h3>
-            <small class="text-muted">({{ credits }}-credit subject)</small>
+            <small class="text-muted mt-1">({{ credits }}-credit subject)</small>
           {% else %}
             <h6 class="text-muted mb-2">Total Score</h6>
             <h3 class="mb-0 text-primary">{{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|int if overall_total_max.value == overall_total_max.value|int else overall_total_max.value|round(1) }}</h3>
@@ -203,8 +203,8 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card text-center shadow-sm border-success">
-        <div class="card-body">
+      <div class="card text-center shadow-sm border-success h-100">
+        <div class="card-body d-flex flex-column justify-content-center">
           <h6 class="text-muted mb-2">Percentage</h6>
           <h3 class="mb-0 text-success">
             {% if overall_total_max.value > 0 %}
@@ -217,8 +217,8 @@
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card text-center shadow-sm border-info">
-        <div class="card-body">
+      <div class="card text-center shadow-sm border-info h-100">
+        <div class="card-body d-flex flex-column justify-content-center">
           <h6 class="text-muted mb-2">Grade Status</h6>
           <h3 class="mb-0 text-info">
             {% if overall_total_max.value > 0 %}
