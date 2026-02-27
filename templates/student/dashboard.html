@@ -48,9 +48,9 @@
     <div class="col-6 col-md-4 mb-2">
       <div class="card shadow-sm h-100 border-0">
         <div class="card-body text-center py-2">
-          <i class="bi bi-book text-info" style="font-size: 1.5rem"></i>
+          <i class="bi bi-journal-bookmark-fill text-info" style="font-size: 1.5rem"></i>
           <h5 class="mb-0 mt-1">{{ weekly_topics|length }}</h5>
-          <small class="text-muted" style="font-size: 0.7rem">Topics</small>
+          <small class="text-muted" style="font-size: 0.7rem">Exam Notes</small>
         </div>
       </div>
     </div>
@@ -152,26 +152,41 @@
     <div class="col-lg-6">
       <!-- Weekly Topics -->
       <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header bg-white border-0 py-3">
-          <i class="bi bi-list-task me-2 text-primary"></i><strong>Topics</strong>
+        <div class="card-header bg-white border-0 py-2">
+          <i class="bi bi-journal-bookmark-fill me-2 text-primary"></i
+          ><strong style="font-size: 0.85rem">Exam &amp; Quiz Notes</strong>
         </div>
         <div class="card-body p-0">
           {% if weekly_topics %}
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto">
-            {% for topic in weekly_topics %}
-            <div class="list-group-item border-0 border-bottom d-flex align-items-center">
-              <span class="badge bg-primary me-2">W{{ topic.week_number }}</span>
-              <div>
-                <strong>{{ topic.topic }}</strong>
-                <small class="text-muted d-block">{{ topic.subject_name }}</small>
+            {% for note in weekly_topics %}
+            {% set type_map = {
+              'exam':    ('danger',  '📝 Exam'),
+              'quiz':    ('warning', '✏️ Quiz'),
+              'report':  ('info',    '📋 Report'),
+              'project': ('success', '💡 Project')
+            } %}
+            {% set tc = type_map.get(note.note_type, ('secondary', note.note_type|title if note.note_type else 'Note')) %}
+            <div class="list-group-item border-0 border-bottom px-3 py-2">
+              <div class="d-flex align-items-start gap-2">
+                <span class="badge bg-{{ tc[0] }} mt-1 flex-shrink-0">{{ tc[1] }}</span>
+                <div>
+                  <div class="fw-semibold" style="font-size:0.85rem;">{{ note.topic }}</div>
+                  <small class="text-muted">{{ note.subject_name }}</small>
+                  {% if note.date_covered %}
+                  <div class="text-primary" style="font-size:0.78rem;">
+                    <i class="bi bi-calendar-event me-1"></i>{{ note.date_covered }}
+                  </div>
+                  {% endif %}
+                </div>
               </div>
             </div>
             {% endfor %}
           </div>
           {% else %}
           <div class="text-center py-4 text-muted">
-            <i class="bi bi-list-ul fs-3"></i>
-            <p class="mb-0 mt-2">No topics yet</p>
+            <i class="bi bi-journal-bookmark fs-3"></i>
+            <p class="mb-0 mt-2">No upcoming exam notes</p>
           </div>
           {% endif %}
         </div>

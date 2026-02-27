@@ -2963,7 +2963,7 @@ def teacher_topics():
 @app.route('/teacher/topics/<int:subject_id>', methods=['GET', 'POST'])
 @teacher_required
 def teacher_manage_topics(subject_id):
-    """Manage weekly topics for a subject"""
+    """Manage exam/quiz notes for a subject"""
     teacher = db.get_teacher_by_user_id(session['user_id'])
     if not teacher:
         flash('Teacher profile not found.', 'danger')
@@ -2976,21 +2976,34 @@ def teacher_manage_topics(subject_id):
         flash('Subject not found or access denied.', 'danger')
         return redirect(url_for('teacher_topics'))
     
-    if request.method == 'POST':
-        week_number = request.form.get('week_number')
-        topic = request.form.get('topic', '').strip()
-        description = request.form.get('description', '').strip()
-        date_covered = request.form.get('date_covered', '')
-        
-        if not week_number or not topic:
-            flash('Please enter week number and topic.', 'warning')
-        else:
-            db.create_weekly_topic(subject['class_id'], subject_id, teacher['id'], 
-                                 int(week_number), topic, description, date_covered if date_covered else None)
-            flash('Topic saved successfully!', 'success')
+    # Handle delete
+    if request.method == 'POST' and request.form.get('action') == 'delete':
+        note_id = request.form.get('note_id', type=int)
+        if note_id:
+            db.delete_exam_note(note_id, teacher['id'])
+            flash('Note deleted.', 'success')
+        return redirect(url_for('teacher_manage_topics', subject_id=subject_id))
     
-    topics = db.get_weekly_topics_by_subject(subject_id) or []
-    return render_template('teacher/manage_topics.html', subject=subject, topics=topics)
+    if request.method == 'POST':
+        note_type = request.form.get('note_type', 'exam').strip()
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        exam_date = request.form.get('exam_date', '')
+        
+        if not title:
+            flash('Please enter a title.', 'warning')
+        else:
+            db.create_exam_note(
+                subject['class_id'], subject_id, teacher['id'],
+                note_type, title,
+                description if description else None,
+                exam_date if exam_date else None
+            )
+            flash('Note saved successfully!', 'success')
+        return redirect(url_for('teacher_manage_topics', subject_id=subject_id))
+    
+    notes = db.get_weekly_topics_by_subject(subject_id) or []
+    return render_template('teacher/manage_topics.html', subject=subject, topics=notes)
 
 
 # =============================================
@@ -3427,6 +3440,8 @@ def init_admin():
         password_hash = generate_password_hash('admin123')
         db.create_user('admin', password_hash, 'System Administrator', 'admin', 'admin@mis.edu', 'admin123')
         print("Default admin created. Username: admin, Password: admin123")
+    # Ensure exam notes column exists
+    db.ensure_exam_notes_column()
 
 
 # =============================================

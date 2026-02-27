@@ -1433,6 +1433,42 @@ def reorder_categories_by_type(subject_id, category_order_list):
 # WEEKLY TOPICS QUERIES
 # =============================================
 
+def ensure_exam_notes_column():
+    """Add note_type column to weekly_topics if it doesn't exist"""
+    try:
+        execute_query("""
+            ALTER TABLE weekly_topics
+            ADD COLUMN IF NOT EXISTS note_type VARCHAR(20) DEFAULT 'exam'
+        """, fetch_all=False)
+    except Exception as e:
+        print(f"ensure_exam_notes_column: {e}")
+
+
+def create_exam_note(class_id, subject_id, teacher_id, note_type, title, description=None, exam_date=None):
+    """Create an exam/quiz/report note (replaces create_weekly_topic)"""
+    # Use max+1 as sequence so each insert is unique
+    seq_row = execute_query(
+        "SELECT COALESCE(MAX(week_number), 0) AS mx FROM weekly_topics WHERE subject_id = %s",
+        (subject_id,), fetch_one=True
+    )
+    seq = (seq_row['mx'] if seq_row else 0) + 1
+    query = """
+        INSERT INTO weekly_topics
+            (class_id, subject_id, teacher_id, week_number, topic, description, date_covered, note_type)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """
+    return execute_insert_returning(query, (class_id, subject_id, teacher_id, seq, title, description, exam_date, note_type))
+
+
+def delete_exam_note(note_id, teacher_id):
+    """Delete an exam note by id (teacher must own it)"""
+    execute_query(
+        "DELETE FROM weekly_topics WHERE id = %s AND teacher_id = %s",
+        (note_id, teacher_id), fetch_all=False
+    )
+
+
 def create_weekly_topic(class_id, subject_id, teacher_id, week_number, topic, description=None, date_covered=None):
     """Create a weekly topic"""
     query = """
@@ -1446,28 +1482,30 @@ def create_weekly_topic(class_id, subject_id, teacher_id, week_number, topic, de
 
 
 def get_weekly_topics_by_class(class_id):
-    """Get all weekly topics for a class"""
+    """Get all exam/quiz notes for a class ordered by date"""
     query = """
-        SELECT wt.*, s.name as subject_name, u.full_name as teacher_name
+        SELECT wt.*, s.name as subject_name, u.full_name as teacher_name,
+               COALESCE(wt.note_type, 'exam') as note_type
         FROM weekly_topics wt
         JOIN subjects s ON wt.subject_id = s.id
         LEFT JOIN teachers t ON wt.teacher_id = t.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE wt.class_id = %s
-        ORDER BY s.name, wt.week_number
+        ORDER BY wt.date_covered ASC NULLS LAST, wt.id DESC
     """
     return execute_query(query, (class_id,), fetch_all=True)
 
 
 def get_weekly_topics_by_subject(subject_id):
-    """Get weekly topics for a subject"""
+    """Get exam/quiz notes for a subject ordered by date"""
     query = """
-        SELECT wt.*, u.full_name as teacher_name
+        SELECT wt.*, u.full_name as teacher_name,
+               COALESCE(wt.note_type, 'exam') as note_type
         FROM weekly_topics wt
         LEFT JOIN teachers t ON wt.teacher_id = t.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE wt.subject_id = %s
-        ORDER BY wt.week_number
+        ORDER BY wt.date_covered ASC NULLS LAST, wt.id DESC
     """
     return execute_query(query, (subject_id,), fetch_all=True)
 

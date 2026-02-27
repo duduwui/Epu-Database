@@ -1,12 +1,12 @@
-{% extends 'base.html' %} {% block title %}Weekly Topics - MIS System{% endblock %} {% block content
+{% extends 'base.html' %} {% block title %}Exam &amp; Quiz Notes - MIS System{% endblock %} {% block content
 %}
 <div class="container">
   <!-- Page Header -->
   <div class="page-header">
     <div class="row align-items-center">
       <div class="col">
-        <h2><i class="bi bi-list-task me-2"></i>Weekly Topics</h2>
-        <p>Track syllabus progress by week</p>
+        <h2><i class="bi bi-journal-bookmark-fill me-2"></i>Exam &amp; Quiz Notes</h2>
+        <p>Set exam dates, quizzes and reports so students are aware</p>
       </div>
     </div>
   </div>
@@ -27,7 +27,7 @@
             data-subject-key="{{ loop.index }}"
           >
             <div class="card-body text-center">
-              <i class="bi bi-list-task text-navy" style="font-size: 2.5rem"></i>
+              <i class="bi bi-journal-bookmark-fill text-navy" style="font-size: 2.5rem"></i>
               <h5 class="mt-3 mb-2 text-navy">{{ subject_name }}</h5>
               <div class="text-muted small">
                 <span class="badge bg-primary">{{ subject_data.classes | length }} Class(es)</span>
@@ -35,7 +35,7 @@
             </div>
             <div class="card-footer bg-light text-center">
               <small class="text-muted"
-                ><i class="bi bi-hand-index me-1"></i>Click to select class</small
+                ><i class="bi bi-hand-index me-1"></i>Click to add/view notes</small
               >
             </div>
           </div>
@@ -68,7 +68,7 @@
     <div class="modal-content">
       <div class="modal-header text-white" style="background: #1C0770;">
         <h5 class="modal-title">
-          <i class="bi bi-funnel me-2"></i>
+          <i class="bi bi-journal-bookmark me-2"></i>
           <span id="modalSubjectName">Select Class</span>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
