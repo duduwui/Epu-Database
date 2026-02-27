@@ -1332,7 +1332,7 @@ content %}
 
     // Update save indicator
     function updateSaveStatus(state, message) {
-      const indicator = document.getElementById('saveIndicator');
+      const indicator = document.getElementById('autoSaveStatus');  // fixed: was 'saveIndicator'
       if (!indicator) return;
 
       indicator.className = 'save-indicator ' + state;
@@ -1342,6 +1342,20 @@ content %}
         indicator.innerHTML = '<i class="bi bi-exclamation-circle"></i> ' + message;
       } else {
         indicator.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + message;
+      }
+    }
+
+    // Show/hide grid loading overlay
+    function setGridLoading(on) {
+      const grid = document.getElementById('scheduleTable');
+      if (!grid) return;
+      grid.style.transition = 'opacity 0.15s';
+      if (on) {
+        grid.style.opacity = '0.35';
+        grid.style.pointerEvents = 'none';
+      } else {
+        grid.style.opacity = '1';
+        grid.style.pointerEvents = '';
       }
     }
 
@@ -1921,6 +1935,9 @@ content %}
 
     // Handle selection changes
     async function handleSelectionChange(newSem, newShift, newSection) {
+      setGridLoading(true);
+
+      // Save to OLD location first, then switch
       await saveSchedule();
 
       currentSemester = newSem || currentSemester;
@@ -1929,11 +1946,12 @@ content %}
 
       updateDisplayBar();
 
-      if (newSem) {
-        await loadSubjectsAndTeachers();
-      }
+      // Fetch new schedule + (if semester changed) new subjects list in parallel
+      const fetches = [loadSchedule()];
+      if (newSem) fetches.push(loadSubjectsAndTeachers());
+      await Promise.all(fetches);
 
-      await loadSchedule();
+      setGridLoading(false);
     }
 
     // Semester pills click handlers
