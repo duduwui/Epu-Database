@@ -945,16 +945,26 @@ def record_attendance(student_id, subject_id, teacher_id, date, status, notes=No
     return execute_insert_returning(query, (student_id, subject_id, teacher_id, date, status, notes))
 
 
-def get_attendance_by_student(student_id):
-    """Get all attendance records for a student"""
-    query = """
-        SELECT a.*, s.name as subject_name
-        FROM attendance a
-        JOIN subjects s ON a.subject_id = s.id
-        WHERE a.student_id = %s
-        ORDER BY a.date DESC
-    """
-    return execute_query(query, (student_id,), fetch_all=True)
+def get_attendance_by_student(student_id, semester=None):
+    """Get attendance records for a student, optionally filtered by semester"""
+    if semester:
+        query = """
+            SELECT a.*, s.name as subject_name
+            FROM attendance a
+            JOIN subjects s ON a.subject_id = s.id
+            WHERE a.student_id = %s AND s.semester = %s
+            ORDER BY a.date DESC
+        """
+        return execute_query(query, (student_id, semester), fetch_all=True)
+    else:
+        query = """
+            SELECT a.*, s.name as subject_name
+            FROM attendance a
+            JOIN subjects s ON a.subject_id = s.id
+            WHERE a.student_id = %s
+            ORDER BY a.date DESC
+        """
+        return execute_query(query, (student_id,), fetch_all=True)
 
 
 def get_attendance_by_subject_date(subject_id, date):
@@ -1970,3 +1980,274 @@ def get_all_schedules():
     return execute_query(query, fetch_all=True)
 
 
+# =============================================
+# STUDENT UPGRADE / PROMOTION
+# =============================================
+
+def ensure_upgrade_tables():
+    """Create upgrade-related tables if they don't exist"""
+    query = """
+    CREATE TABLE IF NOT EXISTS upgrade_history (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        from_semester INTEGER NOT NULL,
+        to_semester INTEGER,
+        from_year INTEGER,
+        to_year INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'passed',
+        details JSONB,
+        upgraded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        upgraded_by INTEGER REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_upgrade_history_student ON upgrade_history(student_id);
+    CREATE INDEX IF NOT EXISTS idx_upgrade_history_semester ON upgrade_history(from_semester);
+    """
+    execute_query(query)
+
+
+def get_semester_upgrade_preview(semester):
+    """Calculate pass/fail for every student in a semester.
+    A student passes only if they score >= 60% in EVERY enrolled subject.
+    Returns dict with 'passed' and 'failed' student lists.
+    """
+    sum_types = ('midterm', 'final')
+
+    # All students in this semester
+    students_query = """
+        SELECT s.id, s.shift, s.section, s.year, u.full_name, s.student_number
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.semester = %s
+        ORDER BY u.full_name
+    """
+    students = execute_query(students_query, (semester,), fetch_all=True) or []
+
+    passed = []
+    failed = []
+
+    for stu in students:
+        # Enrolled subjects
+        enrolled = execute_query("""
+            SELECT sub.id, sub.name, sub.credits
+            FROM student_enrollments se
+            JOIN subjects sub ON se.subject_id = sub.id
+            WHERE se.student_id = %s
+        """, (stu['id'],), fetch_all=True) or []
+
+        if not enrolled:
+            # No enrollments - cannot evaluate - mark as failed
+            failed.append({**dict(stu), 'subjects': [], 'reason': 'No enrollments'})
+            continue
+
+        subject_results = []
+        all_passed = True
+
+        for subj in enrolled:
+            grades = execute_query("""
+                SELECT gc.component_type, g.score, gc.max_score
+                FROM grade_components gc
+                LEFT JOIN grades g ON gc.id = g.component_id
+                    AND g.student_id = %s AND g.subject_id = %s
+                WHERE gc.subject_id = %s
+            """, (stu['id'], subj['id'], subj['id']), fetch_all=True) or []
+
+            if not grades:
+                subject_results.append({'name': subj['name'], 'percentage': 0, 'passed': False})
+                all_passed = False
+                continue
+
+            # Group by component_type
+            grouped = {}
+            for g in grades:
+                t = g['component_type']
+                if t not in grouped:
+                    grouped[t] = []
+                grouped[t].append(g)
+
+            total_score = 0
+            total_max = 0
+            for comp_type, items in grouped.items():
+                gs = sum(float(i['score'] or 0) for i in items)
+                gm = sum(float(i['max_score']) for i in items)
+                cnt = len(items)
+                if comp_type in sum_types:
+                    total_score += gs
+                    total_max += gm
+                else:
+                    total_score += gs / cnt if cnt else 0
+                    total_max += gm / cnt if cnt else 0
+
+            pct = (total_score / total_max * 100) if total_max > 0 else 0
+            subj_passed = pct >= 60
+            subject_results.append({
+                'name': subj['name'],
+                'percentage': round(pct, 1),
+                'passed': subj_passed
+            })
+            if not subj_passed:
+                all_passed = False
+
+        entry = {**dict(stu), 'subjects': subject_results}
+        if all_passed:
+            passed.append(entry)
+        else:
+            failed.append(entry)
+
+    return {'passed': passed, 'failed': failed, 'semester': semester}
+
+
+def execute_semester_upgrade(semester, admin_user_id):
+    """Promote all passing students from `semester` to `semester+1`.
+    Returns counts: {promoted, failed, graduated}.
+    """
+    import json
+    preview = get_semester_upgrade_preview(semester)
+    promoted_count = 0
+    graduated_count = 0
+
+    for stu in preview['passed']:
+        old_sem = semester
+        new_sem = semester + 1
+        old_year = stu.get('year') or (1 if semester <= 2 else 2)
+
+        if semester >= 4:
+            # Semester 4 - graduated
+            new_sem = None
+            new_year = old_year
+            status = 'graduated'
+            graduated_count += 1
+        else:
+            new_year = 1 if new_sem <= 2 else 2
+            status = 'passed'
+            promoted_count += 1
+
+        # Save history
+        details = json.dumps({'subjects': stu['subjects']})
+        execute_query("""
+            INSERT INTO upgrade_history
+                (student_id, from_semester, to_semester, from_year, to_year, status, details, upgraded_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+        """, (stu['id'], old_sem, new_sem, old_year, new_year, status, details, admin_user_id))
+
+        if semester >= 4:
+            # Mark as graduated
+            execute_query("""
+                UPDATE students SET semester = NULL, year = %s WHERE id = %s
+            """, (new_year, stu['id']))
+        else:
+            # Promote: update semester, year, lookup new class_id
+            new_class = execute_query(
+                "SELECT id FROM classes WHERE semester=%s AND shift=%s AND section=%s AND is_active=true LIMIT 1",
+                (new_sem, stu['shift'], stu['section']), fetch_one=True
+            )
+            new_class_id = new_class['id'] if new_class else None
+            execute_query("""
+                UPDATE students SET semester=%s, year=%s, class_id=%s WHERE id=%s
+            """, (new_sem, new_year, new_class_id, stu['id']))
+
+    # Also record failed students in history
+    for stu in preview['failed']:
+        details = json.dumps({'subjects': stu.get('subjects', []), 'reason': stu.get('reason', '')})
+        execute_query("""
+            INSERT INTO upgrade_history
+                (student_id, from_semester, to_semester, from_year, to_year, status, details, upgraded_by)
+            VALUES (%s, %s, %s, %s, %s, 'failed', %s::jsonb, %s)
+        """, (stu['id'], semester, semester, stu.get('year'), stu.get('year'), details, admin_user_id))
+
+    return {
+        'promoted': promoted_count,
+        'failed': len(preview['failed']),
+        'graduated': graduated_count
+    }
+
+
+def get_student_upgrade_history(student_id):
+    """Get promotion history for a student (for viewing old semester data)"""
+    query = """
+        SELECT uh.*, u.full_name as upgraded_by_name
+        FROM upgrade_history uh
+        LEFT JOIN users u ON uh.upgraded_by = u.id
+        WHERE uh.student_id = %s
+        ORDER BY uh.upgraded_at DESC
+    """
+    return execute_query(query, (student_id,), fetch_all=True) or []
+
+
+def get_student_grades_for_semester(student_id, semester):
+    """Get all grades a student had for subjects in a given semester (historical)"""
+    query = """
+        SELECT sub.name as subject_name, sub.credits,
+               gc.component_type, gc.component_name, gc.max_score, gc.weight_percentage,
+               g.score
+        FROM student_enrollments se
+        JOIN subjects sub ON se.subject_id = sub.id
+        JOIN classes c ON sub.class_id = c.id
+        LEFT JOIN grade_components gc ON gc.subject_id = sub.id
+        LEFT JOIN grades g ON g.component_id = gc.id AND g.student_id = %s
+        WHERE se.student_id = %s AND c.semester = %s
+        ORDER BY sub.name, gc.display_order
+    """
+    return execute_query(query, (student_id, student_id, semester), fetch_all=True) or []
+
+
+def get_student_semester_results(student_id, semester):
+    """Calculate per-subject results for a student in a given semester.
+    Returns list of {subject_name, credits, percentage, letter_grade, passed}.
+    """
+    sum_types = ('midterm', 'final')
+
+    enrolled = execute_query("""
+        SELECT sub.id, sub.name, sub.credits
+        FROM student_enrollments se
+        JOIN subjects sub ON se.subject_id = sub.id
+        JOIN classes c ON sub.class_id = c.id
+        WHERE se.student_id = %s AND c.semester = %s
+    """, (student_id, semester), fetch_all=True) or []
+
+    results = []
+    for subj in enrolled:
+        grades = execute_query("""
+            SELECT gc.component_type, g.score, gc.max_score
+            FROM grade_components gc
+            LEFT JOIN grades g ON gc.id = g.component_id
+                AND g.student_id = %s AND g.subject_id = %s
+            WHERE gc.subject_id = %s
+        """, (student_id, subj['id'], subj['id']), fetch_all=True) or []
+
+        grouped = {}
+        for g in grades:
+            t = g['component_type']
+            if t not in grouped:
+                grouped[t] = []
+            grouped[t].append(g)
+
+        total_score = 0
+        total_max = 0
+        for comp_type, items in grouped.items():
+            gs = sum(float(i['score'] or 0) for i in items)
+            gm = sum(float(i['max_score']) for i in items)
+            cnt = len(items)
+            if comp_type in sum_types:
+                total_score += gs
+                total_max += gm
+            else:
+                total_score += gs / cnt if cnt else 0
+                total_max += gm / cnt if cnt else 0
+
+        pct = (total_score / total_max * 100) if total_max > 0 else 0
+
+        if pct >= 90: lg = 'A'
+        elif pct >= 80: lg = 'B'
+        elif pct >= 70: lg = 'C'
+        elif pct >= 60: lg = 'D'
+        else: lg = 'F'
+
+        results.append({
+            'subject_name': subj['name'],
+            'credits': subj.get('credits') or 0,
+            'percentage': round(pct, 1),
+            'letter_grade': lg,
+            'passed': pct >= 60
+        })
+
+    return results

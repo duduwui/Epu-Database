@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+{% block title %}Upgrade Semester {{ semester }} - Admin{% endblock %}
+{% block content %}
+<div class="container" style="max-width:1200px;">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1" style="color:#1C0770;">
+        <i class="bi bi-arrow-up-circle me-2"></i>
+        {% if semester >= 4 %}Graduate{% else %}Upgrade{% endif %} Semester {{ semester }}
+      </h3>
+      <p class="text-muted mb-0">
+        {% if semester >= 4 %}
+          Students scoring &ge; 60% in all subjects &rarr; <strong>graduated</strong>.
+        {% else %}
+          Students scoring &ge; 60% in all subjects &rarr; <strong>Semester {{ semester + 1 }}</strong>.
+        {% endif %}
+        Failed students remain in Semester {{ semester }}.
+      </p>
+    </div>
+    <a href="{{ url_for('admin_classes') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+
+  <!-- KPI Summary -->
+  <div class="row mb-3">
+    <div class="col-md-4 mb-3">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-3">
+          <h2 class="mb-0" style="color:#1C0770;">{{ preview.passed|length + preview.failed|length }}</h2>
+          <small class="text-muted">Total Students</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-3">
+          <h2 class="mb-0 text-success">{{ preview.passed|length }}</h2>
+          <small class="text-muted">Will {{ 'Graduate' if semester >= 4 else 'Pass' }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-3">
+          <h2 class="mb-0 text-danger">{{ preview.failed|length }}</h2>
+          <small class="text-muted">Will Fail</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if preview.passed|length == 0 and preview.failed|length == 0 %}
+  <div class="alert alert-warning text-center">
+    <i class="bi bi-exclamation-triangle me-2"></i>No students found in Semester {{ semester }}.
+  </div>
+  {% else %}
+
+  <!-- Promote Action Card (ALWAYS VISIBLE) -->
+  <div class="card shadow-sm border-0 mb-4" style="border-top:3px solid #1C0770 !important;">
+    <div class="card-body text-center py-3">
+      <div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">
+        <p class="text-muted mb-0 small">
+          <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+          <strong>{{ preview.passed|length }}</strong> student{{ 's' if preview.passed|length != 1 else '' }} will be promoted
+          {% if semester >= 4 %}to <strong>graduated</strong>{% else %}to <strong>Semester {{ semester + 1 }}</strong>{% endif %}
+          &mdash; <strong>{{ preview.failed|length }}</strong> will remain.
+          <strong>Cannot be undone.</strong>
+        </p>
+        <form method="POST" action="{{ url_for('admin_upgrade_execute', semester=semester) }}"
+              onsubmit="return confirm('Are you sure you want to upgrade Semester {{ semester }}? This action cannot be undone.');">
+          <button type="submit" class="btn btn-lg {% if preview.passed|length == 0 %}disabled{% endif %}"
+                  style="background:#1C0770; color:#fff; font-weight:600;{% if preview.passed|length == 0 %} opacity:0.5; pointer-events:none;{% endif %}"
+                  {% if preview.passed|length == 0 %}disabled{% endif %}>
+            <i class="bi bi-{% if semester >= 4 %}mortarboard{% else %}arrow-up-circle{% endif %} me-2"></i>
+            {% if semester >= 4 %}Graduate {{ preview.passed|length }} Students{% else %}Promote {{ preview.passed|length }} to Semester {{ semester + 1 }}{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body py-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
+            <i class="bi bi-funnel me-1"></i>Shift
+          </label>
+          <select class="form-select form-select-sm" id="filterShift" onchange="applyFilters()">
+            <option value="">All Shifts</option>
+            <option value="morning">Morning</option>
+            <option value="night">Night</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
+            <i class="bi bi-grid me-1"></i>Class
+          </label>
+          <select class="form-select form-select-sm" id="filterClass" onchange="applyFilters()">
+            <option value="">All Classes</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
+            <i class="bi bi-search me-1"></i>Search
+          </label>
+          <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="Student name..." oninput="applyFilters()">
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()" title="Clear all filters">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passed Students (Collapsible) -->
+  {% if preview.passed %}
+  <div class="card shadow-sm mb-4 border-0 upgrade-section" id="passedSection">
+    <div class="card-header text-white d-flex justify-content-between align-items-center"
+         style="background:#1C0770; cursor:pointer;" onclick="toggleSection('passed')">
+      <h6 class="mb-0">
+        <i class="bi bi-check-circle me-2"></i>Passing Students
+        <span class="badge bg-white ms-2" style="color:#1C0770;" id="passedCount">{{ preview.passed|length }}</span>
+      </h6>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-light" onclick="event.stopPropagation(); printSection('passed')" title="Print passed students">
+          <i class="bi bi-printer"></i>
+        </button>
+        <span class="badge bg-white" style="color:#1C0770;">&#8593; Semester {{ semester + 1 if semester < 4 else '- Graduate' }}</span>
+        <i class="bi bi-chevron-down text-white" id="passedChevron" style="transition:transform 0.3s;"></i>
+      </div>
+    </div>
+    <div class="card-body p-0" id="passedBody" style="display:none;">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="passedTable">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">#</th>
+              <th>Student</th>
+              <th>ID</th>
+              <th>Shift</th>
+              <th>Class</th>
+              <th>Subjects</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for stu in preview.passed %}
+            <tr data-shift="{{ stu.shift }}" data-class="{{ stu.section }}" data-name="{{ stu.full_name|lower }}">
+              <td>{{ loop.index }}</td>
+              <td class="fw-semibold">{{ stu.full_name }}</td>
+              <td><code>{{ stu.student_number }}</code></td>
+              <td>
+                {% if stu.shift == 'morning' %}
+                <span class="badge text-white" style="background:#1C0770;"><i class="bi bi-sun me-1"></i>Morning</span>
+                {% else %}
+                <span class="badge text-white" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
+                {% endif %}
+              </td>
+              <td>{{ stu.section or '-' }}</td>
+              <td>
+                {% for subj in stu.subjects %}
+                <span class="badge bg-success bg-opacity-75 me-1 mb-1" title="{{ subj.percentage }}%">
+                  {{ subj.name }} <small>({{ subj.percentage }}%)</small>
+                </span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Failed Students (Collapsible) -->
+  {% if preview.failed %}
+  <div class="card shadow-sm mb-4 border-0 upgrade-section" id="failedSection">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center"
+         style="cursor:pointer;" onclick="toggleSection('failed')">
+      <h6 class="mb-0">
+        <i class="bi bi-x-circle me-2"></i>Failed Students
+        <span class="badge bg-white text-danger ms-2" id="failedCount">{{ preview.failed|length }}</span>
+      </h6>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-light" onclick="event.stopPropagation(); printSection('failed')" title="Print failed students">
+          <i class="bi bi-printer"></i>
+        </button>
+        <span class="badge bg-white text-danger">Stay in Semester {{ semester }}</span>
+        <i class="bi bi-chevron-down text-white" id="failedChevron" style="transition:transform 0.3s;"></i>
+      </div>
+    </div>
+    <div class="card-body p-0" id="failedBody" style="display:none;">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="failedTable">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">#</th>
+              <th>Student</th>
+              <th>ID</th>
+              <th>Shift</th>
+              <th>Class</th>
+              <th>Subjects / Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for stu in preview.failed %}
+            <tr data-shift="{{ stu.shift }}" data-class="{{ stu.section }}" data-name="{{ stu.full_name|lower }}">
+              <td>{{ loop.index }}</td>
+              <td class="fw-semibold">{{ stu.full_name }}</td>
+              <td><code>{{ stu.student_number }}</code></td>
+              <td>
+                {% if stu.shift == 'morning' %}
+                <span class="badge text-white" style="background:#1C0770;"><i class="bi bi-sun me-1"></i>Morning</span>
+                {% else %}
+                <span class="badge text-white" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
+                {% endif %}
+              </td>
+              <td>{{ stu.section or '-' }}</td>
+              <td>
+                {% if stu.reason %}
+                  <span class="badge bg-warning text-dark">{{ stu.reason }}</span>
+                {% endif %}
+                {% for subj in stu.subjects %}
+                <span class="badge {% if subj.passed %}bg-success bg-opacity-75{% else %}bg-danger{% endif %} me-1 mb-1">
+                  {{ subj.name }} <small>({{ subj.percentage }}%)</small>
+                </span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+  // Toggle collapse
+  function toggleSection(type) {
+    const body = document.getElementById(type + 'Body');
+    const chevron = document.getElementById(type + 'Chevron');
+    if (body.style.display === 'none') {
+      body.style.display = 'block';
+      chevron.style.transform = 'rotate(180deg)';
+    } else {
+      body.style.display = 'none';
+      chevron.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  // Clear filters
+  function clearFilters() {
+    document.getElementById('filterShift').value = '';
+    document.getElementById('filterClass').value = '';
+    document.getElementById('filterSearch').value = '';
+    applyFilters();
+  }
+
+  // Print a specific section
+  function printSection(type) {
+    const section = document.getElementById(type + 'Section');
+    if (!section) return;
+    const body = document.getElementById(type + 'Body');
+    const wasHidden = body.style.display === 'none';
+    if (wasHidden) body.style.display = 'block';
+
+    const title = type === 'passed'
+      ? 'Passing Students — Semester {{ semester }}'
+      : 'Failed Students — Semester {{ semester }}';
+
+    const table = document.getElementById(type + 'Table');
+    if (!table) return;
+
+    // Build plain text rows from visible rows
+    const clone = table.cloneNode(true);
+    clone.querySelectorAll('tbody tr').forEach(r => {
+      if (r.style.display === 'none') r.remove();
+    });
+    // Strip badges/spans — extract text only for shift & subjects columns
+    clone.querySelectorAll('.badge, span').forEach(el => {
+      el.replaceWith(document.createTextNode(el.textContent.trim() + ' '));
+    });
+    clone.querySelectorAll('code').forEach(el => {
+      el.replaceWith(document.createTextNode(el.textContent));
+    });
+
+    const printWin = window.open('', '_blank', 'width=900,height=700');
+    printWin.document.write('<html><head><title>' + title + '</title>');
+    printWin.document.write('<style>');
+    printWin.document.write('body{padding:20px;font-family:Arial,sans-serif;font-size:13px;color:#000}');
+    printWin.document.write('h4{margin-bottom:4px}');
+    printWin.document.write('p.sub{color:#555;font-size:12px;margin-bottom:12px}');
+    printWin.document.write('table{width:100%;border-collapse:collapse;margin-top:8px}');
+    printWin.document.write('th,td{border:1px solid #000;padding:6px 8px;text-align:left;color:#000;font-weight:normal}');
+    printWin.document.write('th{background:#eee;font-weight:bold;font-size:12px}');
+    printWin.document.write('td{font-size:12px}');
+    printWin.document.write('@media print{body{padding:0}}');
+    printWin.document.write('</style></head><body>');
+    printWin.document.write('<h4>' + title + '</h4>');
+    printWin.document.write('<p class="sub">Printed: ' + new Date().toLocaleString() + '</p>');
+    printWin.document.write(clone.outerHTML);
+    printWin.document.write('</body></html>');
+    printWin.document.close();
+    printWin.onload = function() { printWin.print(); };
+
+    if (wasHidden) body.style.display = 'none';
+  }
+
+  // Filter logic
+  function applyFilters() {
+    const shift = document.getElementById('filterShift').value.toLowerCase();
+    const cls = document.getElementById('filterClass').value;
+    const search = document.getElementById('filterSearch').value.toLowerCase();
+
+    ['passed', 'failed'].forEach(type => {
+      const table = document.getElementById(type + 'Table');
+      if (!table) return;
+      const rows = table.querySelectorAll('tbody tr');
+      let visible = 0;
+      rows.forEach((row, i) => {
+        const rShift = row.dataset.shift || '';
+        const rClass = row.dataset.class || '';
+        const rName = row.dataset.name || '';
+        let show = true;
+        if (shift && rShift !== shift) show = false;
+        if (cls && rClass !== cls) show = false;
+        if (search && !rName.includes(search)) show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) {
+          visible++;
+          row.querySelector('td').textContent = visible;
+        }
+      });
+      const countBadge = document.getElementById(type + 'Count');
+      if (countBadge) countBadge.textContent = visible;
+    });
+  }
+</script>
+{% endblock %}

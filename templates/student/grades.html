@@ -24,16 +24,26 @@
     </div>
   </div>
 
-  <!-- Subject Selection -->
+  <!-- Semester & Subject Selection -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-      <div class="row align-items-center">
+      <div class="row align-items-end g-3">
         <div class="col-md-4">
-          <label class="form-label mb-0">
-            <i class="bi bi-funnel me-1"></i>Select Subject:
+          <label class="form-label mb-1 small fw-semibold" style="color:#1C0770;">
+            <i class="bi bi-calendar3 me-1"></i>Semester
           </label>
+          <select class="form-select" id="semesterSelect" onchange="changeSemester()">
+            {% for sem in available_semesters %}
+            <option value="{{ sem }}" {% if selected_semester == sem %}selected{% endif %}>
+              Semester {{ sem }}{% if sem == current_semester %} (Current){% endif %}
+            </option>
+            {% endfor %}
+          </select>
         </div>
         <div class="col-md-8">
+          <label class="form-label mb-1 small fw-semibold" style="color:#1C0770;">
+            <i class="bi bi-funnel me-1"></i>Subject
+          </label>
           <select class="form-select" id="subjectSelect" onchange="loadGrades()">
             <option value="">-- Select a Subject --</option>
             {% for subject in enrolled_subjects %}
@@ -75,26 +85,17 @@
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th class="text-end" style="width: 30%;">Score / Max</th>
-              <th class="text-end" style="width: 70%;">Component</th>
+        <table class="table mb-0 grades-tbl">
+          <thead>
+            <tr class="grades-main-header">
+              <th style="width: 72%;">Component</th>
+              <th class="text-center" style="width: 28%;">Score / Max</th>
             </tr>
           </thead>
           <tbody>
-            {% set component_colors = {
-              'homework': 'success',
-              'quiz': 'info',
-              'report': 'warning',
-              'midterm': 'primary',
-              'lab_report': 'secondary',
-              'final': 'danger',
-              'attendance': 'dark'
-            } %}
             {# Types where sub-components are SUMMED (not averaged) #}
             {% set sum_types = ['midterm', 'final'] %}
-            
+
             {# Group grades by component type #}
             {% set grouped_grades = {} %}
             {% for grade in grades_data %}
@@ -104,91 +105,78 @@
               {% endif %}
               {% set _ = grouped_grades[type_key].append(grade) %}
             {% endfor %}
-            
-            {# Calculate overall total from group averages #}
+
+            {# Calculate overall totals #}
             {% set overall_total_score = namespace(value=0) %}
             {% set overall_total_max = namespace(value=0) %}
-            
+
             {# Display each group #}
             {% for component_type, group_grades in grouped_grades.items() %}
-              {# Calculate group totals #}
+              {# Accumulate group totals #}
               {% set group_total_score = namespace(value=0) %}
               {% set group_total_max = namespace(value=0) %}
+              {% set group_weight = namespace(value=0) %}
               {% set group_count = group_grades|length %}
-              
+
               {% for grade in group_grades %}
                 {% if grade.score is not none %}
                   {% set group_total_score.value = group_total_score.value + grade.score %}
                 {% endif %}
                 {% set group_total_max.value = group_total_max.value + grade.max_score %}
+                {% if grade.weight_percentage %}
+                  {% set group_weight.value = group_weight.value + grade.weight_percentage %}
+                {% endif %}
               {% endfor %}
-              
-              {# For midterm/final: SUM sub-components. For others: AVERAGE. #}
+
+              {# SUM for midterm/final, AVERAGE for all others #}
               {% if component_type in sum_types %}
                 {% set avg_score = group_total_score.value|float %}
-                {% set avg_max = group_total_max.value|float %}
+                {% set avg_max   = group_total_max.value|float %}
               {% else %}
                 {% set avg_score = ((group_total_score.value|float) / group_count) if group_count > 0 else 0 %}
-                {% set avg_max = ((group_total_max.value|float) / group_count) if group_count > 0 else 0 %}
+                {% set avg_max   = ((group_total_max.value|float)   / group_count) if group_count > 0 else 0 %}
               {% endif %}
               {% set overall_total_score.value = overall_total_score.value + avg_score %}
-              {% set overall_total_max.value = overall_total_max.value + avg_max %}
-              
-              {# Component Type Header Row #}
-              <tr class="table-{{ component_colors.get(component_type, 'secondary') }} fw-bold">
-                <td colspan="1" class="text-end"></td>
-                <td class="text-end pe-4">
-                  <span class="badge bg-{{ component_colors.get(component_type, 'secondary') }} me-2">
-                    {{ component_type }}
-                  </span>
-                </td>
-              </tr>
-              
+              {% set overall_total_max.value   = overall_total_max.value   + avg_max %}
+
               {# Individual component rows #}
               {% for grade in group_grades %}
-              <tr class="grade-row {% if grade.score is not none %}has-grade{% endif %}">
-                <td class="text-end">
-                  <span class="badge bg-light text-dark fs-6">
-                    {% if grade.score is not none %}
-                      {{ grade.score|int }}
-                    {% else %}
-                      0
-                    {% endif %}
+              <tr class="grade-item-row">
+                <td class="ps-4">{{ grade.component_name }}</td>
+                <td class="text-center">
+                  <span class="score-chip">
+                    {% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %}
                     / {{ grade.max_score|int }}
                   </span>
                 </td>
-                <td class="text-end pe-4 fw-bold">{{ grade.component_name }}</td>
               </tr>
               {% endfor %}
-              
-              {# Group Total/Average Row #}
+
+              {# ── Navy subtotal row ── #}
               {% if component_type in sum_types %}
-                {% set display_score = group_total_score.value|round(1) %}
-                {% set display_max = group_total_max.value|round(1) %}
-                {% set row_label = 'Total ' + component_type %}
+                {% set sub_score = group_total_score.value|round(1) %}
+                {% set sub_max   = group_total_max.value|round(1) %}
               {% else %}
-                {% set display_score = ((group_total_score.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
-                {% set display_max = ((group_total_max.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
-                {% set row_label = 'Average ' + component_type %}
+                {% set sub_score = ((group_total_score.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
+                {% set sub_max   = ((group_total_max.value|float)   / group_count)|round(1) if group_count > 0 else 0 %}
               {% endif %}
-              <tr class="table-light border-bottom border-2">
-                <td class="text-end">
-                  <strong class="text-{{ component_colors.get(component_type, 'secondary') }}">
-                    {{ display_score }} / {{ display_max }}
-                  </strong>
-                </td>
-                <td class="text-end pe-4">
-                  <strong>{{ row_label | title }}</strong>
+              {% set sub_label = component_type | replace('_',' ') | title %}
+              <tr class="grade-subtotal-row">
+                <td class="fw-bold ps-4">{{ sub_label }}</td>
+                <td class="text-center">
+                  <strong>{{ sub_score }} / {{ sub_max }}</strong>
                 </td>
               </tr>
             {% endfor %}
-            
-            <!-- Overall Total Row -->
-            <tr class="table-primary fw-bold fs-5">
-              <td class="text-end">
-                <span class="badge bg-primary fs-6">{{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|round(1) }}</span>
+
+            <!-- Overall Total -->
+            <tr class="grade-total-row">
+              <td class="fw-bold ps-4">Total Score</td>
+              <td class="text-center">
+                <span class="total-chip">
+                  {{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|round(1) }}
+                </span>
               </td>
-              <td class="text-end pe-4">Total Score</td>
             </tr>
           </tbody>
         </table>
@@ -250,24 +238,111 @@
 </div>
 
 <style>
-  .grade-row {
-    transition: background-color 0.2s;
+  /* Table base */
+  .grades-tbl { border-collapse: separate; border-spacing: 0; }
+  .grades-tbl td, .grades-tbl th { vertical-align: middle; }
+
+  /* Main header */
+  .grade-main-header th,
+  .grades-tbl thead tr th {
+    background: #1C0770;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border: none;
   }
-  .grade-row:hover {
-    background-color: #f8f9fa;
+
+  /* Section header (category label row) */
+  .grade-section-header {
+    background: #f0f0f8;
+    border-top: 2px solid #1C0770;
   }
-  .grade-row.has-grade {
-    background-color: #e7f3e7;
+  .grade-section-header td { padding: 8px 16px; }
+  .grade-section-label {
+    font-size: 0.95rem;
+    color: #1C0770;
+    letter-spacing: .02em;
+  }
+
+  /* Weight badge (the "10%" pill) */
+  .weight-badge {
+    display: inline-block;
+    background: #1C0770;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+
+  /* Individual item rows */
+  .grade-item-row td { padding: 9px 16px; border-bottom: 1px solid #eee; }
+  .grade-item-row:hover { background: #f8f7ff; }
+
+  /* Score chip (0 / 10 display) */
+  .score-chip {
+    display: inline-block;
+    background: #eef0ff;
+    color: #1C0770;
+    font-weight: 600;
+    font-size: 0.88rem;
+    padding: 3px 12px;
+    border-radius: 20px;
+    min-width: 72px;
+    text-align: center;
+  }
+
+  /* Navy subtotal row */
+  tr.grade-subtotal-row,
+  tr.grade-subtotal-row td {
+    background-color: #1C0770 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border: none !important;
+    padding: 10px 16px;
+  }
+  tr.grade-subtotal-row strong {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+  }
+
+  /* Overall total row (slightly lighter navy) */
+  .grade-total-row {
+    background: #150555;
+    color: #fff !important;
+    font-size: 1.05rem;
+  }
+  .grade-total-row td { padding: 11px 16px; border: none; color: #fff !important; }
+
+  /* Total chip */
+  .total-chip {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 4px 16px;
+    border-radius: 20px;
+    min-width: 90px;
+    text-align: center;
   }
 </style>
 
 <script>
+  function changeSemester() {
+    const semester = document.getElementById('semesterSelect').value;
+    window.location.href = `{{ url_for('student_grades') }}?semester=${semester}`;
+  }
   function loadGrades() {
     const subjectId = document.getElementById('subjectSelect').value;
+    const semester = document.getElementById('semesterSelect').value;
     if (subjectId) {
-      window.location.href = `{{ url_for('student_grades') }}?subject_id=${subjectId}`;
+      window.location.href = `{{ url_for('student_grades') }}?semester=${semester}&subject_id=${subjectId}`;
     } else {
-      window.location.href = `{{ url_for('student_grades') }}`;
+      window.location.href = `{{ url_for('student_grades') }}?semester=${semester}`;
     }
   }
 </script>

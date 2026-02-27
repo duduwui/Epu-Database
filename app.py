@@ -258,12 +258,12 @@ def student_dashboard():
         flash('Student profile not found.', 'danger')
         return redirect(url_for('dashboard'))
     
-    attendance = db.get_attendance_by_student(student['id']) or []
     grades = db.get_grades_by_student(student['id']) or []
     
     homework = []
     weekly_topics = []
     schedule_data = None
+    current_semester = None
     
     if student['class_id']:
         homework = db.get_homework_by_class(student['class_id']) or []
@@ -273,11 +273,15 @@ def student_dashboard():
         # student record should have year, semester, section info
         class_info = db.execute_query('SELECT year, semester, section, shift FROM classes WHERE id = %s', (student['class_id'],), fetch_one=True)
         if class_info:
+            current_semester = class_info['semester']
             schedule_data = db.get_class_schedule_data(
                 class_info['semester'],
                 class_info['shift'],
                 class_info['section']
             )
+    
+    # Filter attendance by current semester so promoted students only see current data
+    attendance = db.get_attendance_by_student(student['id'], semester=current_semester) or []
     
     today = date.today().isoformat()
     return render_template('student/dashboard.html',
@@ -414,8 +418,24 @@ def student_grades():
         flash('Student profile not found.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get enrolled subjects
-    enrolled_subjects = db.get_enrolled_subjects_for_student(student['id']) or []
+    # Get all enrolled subjects (across all semesters)
+    all_enrolled = db.get_enrolled_subjects_for_student(student['id']) or []
+    
+    # Build a list of distinct semesters the student has subjects in
+    semester_set = set()
+    for subj in all_enrolled:
+        if subj.get('semester'):
+            semester_set.add(subj['semester'])
+    available_semesters = sorted(semester_set)
+    
+    # Current student semester (default view)
+    current_semester = student.get('semester') or (max(available_semesters) if available_semesters else 1)
+    
+    # Selected semester from query param (defaults to current)
+    selected_semester = request.args.get('semester', type=int) or current_semester
+    
+    # Filter subjects to only the selected semester
+    enrolled_subjects = [s for s in all_enrolled if s.get('semester') == selected_semester]
     
     # Get selected subject from query parameter
     selected_subject_id = request.args.get('subject_id', type=int)
@@ -426,16 +446,17 @@ def student_grades():
     total_max = 0
     
     if selected_subject_id:
-        # Get grades for selected subject
-        grades_data = db.get_student_grades_for_subject(student['id'], selected_subject_id) or []
-        # Get subject info
-        subject_info = next((s for s in enrolled_subjects if s['id'] == selected_subject_id), None)
-        
-        # Calculate totals
-        for grade in grades_data:
-            if grade.get('score') is not None:
-                total_score += float(grade['score'])
-            total_max += float(grade['max_score'])
+        # Verify the selected subject is in the filtered list
+        if any(s['id'] == selected_subject_id for s in enrolled_subjects):
+            grades_data = db.get_student_grades_for_subject(student['id'], selected_subject_id) or []
+            subject_info = next((s for s in enrolled_subjects if s['id'] == selected_subject_id), None)
+            for grade in grades_data:
+                if grade.get('score') is not None:
+                    total_score += float(grade['score'])
+                total_max += float(grade['max_score'])
+        else:
+            # Subject not in selected semester, reset
+            selected_subject_id = None
     
     return render_template('student/grades.html', 
                          enrolled_subjects=enrolled_subjects,
@@ -444,13 +465,16 @@ def student_grades():
                          grades_data=grades_data,
                          total_score=total_score,
                          total_max=total_max,
-                         student=student)
+                         student=student,
+                         available_semesters=available_semesters,
+                         selected_semester=selected_semester,
+                         current_semester=current_semester)
 
 
 @app.route('/student/results')
 @login_required
 def student_results():
-    """View student final results/transcript"""
+    """View student final results/transcript — grouped by semester"""
     if session.get('role') != 'student':
         flash('Unauthorized access.', 'danger')
         return redirect(url_for('dashboard'))
@@ -460,111 +484,126 @@ def student_results():
         flash('Student profile not found.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get enrolled subjects with grades
+    # Types where sub-components are SUMMED (not averaged)
+    sum_types = ['midterm', 'final']
+    
+    # Get all enrolled subjects (across all semesters)
     enrolled_subjects = db.get_enrolled_subjects_for_student(student['id']) or []
     
-    results = []
-    total_credits_earned = 0
-    total_credits_possible = 0
-    grades_exist = False  # Track if any grades exist (published or not)
+    grades_exist = False
     
-    for subject in enrolled_subjects:
-        # Get grades for this subject
-        grades_data = db.get_student_grades_for_subject(student['id'], subject['id']) or []
-        
-        if not grades_data:
+    # Group subjects by semester
+    subjects_by_semester = {}
+    for subj in enrolled_subjects:
+        sem = subj.get('semester') or 0
+        if sem not in subjects_by_semester:
+            subjects_by_semester[sem] = []
+        subjects_by_semester[sem].append(subj)
+    
+    # Build semester_results: list of {semester, year, results[], totals}
+    semester_results = []
+    grand_total_credits = 0
+    grand_total_weighted = 0
+    
+    for sem in sorted(subjects_by_semester.keys()):
+        if sem == 0:
             continue
         
-        # Mark that grades exist for this student (even if not yet published)
-        grades_exist = True
+        sem_subjects = subjects_by_semester[sem]
+        results = []
+        sem_credits_possible = 0
+        sem_credits_earned = 0
+        sem_has_published = False
         
-        # Only show in results if admin has officially published this subject's results
-        if not subject.get('results_published'):
-            continue
-        
-        # Group by component type and calculate averages
-        grouped = {}
-        for grade in grades_data:
-            type_key = grade['component_type']
-            if type_key not in grouped:
-                grouped[type_key] = []
-            grouped[type_key].append(grade)
-        
-        # Calculate total from group averages
-        total_score = 0
-        total_max = 0
-        
-        for component_type, group_grades in grouped.items():
-            group_total_score = sum(float(g['score'] or 0) for g in group_grades)
-            group_total_max = sum(float(g['max_score']) for g in group_grades)
-            group_count = len(group_grades)
+        for subject in sem_subjects:
+            grades_data = db.get_student_grades_for_subject(student['id'], subject['id']) or []
+            if not grades_data:
+                continue
+            grades_exist = True
             
-            if group_count > 0:
-                avg_score = group_total_score / group_count
-                avg_max = group_total_max / group_count
-                total_score += avg_score
-                total_max += avg_max
+            if not subject.get('results_published'):
+                continue
+            
+            sem_has_published = True
+            
+            # Group by component type
+            grouped = {}
+            for grade in grades_data:
+                type_key = grade['component_type']
+                if type_key not in grouped:
+                    grouped[type_key] = []
+                grouped[type_key].append(grade)
+            
+            # Calculate total using sum_types logic
+            total_score = 0
+            total_max = 0
+            
+            for component_type, group_grades in grouped.items():
+                group_total_score = sum(float(g['score'] or 0) for g in group_grades)
+                group_total_max = sum(float(g['max_score']) for g in group_grades)
+                group_count = len(group_grades)
+                
+                if component_type in sum_types:
+                    total_score += group_total_score
+                    total_max += group_total_max
+                elif group_count > 0:
+                    total_score += group_total_score / group_count
+                    total_max += group_total_max / group_count
+            
+            percentage = (total_score / total_max * 100) if total_max > 0 else 0
+            
+            # Letter grade
+            if percentage >= 97: letter_grade = 'A+'
+            elif percentage >= 93: letter_grade = 'A'
+            elif percentage >= 90: letter_grade = 'A-'
+            elif percentage >= 87: letter_grade = 'B+'
+            elif percentage >= 83: letter_grade = 'B'
+            elif percentage >= 80: letter_grade = 'B-'
+            elif percentage >= 77: letter_grade = 'C+'
+            elif percentage >= 73: letter_grade = 'C'
+            elif percentage >= 70: letter_grade = 'C-'
+            elif percentage >= 67: letter_grade = 'D+'
+            elif percentage >= 63: letter_grade = 'D'
+            elif percentage >= 60: letter_grade = 'D-'
+            else: letter_grade = 'F'
+            
+            passed = percentage >= 60
+            credits = subject.get('credits') or 0
+            weighted_score = round(percentage * credits / 100, 3)
+            
+            results.append({
+                'subject_name': subject['name'],
+                'credits': credits,
+                'percentage': round(percentage, 1),
+                'letter_grade': letter_grade,
+                'weighted_score': weighted_score,
+                'passed': passed
+            })
+            
+            sem_credits_possible += credits
+            if passed:
+                sem_credits_earned += credits
         
-        # Calculate percentage and letter grade
-        percentage = (total_score / total_max * 100) if total_max > 0 else 0
-        
-        # Determine letter grade
-        if percentage >= 97:
-            letter_grade = 'A+'
-        elif percentage >= 93:
-            letter_grade = 'A'
-        elif percentage >= 90:
-            letter_grade = 'A-'
-        elif percentage >= 87:
-            letter_grade = 'B+'
-        elif percentage >= 83:
-            letter_grade = 'B'
-        elif percentage >= 80:
-            letter_grade = 'B-'
-        elif percentage >= 77:
-            letter_grade = 'C+'
-        elif percentage >= 73:
-            letter_grade = 'C'
-        elif percentage >= 70:
-            letter_grade = 'C-'
-        elif percentage >= 67:
-            letter_grade = 'D+'
-        elif percentage >= 63:
-            letter_grade = 'D'
-        elif percentage >= 60:
-            letter_grade = 'D-'
-        else:
-            letter_grade = 'F'
-        
-        # Check if passed (60% or higher)
-        passed = percentage >= 60
-        
-        # Weighted score: percentage * (credits / 100)
-        credits = subject.get('credits') or 0
-        weighted_score = round(percentage * credits / 100, 3)
-        
-        results.append({
-            'subject_name': subject['name'],
-            'credits': credits,
-            'percentage': round(percentage, 1),
-            'letter_grade': letter_grade,
-            'weighted_score': weighted_score,
-            'passed': passed
-        })
-        
-        total_credits_possible += credits
-        if passed:
-            total_credits_earned += credits
-    
-    total_weighted_score = round(sum(r['weighted_score'] for r in results), 3)
+        if sem_has_published and results:
+            sem_weighted = round(sum(r['weighted_score'] for r in results), 3)
+            year = 1 if sem <= 2 else 2
+            semester_results.append({
+                'semester': sem,
+                'year': year,
+                'results': results,
+                'total_weighted_score': sem_weighted,
+                'credits_possible': sem_credits_possible,
+                'credits_earned': sem_credits_earned
+            })
+            grand_total_credits += sem_credits_possible
+            grand_total_weighted += sem_weighted
     
     return render_template('student/results.html', 
                          student=student,
-                         results=results,
+                         semester_results=semester_results,
                          grades_exist=grades_exist,
-                         total_weighted_score=total_weighted_score,
-                         total_credits_earned=total_credits_earned,
-                         total_credits_possible=total_credits_possible)
+                         grand_total_weighted=round(grand_total_weighted, 3),
+                         grand_total_credits=grand_total_credits)
 
 
 # =============================================
@@ -823,25 +862,42 @@ def api_student_attendance(student_id, subject_id):
     """API endpoint to get detailed attendance for a student in a specific subject or all subjects"""
     conn = db.get_db_connection()
     cur = conn.cursor()
+    semester_filter = request.args.get('semester', type=int)
     
     try:
         # Check if requesting all subjects
         if subject_id == 'all':
             # Get attendance records for this student across all subjects
-            cur.execute("""
-                SELECT 
-                    a.date,
-                    a.status,
-                    s.name,
-                    t.full_name,
-                    a.notes
-                FROM attendance a
-                JOIN subjects s ON a.subject_id = s.id
-                LEFT JOIN teachers te ON a.teacher_id = te.id
-                LEFT JOIN users t ON te.user_id = t.id
-                WHERE a.student_id = %s
-                ORDER BY a.date DESC
-            """, (student_id,))
+            if semester_filter:
+                cur.execute("""
+                    SELECT 
+                        a.date,
+                        a.status,
+                        s.name,
+                        t.full_name,
+                        a.notes
+                    FROM attendance a
+                    JOIN subjects s ON a.subject_id = s.id
+                    LEFT JOIN teachers te ON a.teacher_id = te.id
+                    LEFT JOIN users t ON te.user_id = t.id
+                    WHERE a.student_id = %s AND s.semester = %s
+                    ORDER BY a.date DESC
+                """, (student_id, semester_filter))
+            else:
+                cur.execute("""
+                    SELECT 
+                        a.date,
+                        a.status,
+                        s.name,
+                        t.full_name,
+                        a.notes
+                    FROM attendance a
+                    JOIN subjects s ON a.subject_id = s.id
+                    LEFT JOIN teachers te ON a.teacher_id = te.id
+                    LEFT JOIN users t ON te.user_id = t.id
+                    WHERE a.student_id = %s
+                    ORDER BY a.date DESC
+                """, (student_id,))
             
             attendance_rows = cur.fetchall()
             attendance_records = []
@@ -3547,6 +3603,50 @@ def admin_add_subject_ajax():
     except Exception as e:
         print(f'Error in admin_add_subject_ajax: {e}')
         return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+
+# =============================================
+# ADMIN - SEMESTER UPGRADE
+# =============================================
+
+@app.route('/admin/upgrade/preview/<int:semester>')
+@admin_required
+def admin_upgrade_preview(semester):
+    """Show pass/fail preview for a semester before upgrading"""
+    if semester < 1 or semester > 4:
+        flash('Invalid semester.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    # Ensure table exists
+    db.ensure_upgrade_tables()
+
+    preview = db.get_semester_upgrade_preview(semester)
+    return render_template('admin/upgrade_preview.html',
+                         preview=preview,
+                         semester=semester)
+
+
+@app.route('/admin/upgrade/execute/<int:semester>', methods=['POST'])
+@admin_required
+def admin_upgrade_execute(semester):
+    """Actually promote passing students"""
+    if semester < 1 or semester > 4:
+        flash('Invalid semester.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    db.ensure_upgrade_tables()
+
+    try:
+        result = db.execute_semester_upgrade(semester, session['user_id'])
+        if semester >= 4:
+            flash(f'Semester {semester} upgrade complete: {result["graduated"]} graduated, {result["failed"]} failed.', 'success')
+        else:
+            flash(f'Semester {semester} upgrade complete: {result["promoted"]} promoted to Semester {semester+1}, {result["failed"]} failed (stay in Semester {semester}).', 'success')
+    except Exception as e:
+        print(f'Error executing upgrade: {e}')
+        flash(f'Error during upgrade: {str(e)}', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
 
 
 # =============================================

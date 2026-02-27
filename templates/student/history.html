@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Academic History - Student{% endblock %}
+{% block content %}
+<div class="container" style="max-width:1000px;">
+
+  <!-- Header -->
+  <div class="card bg-primary text-white shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row align-items-center">
+        <div class="col">
+          <h5 class="mb-1"><i class="bi bi-clock-history me-2"></i>Academic History</h5>
+          <p class="mb-0 opacity-75" style="font-size:0.9rem;">
+            <i class="bi bi-person me-1"></i>{{ student.full_name }}
+            <span class="mx-2">|</span>
+            <i class="bi bi-card-text me-1"></i>{{ student.student_number }}
+          </p>
+        </div>
+        <div class="col-auto">
+          <a href="{{ url_for('student_dashboard') }}" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-arrow-left me-1"></i>Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not semester_data %}
+  <div class="text-center py-5">
+    <i class="bi bi-archive text-muted" style="font-size:4rem;"></i>
+    <h5 class="mt-3 text-muted">No Previous Semester Records</h5>
+    <p class="text-muted">Your academic history will appear here after semester upgrades.</p>
+  </div>
+  {% else %}
+
+  <!-- Timeline of semesters -->
+  {% for sem in semester_data %}
+  <div class="card shadow-sm mb-4 border-0">
+    <div class="card-header d-flex justify-content-between align-items-center"
+         style="background:#1C0770; color:#fff;">
+      <h6 class="mb-0">
+        <i class="bi bi-calendar3 me-2"></i>
+        Year {{ sem.year }} &mdash; Semester {{ sem.semester }}
+      </h6>
+      <div class="d-flex align-items-center gap-2">
+        {% if sem.status == 'passed' %}
+        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Passed</span>
+        {% elif sem.status == 'graduated' %}
+        <span class="badge bg-warning text-dark"><i class="bi bi-mortarboard me-1"></i>Graduated</span>
+        {% else %}
+        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Failed</span>
+        {% endif %}
+        {% if sem.upgraded_at %}
+        <small class="opacity-75">{{ sem.upgraded_at.strftime('%d %b %Y') }}</small>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if sem.results %}
+    <div class="card-body p-0">
+      <table class="table mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Subject</th>
+            <th class="text-center" style="width:90px;">Credits</th>
+            <th class="text-center" style="width:100px;">Score %</th>
+            <th class="text-center" style="width:80px;">Grade</th>
+            <th class="text-center" style="width:90px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in sem.results %}
+          <tr>
+            <td class="fw-semibold">{{ r.subject_name }}</td>
+            <td class="text-center">{{ r.credits }}</td>
+            <td class="text-center">
+              <span class="fw-semibold {% if r.passed %}text-success{% else %}text-danger{% endif %}">
+                {{ r.percentage }}%
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge {% if r.letter_grade == 'F' %}bg-danger{% elif r.letter_grade in ['A','B'] %}bg-success{% else %}bg-primary{% endif %}">
+                {{ r.letter_grade }}
+              </span>
+            </td>
+            <td class="text-center">
+              {% if r.passed %}
+              <i class="bi bi-check-circle-fill text-success"></i>
+              {% else %}
+              <i class="bi bi-x-circle-fill text-danger"></i>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#1C0770; color:#fff;">
+            <td class="fw-bold" colspan="2">Semester Average</td>
+            <td class="text-center fw-bold">
+              {% set total_pct = sem.results | map(attribute='percentage') | list %}
+              {% if total_pct %}
+                {{ (total_pct | sum / total_pct | length) | round(1) }}%
+              {% else %}
+                0%
+              {% endif %}
+            </td>
+            <td></td>
+            <td class="text-center fw-bold">
+              {{ sem.results | selectattr('passed') | list | length }} / {{ sem.results | length }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body text-center text-muted py-4">
+      <i class="bi bi-file-earmark-x me-1"></i>No subject records found for this semester.
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% endif %}
+</div>
+{% endblock %}
