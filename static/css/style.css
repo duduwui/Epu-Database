@@ -80,6 +80,7 @@ body {
 }
 
 body {
+  padding-top: 60px; /* offset for fixed navbar */
   background-color: var(--gray-100);
   font-family:
     'Inter',
