@@ -2041,3 +2041,71 @@ optgroup {
     width: 0px;
   }
 }
+
+/* =============================================
+   MIS UIVERSE LOADER (adapted for EPU-MIS)
+   ============================================= */
+
+.mis-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mis-loader .loading-title {
+  display: block;
+  text-align: center;
+  font-size: 0.82rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  padding-bottom: 10px;
+  color: #888;
+  letter-spacing: 0.04em;
+}
+
+.loading-circle {
+  display: block;
+  border-left: 4px solid;
+  border-top: 4px solid;
+  border-right: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-radius: 50%;
+  margin: 4px auto;
+  animation: mis_spin 1400ms linear infinite;
+  transform-origin: center center;
+}
+
+.loading-circle.sp1 {
+  border-left-color: #1C0770;
+  border-top-color: #1C0770;
+  width: 38px;
+  height: 38px;
+}
+
+.loading-circle.sp2 {
+  border-left-color: #4B35C8;
+  border-top-color: #4B35C8;
+  width: 26px;
+  height: 26px;
+  animation-duration: 1100ms;
+  animation-direction: reverse;
+}
+
+.loading-circle.sp3 {
+  border-left-color: #9D8FFF;
+  border-top-color: #9D8FFF;
+  width: 14px;
+  height: 14px;
+  animation-duration: 800ms;
+}
+
+@keyframes mis_spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Small inline variant */
+.mis-loader-sm .loading-circle.sp1 { width: 20px; height: 20px; border-width: 3px; }
+.mis-loader-sm .loading-circle.sp2 { width: 13px; height: 13px; border-width: 3px; }
+.mis-loader-sm .loading-circle.sp3 { width:  7px; height:  7px; border-width: 2px; }
