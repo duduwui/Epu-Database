@@ -273,16 +273,17 @@ def student_dashboard():
     if student['class_id']:
         homework = db.get_homework_by_class(student['class_id']) or []
         weekly_topics = db.get_weekly_topics_by_class(student['class_id']) or []
-        
-        # Get student's class details from the student record
-        # student record should have year, semester, section info
-        class_info = db.execute_query('SELECT year, semester, section, shift FROM classes WHERE id = %s', (student['class_id'],), fetch_one=True)
-        if class_info:
-            current_semester = class_info['semester']
+
+        # Use students table as the single source of truth for semester/shift/section.
+        # classes.semester can diverge from students.semester when admin reassigns a student;
+        # update_student() now syncs them, but use students table here to stay consistent
+        # with the admin view which also reads from the students table (get_all_students_v2).
+        if student.get('semester'):
+            current_semester = student['semester']
             schedule_data = db.get_class_schedule_data(
-                class_info['semester'],
-                class_info['shift'],
-                class_info['section']
+                student['semester'],
+                student['shift'],
+                student['section']
             )
     
     # Filter attendance by current semester so promoted students only see current data

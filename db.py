@@ -563,19 +563,45 @@ def get_student_by_id(student_id):
 
 
 def update_student(student_id, full_name, email, class_id, student_number, phone):
-    """Update student information"""
-    query = """
-        UPDATE students SET class_id = %s, student_number = %s, phone = %s
-        WHERE id = %s
-    """
-    result = execute_query(query, (class_id, student_number, phone, student_id))
-    
+    """Update student information, syncing semester/shift/section/year from the assigned class"""
+    if class_id:
+        # Sync semester, shift, section, year from the assigned class so both sources stay consistent
+        class_info = execute_query(
+            'SELECT year, semester, shift, section FROM classes WHERE id = %s',
+            (class_id,), fetch_one=True
+        )
+        if class_info:
+            query = """
+                UPDATE students
+                SET class_id = %s, student_number = %s, phone = %s,
+                    year = %s, semester = %s, shift = %s, section = %s
+                WHERE id = %s
+            """
+            result = execute_query(query, (
+                class_id, student_number, phone,
+                class_info['year'], class_info['semester'],
+                class_info['shift'], class_info['section'],
+                student_id
+            ))
+        else:
+            query = """
+                UPDATE students SET class_id = %s, student_number = %s, phone = %s
+                WHERE id = %s
+            """
+            result = execute_query(query, (class_id, student_number, phone, student_id))
+    else:
+        query = """
+            UPDATE students SET class_id = %s, student_number = %s, phone = %s
+            WHERE id = %s
+        """
+        result = execute_query(query, (class_id, student_number, phone, student_id))
+
     # Also update user info
     student = get_student_by_id(student_id)
     if student:
         query2 = "UPDATE users SET full_name = %s, email = %s WHERE id = %s"
         execute_query(query2, (full_name, email, student['user_id']))
-    
+
     return result
 
 
