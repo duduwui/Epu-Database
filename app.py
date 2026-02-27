@@ -99,9 +99,14 @@ def inject_user():
 
 @app.template_filter('replace_section')
 def replace_section_filter(text):
-    """Replace 'Section' with 'Class' in text"""
+    """Replace 'Section' with 'Class' and fix UTF-8 double-encoding artifacts"""
     if text:
-        return text.replace('Section', 'Class')
+        text = text.replace('Section', 'Class')
+        # Fix common UTF-8 double-encoding artifacts
+        text = text.replace('\u00c2\u00b7', '\u00b7')  # Â· -> middot
+        text = text.replace('\u00e2\u0080\u0093', '\u2013')  # en-dash
+        text = text.replace('\u00e2\u0080\u0094', '\u2014')  # em-dash
+        text = text.replace('\u00c2\u00a0', ' ')  # non-breaking space
     return text
 
 

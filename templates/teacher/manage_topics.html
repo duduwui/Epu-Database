@@ -27,10 +27,10 @@
             <div class="mb-3">
               <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
               <select name="note_type" class="form-select" required>
-                <option value="exam">📝 Exam</option>
-                <option value="quiz">✏️ Quiz</option>
-                <option value="report">📋 Report</option>
-                <option value="project">💡 Project</option>
+                <option value="exam">Exam</option>
+                <option value="quiz">Quiz</option>
+                <option value="report">Report</option>
+                <option value="project">Project</option>
               </select>
             </div>
             <div class="mb-3">
@@ -67,18 +67,17 @@
           {% if topics %}
           <div class="list-group list-group-flush">
             {% for note in topics %}
-            {% set type_colors = {
-              'exam':    ('danger',  '📝 Exam'),
-              'quiz':    ('warning', '✏️ Quiz'),
-              'report':  ('info',    '📋 Report'),
-              'project': ('success', '💡 Project')
-            } %}
-            {% set tc = type_colors.get(note.note_type, ('secondary', note.note_type|title)) %}
+            {% set type_icons  = {'exam': 'mortarboard-fill', 'quiz': 'pencil-fill', 'report': 'clipboard-data-fill', 'project': 'lightbulb-fill'} %}
+            {% set type_colors = {'exam': 'danger', 'quiz': 'warning', 'report': 'info', 'project': 'success'} %}
+            {% set type_labels = {'exam': 'Exam', 'quiz': 'Quiz', 'report': 'Report', 'project': 'Project'} %}
+            {% set tc_color = type_colors.get(note.note_type, 'secondary') %}
+            {% set tc_icon  = type_icons.get(note.note_type, 'journal-text') %}
+            {% set tc_label = type_labels.get(note.note_type, note.note_type|title) %}
             <div class="list-group-item px-3 py-3">
               <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-{{ tc[0] }}">{{ tc[1] }}</span>
+                    <span class="badge bg-{{ tc_color }}"><i class="bi bi-{{ tc_icon }} me-1"></i>{{ tc_label }}</span>
                     <strong>{{ note.topic }}</strong>
                   </div>
                   {% if note.date_covered %}

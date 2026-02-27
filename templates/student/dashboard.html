@@ -160,16 +160,15 @@
           {% if weekly_topics %}
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto">
             {% for note in weekly_topics %}
-            {% set type_map = {
-              'exam':    ('danger',  '📝 Exam'),
-              'quiz':    ('warning', '✏️ Quiz'),
-              'report':  ('info',    '📋 Report'),
-              'project': ('success', '💡 Project')
-            } %}
-            {% set tc = type_map.get(note.note_type, ('secondary', note.note_type|title if note.note_type else 'Note')) %}
+            {% set type_icons  = {'exam': 'mortarboard-fill', 'quiz': 'pencil-fill', 'report': 'clipboard-data-fill', 'project': 'lightbulb-fill'} %}
+            {% set type_colors = {'exam': 'danger', 'quiz': 'warning', 'report': 'info', 'project': 'success'} %}
+            {% set type_labels = {'exam': 'Exam', 'quiz': 'Quiz', 'report': 'Report', 'project': 'Project'} %}
+            {% set tc_color = type_colors.get(note.note_type, 'secondary') %}
+            {% set tc_icon  = type_icons.get(note.note_type, 'journal-text') %}
+            {% set tc_label = type_labels.get(note.note_type, note.note_type|title if note.note_type else 'Note') %}
             <div class="list-group-item border-0 border-bottom px-3 py-2">
               <div class="d-flex align-items-start gap-2">
-                <span class="badge bg-{{ tc[0] }} mt-1 flex-shrink-0">{{ tc[1] }}</span>
+                <span class="badge bg-{{ tc_color }} mt-1 flex-shrink-0"><i class="bi bi-{{ tc_icon }} me-1"></i>{{ tc_label }}</span>
                 <div>
                   <div class="fw-semibold" style="font-size:0.85rem;">{{ note.topic }}</div>
                   <small class="text-muted">{{ note.subject_name }}</small>
