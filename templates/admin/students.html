@@ -57,7 +57,7 @@
             <form method="GET" id="filterForm" class="row g-2 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Year</label>
-                    <select name="year" id="filterYear" class="form-select form-select-sm" onchange="updateSemesterFilter(); this.form.submit()">
+                    <select name="year" id="filterYear" class="form-select form-select-sm" onchange="updateSemesterFilter(); applyFilters()">
                         <option value="">All Years</option>
                         <option value="1" {{ 'selected' if request.args.get('year') == '1' }}>Year 1</option>
                         <option value="2" {{ 'selected' if request.args.get('year') == '2' }}>Year 2</option>
@@ -65,7 +65,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Semester</label>
-                    <select name="semester" id="filterSemester" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <select name="semester" id="filterSemester" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Semesters</option>
                         {% set sel_year = request.args.get('year', '') %}
                         {% set sel_sem = request.args.get('semester', '') %}
@@ -85,7 +85,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Shift</label>
-                    <select name="shift" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <select name="shift" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Shifts</option>
                         <option value="morning" {{ 'selected' if request.args.get('shift') == 'morning' }}>☀ Morning</option>
                         <option value="night" {{ 'selected' if request.args.get('shift') == 'night' }}>☾ Night</option>
@@ -93,7 +93,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Class</label>
-                    <select name="section" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <select name="section" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Classes</option>
                         <option value="A" {{ 'selected' if request.args.get('section') == 'A' }}>Class A</option>
                         <option value="B" {{ 'selected' if request.args.get('section') == 'B' }}>Class B</option>
@@ -118,7 +118,7 @@
     </div>
 
     <!-- Students Table -->
-    <div class="card">
+    <div class="card" id="studentsContentArea">
         <div class="card-body">
             {% if students %}
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -370,29 +370,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateEditSemesterOptions(this.value, null);
     });
 
-    // Handle edit button clicks
-    document.querySelectorAll('.edit-student-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const year = this.dataset.year;
-            const semester = this.dataset.semester || '1';
-            
-            // Populate the form with student data
-            document.getElementById('edit_student_id').value = this.dataset.id;
-            document.getElementById('edit_full_name').value = this.dataset.fullname;
-            document.getElementById('edit_email').value = this.dataset.email;
-            document.getElementById('edit_student_number').value = this.dataset.studentnumber;
-            document.getElementById('edit_year').value = year;
-            updateEditSemesterOptions(year, semester);
-            document.getElementById('edit_shift').value = this.dataset.shift;
-            document.getElementById('edit_section').value = this.dataset.section;
-            document.getElementById('edit_phone').value = this.dataset.phone;
-            document.getElementById('edit_password').value = '';
-            
-            // Show the modal
-            editModal.show();
-        });
-    });
-    
     // Handle form submission
     editForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -411,14 +388,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Close modal
                 editModal.hide();
-                
-                // Show success toast
                 document.getElementById('toastMessage').textContent = data.message;
                 toast.show();
-                
-                // Update the table row with new data
                 updateTableRow(studentId, data.student);
             } else {
                 alert('Error: ' + data.message);
@@ -429,7 +401,6 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('An error occurred while saving.');
         })
         .finally(() => {
-            // Re-enable button
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Changes';
         });
@@ -442,27 +413,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const cells = row.querySelectorAll('td');
         
-        // Update Student Number (cell 1)
         cells[1].innerHTML = '<strong>' + (student.student_number || '-') + '</strong>';
-        
-        // Update Full Name (cell 2)
         cells[2].textContent = student.full_name;
         
-        // Update Year (cell 3)
         if (student.year) {
             cells[3].innerHTML = '<span class="badge bg-primary">Year ' + student.year + '</span>';
         } else {
             cells[3].innerHTML = '<span class="badge bg-secondary">-</span>';
         }
         
-        // Update Semester (cell 4)
         if (student.semester) {
             cells[4].innerHTML = '<span class="badge bg-info text-dark">Sem ' + student.semester + '</span>';
         } else {
             cells[4].innerHTML = '<span class="badge bg-secondary">-</span>';
         }
 
-        // Update Shift (cell 5)
         if (student.shift === 'morning') {
             cells[5].innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-sun"></i> Morning</span>';
         } else if (student.shift === 'night') {
@@ -471,17 +436,14 @@ document.addEventListener('DOMContentLoaded', function() {
             cells[5].innerHTML = '<span class="badge bg-secondary">-</span>';
         }
 
-        // Update Class/Section (cell 6)
         if (student.section) {
             cells[6].innerHTML = '<span class="badge bg-success">Class ' + student.section + '</span>';
         } else {
             cells[6].innerHTML = '<span class="badge bg-danger">Not Assigned</span>';
         }
 
-        // Update Email (cell 7)
         cells[7].textContent = student.email || '-';
 
-        // Update the edit button data attributes
         const editBtn = row.querySelector('.edit-student-btn');
         if (editBtn) {
             editBtn.dataset.fullname = student.full_name;
@@ -494,7 +456,78 @@ document.addEventListener('DOMContentLoaded', function() {
             editBtn.dataset.phone = student.phone || '';
         }
     }
+
+    // Expose openEditModal for dynamically-added buttons
+    window._openEditModal = function(btn) {
+        const year = btn.dataset.year;
+        const semester = btn.dataset.semester || '1';
+        document.getElementById('edit_student_id').value = btn.dataset.id;
+        document.getElementById('edit_full_name').value = btn.dataset.fullname;
+        document.getElementById('edit_email').value = btn.dataset.email;
+        document.getElementById('edit_student_number').value = btn.dataset.studentnumber;
+        document.getElementById('edit_year').value = year;
+        updateEditSemesterOptions(year, semester);
+        document.getElementById('edit_shift').value = btn.dataset.shift;
+        document.getElementById('edit_section').value = btn.dataset.section;
+        document.getElementById('edit_phone').value = btn.dataset.phone;
+        document.getElementById('edit_password').value = '';
+        editModal.show();
+    };
+
+    initEditButtons();
 });
+
+// Attach click handlers to edit buttons (re-called after AJAX swap)
+function initEditButtons() {
+    document.querySelectorAll('.edit-student-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            window._openEditModal(this);
+        });
+    });
+}
+
+// --- AJAX filter (no page reload) ---
+let filterDebounce;
+function applyFilters() {
+    clearTimeout(filterDebounce);
+    filterDebounce = setTimeout(() => {
+        const form = document.getElementById('filterForm');
+        const params = new URLSearchParams();
+        ['year','semester','shift','section'].forEach(name => {
+            const el = form.elements[name];
+            if (el && el.value) params.set(name, el.value);
+        });
+        const url = '{{ url_for("admin_students") }}' + (params.toString() ? '?' + params.toString() : '');
+
+        const card = document.getElementById('studentsContentArea');
+        card.style.opacity = '0.45';
+        card.style.pointerEvents = 'none';
+        card.style.transition = 'opacity .15s';
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newCard = doc.getElementById('studentsContentArea');
+                if (newCard) {
+                    card.innerHTML = newCard.innerHTML;
+                    initEditButtons();
+                    filteredRows = Array.from(document.querySelectorAll('.student-row'));
+                    currentPage = 1;
+                    displayPage();
+                    const search = document.getElementById('studentSearch');
+                    if (search) search.addEventListener('input', filterTable);
+                }
+                card.style.opacity = '';
+                card.style.pointerEvents = '';
+                history.pushState(null, '', url);
+            })
+            .catch(() => {
+                card.style.opacity = '';
+                card.style.pointerEvents = '';
+            });
+    }, 150);
+}
 
 // --- Semester filter update based on Year ---
 function updateSemesterFilter() {
