@@ -2077,15 +2077,15 @@ optgroup {
 }
 
 .loading-circle.sp1 {
-  border-left-color: #1C0770;
-  border-top-color: #1C0770;
+  border-left-color: #1c0770;
+  border-top-color: #1c0770;
   width: 38px;
   height: 38px;
 }
 
 .loading-circle.sp2 {
-  border-left-color: #4B35C8;
-  border-top-color: #4B35C8;
+  border-left-color: #4b35c8;
+  border-top-color: #4b35c8;
   width: 26px;
   height: 26px;
   animation-duration: 1100ms;
@@ -2093,19 +2093,43 @@ optgroup {
 }
 
 .loading-circle.sp3 {
-  border-left-color: #9D8FFF;
-  border-top-color: #9D8FFF;
+  border-left-color: #9d8fff;
+  border-top-color: #9d8fff;
   width: 14px;
   height: 14px;
   animation-duration: 800ms;
 }
 
 @keyframes mis_spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Small inline variant */
-.mis-loader-sm .loading-circle.sp1 { width: 20px; height: 20px; border-width: 3px; }
-.mis-loader-sm .loading-circle.sp2 { width: 13px; height: 13px; border-width: 3px; }
-.mis-loader-sm .loading-circle.sp3 { width:  7px; height:  7px; border-width: 2px; }
+.mis-loader-sm .loading-circle.sp1 {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}
+.mis-loader-sm .loading-circle.sp2 {
+  width: 13px;
+  height: 13px;
+  border-width: 3px;
+}
+.mis-loader-sm .loading-circle.sp3 {
+  width: 7px;
+  height: 7px;
+  border-width: 2px;
+}
+
+/* Fix: btn-outline-dark active state text visibility */
+.btn-check:checked + .btn-outline-dark,
+.btn-check:checked + .btn-outline-dark:hover {
+  background-color: #1c0770;
+  border-color: #1c0770;
+  color: #ffffff !important;
+}
