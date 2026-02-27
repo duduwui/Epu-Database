@@ -44,19 +44,25 @@
           <label class="form-label mb-1 small fw-semibold" style="color:#1C0770;">
             <i class="bi bi-funnel me-1"></i>Subject
           </label>
-          <select class="form-select" id="subjectSelect" onchange="loadGrades()">
-            <option value="">-- Select a Subject --</option>
-            {% for subject in enrolled_subjects %}
-            <option value="{{ subject.id }}" {% if selected_subject_id == subject.id %}selected{% endif %}>
-              {{ subject.name }} - {{ subject.credits }} Credits
-            </option>
-            {% endfor %}
-          </select>
+          <div class="position-relative">
+            <select class="form-select" id="subjectSelect" onchange="loadGrades()">
+              <option value="">-- Select a Subject --</option>
+              {% for subject in enrolled_subjects %}
+              <option value="{{ subject.id }}" {% if selected_subject_id == subject.id %}selected{% endif %}>
+                {{ subject.name }} - {{ subject.credits }} Credits
+              </option>
+              {% endfor %}
+            </select>
+            <div id="filterSpinner" class="d-none position-absolute top-50 end-0 translate-middle-y me-3">
+              <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <div id="gradesContent">
   {% if not enrolled_subjects %}
   <!-- No Subjects Message -->
   <div class="alert alert-warning text-center">
@@ -243,6 +249,7 @@
     </div>
   </div>
   {% endif %}
+  </div>{# /gradesContent #}
 </div>
 
 <style>
@@ -340,18 +347,61 @@
 </style>
 
 <script>
-  function changeSemester() {
-    const semester = document.getElementById('semesterSelect').value;
-    window.location.href = `{{ url_for('student_grades') }}?semester=${semester}`;
+  const BASE_URL = '{{ url_for("student_grades") }}';
+
+  function setLoading(on) {
+    document.getElementById('filterSpinner').classList.toggle('d-none', !on);
+    document.getElementById('subjectSelect').disabled = on;
+    document.getElementById('semesterSelect').disabled = on;
   }
-  function loadGrades() {
-    const subjectId = document.getElementById('subjectSelect').value;
-    const semester = document.getElementById('semesterSelect').value;
-    if (subjectId) {
-      window.location.href = `{{ url_for('student_grades') }}?semester=${semester}&subject_id=${subjectId}`;
-    } else {
-      window.location.href = `{{ url_for('student_grades') }}?semester=${semester}`;
+
+  async function fetchGrades(url) {
+    setLoading(true);
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Swap subject options
+      const newSubjectSelect = doc.getElementById('subjectSelect');
+      if (newSubjectSelect) {
+        const sel = document.getElementById('subjectSelect');
+        sel.innerHTML = newSubjectSelect.innerHTML;
+      }
+
+      // Swap grades content
+      const newContent = doc.getElementById('gradesContent');
+      if (newContent) {
+        document.getElementById('gradesContent').innerHTML = newContent.innerHTML;
+      }
+
+      // Update browser URL without reload
+      history.pushState(null, '', url);
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
+
+  function changeSemester() {
+    const semester = document.getElementById('semesterSelect').value;
+    fetchGrades(`${BASE_URL}?semester=${semester}`);
+  }
+
+  function loadGrades() {
+    const subjectId = document.getElementById('subjectSelect').value;
+    const semester  = document.getElementById('semesterSelect').value;
+    const url = subjectId
+      ? `${BASE_URL}?semester=${semester}&subject_id=${subjectId}`
+      : `${BASE_URL}?semester=${semester}`;
+    fetchGrades(url);
+  }
+
+  // Handle browser back/forward
+  window.addEventListener('popstate', () => {
+    fetchGrades(location.href);
+  });
 </script>
 {% endblock %}
