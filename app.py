@@ -503,6 +503,115 @@ def student_grades():
                          current_semester=current_semester)
 
 
+# =============================================
+# STUDENT - EXAM SIGNUP
+# =============================================
+
+@app.route('/student/exams')
+@login_required
+def student_exams():
+    """View exam signup page — final and second round"""
+    if session.get('role') != 'student':
+        flash('Unauthorized access.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    student = db.get_student_by_user_id(session['user_id'])
+    if not student:
+        flash('Student profile not found.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
+    semester = class_info['semester'] if class_info else None
+
+    final_period = db.get_active_exam_period(semester, 'final') if semester else None
+    second_round_period = db.get_active_exam_period(semester, 'second_round') if semester else None
+
+    final_subjects = []
+    second_round_subjects = []
+
+    if final_period:
+        final_subjects = db.get_exam_eligible_subjects(student['id'], 'final')
+    if second_round_period:
+        second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round')
+
+    return render_template('student/exams.html',
+                         student=student,
+                         class_info=class_info,
+                         final_period=final_period,
+                         second_round_period=second_round_period,
+                         final_subjects=final_subjects,
+                         second_round_subjects=second_round_subjects)
+
+
+@app.route('/student/exams/signup/<int:subject_id>/<exam_type>', methods=['POST'])
+@login_required
+def student_exam_signup(subject_id, exam_type):
+    """Sign up for an exam"""
+    if session.get('role') != 'student':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    if exam_type not in ('final', 'second_round'):
+        return jsonify({'success': False, 'error': 'Invalid exam type'}), 400
+
+    student = db.get_student_by_user_id(session['user_id'])
+    if not student:
+        return jsonify({'success': False, 'error': 'Student not found'}), 404
+
+    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
+    semester = class_info['semester'] if class_info else None
+
+    # Verify active period exists
+    period = db.get_active_exam_period(semester, exam_type) if semester else None
+    if not period:
+        return jsonify({'success': False, 'error': 'No active exam period for this type'}), 400
+
+    # Verify eligibility
+    eligible = db.get_exam_eligible_subjects(student['id'], exam_type)
+    subject_ids = [s['id'] for s in eligible if s.get('eligible')]
+    if subject_id not in subject_ids:
+        return jsonify({'success': False, 'error': 'Not eligible for this exam'}), 400
+
+    try:
+        result = db.signup_for_exam(student['id'], subject_id, exam_type)
+        if result:
+            return jsonify({'success': True, 'message': 'Successfully signed up for exam'})
+        else:
+            return jsonify({'success': True, 'message': 'Already signed up'})
+    except Exception as e:
+        print(f"Error signing up for exam: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/student/exams/cancel/<int:subject_id>/<exam_type>', methods=['POST'])
+@login_required
+def student_exam_cancel(subject_id, exam_type):
+    """Cancel an exam signup"""
+    if session.get('role') != 'student':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    if exam_type not in ('final', 'second_round'):
+        return jsonify({'success': False, 'error': 'Invalid exam type'}), 400
+
+    student = db.get_student_by_user_id(session['user_id'])
+    if not student:
+        return jsonify({'success': False, 'error': 'Student not found'}), 404
+
+    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
+    semester = class_info['semester'] if class_info else None
+
+    # Verify active period still open
+    period = db.get_active_exam_period(semester, exam_type) if semester else None
+    if not period:
+        return jsonify({'success': False, 'error': 'Exam period is not active'}), 400
+
+    try:
+        db.cancel_exam_signup(student['id'], subject_id, exam_type)
+        return jsonify({'success': True, 'message': 'Exam signup cancelled'})
+    except Exception as e:
+        print(f"Error cancelling exam signup: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/student/results')
 @login_required
 def student_results():
@@ -2276,6 +2385,76 @@ def admin_delete_enrollment_period(period_id):
         return jsonify({'success': True, 'message': 'Enrollment period deleted successfully'})
     except Exception as e:
         print(f"Error deleting enrollment period: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================
+# ADMIN - EXAM PERIODS
+# =============================================
+
+@app.route('/admin/exam-periods')
+@admin_required
+def admin_exam_periods():
+    """Manage exam periods (final & second round)"""
+    from datetime import datetime
+    periods = db.get_all_exam_periods()
+
+    now = datetime.now()
+    for period in periods:
+        period['is_active'] = period['start_date'] <= now <= period['end_date']
+        period['is_upcoming'] = period['start_date'] > now
+
+    return render_template('admin/exam_periods.html', periods=periods)
+
+
+@app.route('/admin/exam-periods/add', methods=['POST'])
+@admin_required
+def admin_add_exam_period():
+    """Create a new exam period"""
+    from datetime import datetime
+
+    semester = request.form.get('semester', type=int)
+    period_type = request.form.get('period_type')
+    start_date = request.form.get('start_date')
+    end_date = request.form.get('end_date')
+    description = request.form.get('description', '')
+
+    if not all([semester, period_type, start_date, end_date]):
+        return jsonify({'success': False, 'error': 'All fields are required'}), 400
+
+    if period_type not in ('final', 'second_round'):
+        return jsonify({'success': False, 'error': 'Invalid period type'}), 400
+
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+
+        if end_dt <= start_dt:
+            return jsonify({'success': False, 'error': 'End date must be after start date'}), 400
+
+        result = db.create_exam_period(
+            semester, period_type, start_dt, end_dt, description, session['user_id']
+        )
+
+        if result:
+            return jsonify({'success': True, 'message': 'Exam period created successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to create exam period'}), 500
+
+    except Exception as e:
+        print(f"Error creating exam period: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/exam-periods/<int:period_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_exam_period(period_id):
+    """Delete an exam period"""
+    try:
+        db.delete_exam_period(period_id)
+        return jsonify({'success': True, 'message': 'Exam period deleted successfully'})
+    except Exception as e:
+        print(f"Error deleting exam period: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

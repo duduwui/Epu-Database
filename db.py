@@ -774,6 +774,230 @@ def delete_enrollment_period(period_id):
 
 
 # =============================================
+# EXAM PERIODS & SIGNUPS QUERIES
+# =============================================
+
+def create_exam_period(semester, period_type, start_date, end_date, description, created_by):
+    """Create a new exam period (final or second_round)"""
+    query = """
+        INSERT INTO exam_periods (semester, period_type, start_date, end_date, description, created_by)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """
+    return execute_insert_returning(query, (semester, period_type, start_date, end_date, description, created_by))
+
+
+def get_all_exam_periods(semester=None):
+    """Get all exam periods, optionally filtered by semester"""
+    query = """
+        SELECT ep.*, u.full_name as created_by_name
+        FROM exam_periods ep
+        LEFT JOIN users u ON ep.created_by = u.id
+    """
+    if semester:
+        query += " WHERE ep.semester = %s"
+        query += " ORDER BY ep.created_at DESC"
+        return execute_query(query, (semester,), fetch_all=True)
+    else:
+        query += " ORDER BY ep.semester, ep.period_type, ep.created_at DESC"
+        return execute_query(query, fetch_all=True)
+
+
+def get_active_exam_period(semester, period_type):
+    """Get active exam period for a semester and type"""
+    query = """
+        SELECT * FROM exam_periods
+        WHERE semester = %s AND period_type = %s
+        AND CURRENT_TIMESTAMP BETWEEN start_date AND end_date
+        ORDER BY created_at DESC
+        LIMIT 1
+    """
+    return execute_query(query, (semester, period_type), fetch_one=True)
+
+
+def delete_exam_period(period_id):
+    """Delete an exam period"""
+    query = "DELETE FROM exam_periods WHERE id = %s"
+    return execute_query(query, (period_id,))
+
+
+def get_student_midterm_score(student_id, subject_id):
+    """Get student's midterm portion score (all published grades except 'final' component_type).
+    Returns dict with total_score and total_max."""
+    query = """
+        SELECT gc.component_type,
+               COALESCE(g.score, 0) as score,
+               gc.max_score
+        FROM grade_components gc
+        LEFT JOIN grades g ON gc.id = g.component_id
+            AND g.student_id = %s
+            AND g.subject_id = %s
+            AND g.published = TRUE
+        WHERE gc.subject_id = %s
+          AND gc.component_type != 'final'
+        ORDER BY gc.component_type, gc.id
+    """
+    rows = execute_query(query, (student_id, subject_id, subject_id), fetch_all=True) or []
+
+    # Group by component_type and calculate using sum_types logic
+    sum_types = ['midterm', 'final']
+    grouped = {}
+    for row in rows:
+        ct = row['component_type']
+        if ct not in grouped:
+            grouped[ct] = []
+        grouped[ct].append(row)
+
+    total_score = 0
+    total_max = 0
+    for component_type, group in grouped.items():
+        group_score = sum(float(g['score'] or 0) for g in group)
+        group_max = sum(float(g['max_score']) for g in group)
+        count = len(group)
+        if component_type in sum_types:
+            total_score += group_score
+            total_max += group_max
+        elif count > 0:
+            total_score += group_score / count
+            total_max += group_max / count
+
+    return {'total_score': total_score, 'total_max': total_max}
+
+
+def get_exam_eligible_subjects(student_id, exam_type):
+    """Get subjects a student is eligible to sign up for.
+    - final: enrolled subjects where midterm score >= 20/60
+    - second_round: enrolled subjects where total percentage < 60 and results published
+    """
+    enrolled = get_enrolled_subjects_for_student(student_id) or []
+    eligible = []
+
+    if exam_type == 'final':
+        for subj in enrolled:
+            midterm = get_student_midterm_score(student_id, subj['id'])
+            max_val = midterm['total_max']
+            score = midterm['total_score']
+            # Midterm must be >= 20 out of 60 (proportional if max differs)
+            if max_val > 0:
+                normalized = score / max_val * 60
+            else:
+                normalized = 0
+            # Already signed up?
+            existing = get_exam_signup(student_id, subj['id'], 'final')
+            subj['midterm_score'] = round(score, 1)
+            subj['midterm_max'] = round(max_val, 1)
+            subj['midterm_normalized'] = round(normalized, 1)
+            subj['already_signed_up'] = existing is not None
+            if normalized >= 20:
+                subj['eligible'] = True
+            else:
+                subj['eligible'] = False
+            eligible.append(subj)
+    elif exam_type == 'second_round':
+        for subj in enrolled:
+            if not subj.get('results_published'):
+                continue
+            grades_data = get_student_grades_for_subject(student_id, subj['id']) or []
+            if not grades_data:
+                continue
+            # Calculate full percentage (same logic as student_results)
+            sum_types = ['midterm', 'final']
+            grouped = {}
+            for g in grades_data:
+                ct = g['component_type']
+                if ct not in grouped:
+                    grouped[ct] = []
+                grouped[ct].append(g)
+
+            total_score = 0
+            total_max = 0
+            for ct, grp in grouped.items():
+                gs = sum(float(g['score'] or 0) for g in grp)
+                gm = sum(float(g['max_score']) for g in grp)
+                gc = len(grp)
+                if ct in sum_types:
+                    total_score += gs
+                    total_max += gm
+                elif gc > 0:
+                    total_score += gs / gc
+                    total_max += gm / gc
+
+            percentage = (total_score / total_max * 100) if total_max > 0 else 0
+            if percentage >= 60:
+                continue  # Passed — not eligible for second round
+
+            existing = get_exam_signup(student_id, subj['id'], 'second_round')
+            subj['percentage'] = round(percentage, 1)
+            subj['already_signed_up'] = existing is not None
+            subj['eligible'] = True
+            eligible.append(subj)
+
+    return eligible
+
+
+def signup_for_exam(student_id, subject_id, exam_type):
+    """Sign up a student for an exam"""
+    query = """
+        INSERT INTO exam_signups (student_id, subject_id, exam_type)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (student_id, subject_id, exam_type) DO NOTHING
+        RETURNING id
+    """
+    return execute_insert_returning(query, (student_id, subject_id, exam_type))
+
+
+def cancel_exam_signup(student_id, subject_id, exam_type):
+    """Cancel an exam signup"""
+    query = """
+        DELETE FROM exam_signups
+        WHERE student_id = %s AND subject_id = %s AND exam_type = %s
+    """
+    return execute_query(query, (student_id, subject_id, exam_type))
+
+
+def get_exam_signup(student_id, subject_id, exam_type):
+    """Check if a student is signed up for a specific exam"""
+    query = """
+        SELECT * FROM exam_signups
+        WHERE student_id = %s AND subject_id = %s AND exam_type = %s
+    """
+    return execute_query(query, (student_id, subject_id, exam_type), fetch_one=True)
+
+
+def get_student_exam_signups(student_id, exam_type=None):
+    """Get all exam signups for a student"""
+    query = """
+        SELECT es.*, s.name as subject_name, s.semester
+        FROM exam_signups es
+        JOIN subjects s ON es.subject_id = s.id
+        WHERE es.student_id = %s
+    """
+    params = [student_id]
+    if exam_type:
+        query += " AND es.exam_type = %s"
+        params.append(exam_type)
+    query += " ORDER BY es.signed_up_at DESC"
+    return execute_query(query, tuple(params), fetch_all=True)
+
+
+def get_exam_signups_for_subject(subject_id, exam_type=None):
+    """Get all students signed up for exams for a subject (admin view)"""
+    query = """
+        SELECT es.*, u.full_name as student_name, st.student_number
+        FROM exam_signups es
+        JOIN students st ON es.student_id = st.id
+        JOIN users u ON st.user_id = u.id
+        WHERE es.subject_id = %s
+    """
+    params = [subject_id]
+    if exam_type:
+        query += " AND es.exam_type = %s"
+        params.append(exam_type)
+    query += " ORDER BY u.full_name"
+    return execute_query(query, tuple(params), fetch_all=True)
+
+
+# =============================================
 # SUBJECT QUERIES
 # =============================================
 

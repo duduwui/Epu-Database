@@ -95,6 +95,12 @@
                 <span>Enrollment Periods</span>
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('admin_exam_periods') }}">
+                <i class="bi bi-pencil-square"></i>
+                <span>Exam Periods</span>
+              </a>
+            </li>
 
             {% elif current_user.role == 'teacher' %}
             <!-- Teacher Navigation -->
@@ -159,6 +165,12 @@
               <a class="nav-link" href="{{ url_for('student_results') }}">
                 <i class="bi bi-trophy"></i>
                 <span>Results</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('student_exams') }}">
+                <i class="bi bi-pencil-square"></i>
+                <span>Exams</span>
               </a>
             </li>
             <li class="nav-item">
