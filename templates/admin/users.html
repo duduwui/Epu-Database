@@ -67,7 +67,7 @@
   <div class="card mb-3">
     <div class="card-body py-2">
       <div class="row g-2 align-items-end">
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label mb-1" style="font-size: 0.85rem">Role</label>
           <select
             id="roleFilter"
@@ -85,14 +85,14 @@
         </div>
 
         <!-- Teacher-specific filters -->
-        <div class="col-md-2 smart-filter teacher-filter d-none">
+        <div class="col-6 col-md-2 smart-filter teacher-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Subject</label>
           <select id="subjectFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Subjects</option>
             <!-- Will be populated dynamically -->
           </select>
         </div>
-        <div class="col-md-2 smart-filter teacher-filter d-none">
+        <div class="col-6 col-md-2 smart-filter teacher-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Department</label>
           <select id="departmentFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Departments</option>
@@ -101,7 +101,7 @@
         </div>
 
         <!-- Student-specific filters -->
-        <div class="col-md-2 smart-filter student-filter d-none">
+        <div class="col-6 col-md-2 smart-filter student-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Year</label>
           <select id="yearFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Years</option>
@@ -109,7 +109,7 @@
             <option value="2">Year 2</option>
           </select>
         </div>
-        <div class="col-md-2 smart-filter student-filter d-none">
+        <div class="col-6 col-md-2 smart-filter student-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Semester</label>
           <select id="semesterFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Semesters</option>
@@ -119,7 +119,7 @@
             <option value="4">Sem 4</option>
           </select>
         </div>
-        <div class="col-md-2 smart-filter student-filter d-none">
+        <div class="col-6 col-md-2 smart-filter student-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Shift</label>
           <select id="shiftFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Shifts</option>
@@ -127,7 +127,7 @@
             <option value="night">Night</option>
           </select>
         </div>
-        <div class="col-md-2 smart-filter student-filter d-none">
+        <div class="col-6 col-md-2 smart-filter student-filter d-none">
           <label class="form-label mb-1" style="font-size: 0.85rem">Class</label>
           <select id="classFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Classes</option>
@@ -137,7 +137,7 @@
           </select>
         </div>
 
-        <div class="col-md-4" id="searchCol">
+        <div class="col-12 col-md-4" id="searchCol">
           <label class="form-label mb-1" style="font-size: 0.85rem">Search</label>
           <input
             type="text"
@@ -147,7 +147,7 @@
             oninput="filterUsers()"
           />
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
             <i class="bi bi-x-lg me-1"></i>Clear
           </button>

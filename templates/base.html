@@ -35,7 +35,12 @@
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container">
         <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-          <img src="{{ url_for('static', filename='images/epu-logo.png') }}" alt="EPU" height="28" style="margin-right:6px;vertical-align:middle">
+          <img src="{{ url_for('static', filename='images/epu-logo.png') }}"
+               alt="EPU"
+               height="38"
+               style="margin-right:8px;vertical-align:middle;object-fit:contain;mix-blend-mode:multiply;"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+          <i class="bi bi-mortarboard-fill" style="display:none;margin-right:6px"></i>
           <span>EPU - MIS</span>
         </a>
         <button

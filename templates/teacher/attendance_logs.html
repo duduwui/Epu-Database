@@ -77,16 +77,17 @@ block content %}
     font-size: 0.85rem;
   }
   .student-id {
-    width: 100px;
+    width: 80px;
     color: #1C0770;
     font-weight: 500;
   }
   .student-name {
     flex: 1;
+    min-width: 0;
     font-weight: 500;
   }
   .student-status {
-    width: 80px;
+    width: 70px;
     text-align: center;
   }
   .filter-card {
@@ -228,10 +229,10 @@ block content %}
               />
               <small class="text-muted">Searches by first name or student ID</small>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
               <button
                 type="button"
-                class="btn btn-outline-dark w-100 mt-4"
+                class="btn btn-outline-dark w-100 mt-2 mt-md-4"
                 onclick="
                   document.getElementById('summarySearchInput').value = '';
                   filterSummaryTable();
@@ -240,8 +241,8 @@ block content %}
                 <i class="bi bi-x-circle me-1"></i>Clear
               </button>
             </div>
-            <div class="col-md-3 text-end">
-              <small class="text-muted d-block mt-4">
+            <div class="col-6 col-md-3 text-md-end">
+              <small class="text-muted d-block mt-2 mt-md-4">
                 <span id="summaryResultCount">{{ summary|length if summary else 0 }}</span> of
                 <span id="summaryTotalCount">{{ summary|length if summary else 0 }}</span> students
               </small>

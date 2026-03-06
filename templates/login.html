@@ -205,6 +205,26 @@
         transition: color 0.2s;
       }
 
+      .input-wrapper .eye-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #1C0770;
+        font-size: 14px;
+        cursor: pointer;
+        transition: color 0.2s;
+        background: none;
+        border: none;
+        padding: 0;
+        line-height: 1;
+        text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+      }
+
+      .input-wrapper .eye-toggle:hover {
+        color: #2a10a0;
+      }
+
       .input {
         width: 100%;
         padding: 11px 12px 11px 36px;
@@ -345,7 +365,25 @@
       /* Responsive */
       @media (max-width: 400px) {
         .login-container {
-          --form-width: 300px;
+          --form-width: calc(100vw - 40px);
+        }
+
+        .login-box {
+          padding: 22px 18px;
+        }
+
+        .header {
+          font-size: 18px;
+        }
+
+        .logo {
+          width: 55px;
+          height: 55px;
+        }
+
+        .logo img {
+          width: 44px;
+          height: 44px;
         }
       }
     </style>
@@ -398,8 +436,11 @@
 
             <div class="label">Password</div>
             <div class="input-wrapper">
-              <input type="password" name="password" class="input" placeholder="Enter your password" required>
+              <input type="password" name="password" id="passwordInput" class="input" placeholder="Enter your password" required style="padding-right:36px">
               <i class="bi bi-lock icon"></i>
+              <button type="button" class="eye-toggle" onclick="togglePassword()" id="eyeBtn">
+                <i class="bi bi-eye" id="eyeIcon"></i>
+              </button>
             </div>
 
             <button type="submit" class="button">
@@ -417,5 +458,18 @@
       </div>
     </div>
 
+  <script>
+    function togglePassword() {
+      const input = document.getElementById('passwordInput');
+      const icon = document.getElementById('eyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+      }
+    }
+  </script>
   </body>
 </html>

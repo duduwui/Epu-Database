@@ -13,7 +13,7 @@
   <div class="card mb-3">
     <div class="card-body p-3">
       <div class="row g-2 align-items-end">
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small mb-1">Semester</label>
           <select class="form-select form-select-sm" onchange="applyFilters()">
             <option value="">All</option>
@@ -24,7 +24,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small mb-1">Shift</label>
           <select class="form-select form-select-sm" onchange="applyFilters()">
             <option value="">All</option>
@@ -35,7 +35,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small mb-1">Class</label>
           <select class="form-select form-select-sm" onchange="applyFilters()">
             <option value="">All</option>
@@ -46,7 +46,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
           <label class="form-label small mb-1">Search Student</label>
           <input
             type="text"
@@ -56,7 +56,7 @@
             oninput="filterStudents()"
           />
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <div class="btn-group btn-group-sm" role="group">
             <button type="button" class="btn btn-outline-secondary" onclick="setPageSize(10)">
               10
@@ -73,7 +73,7 @@
             </button>
           </div>
         </div>
-        <div class="col-md-1">
+        <div class="col-6 col-md-1">
           {% if selected_semester or selected_shift or selected_section %}
           <a href="?" class="btn btn-sm btn-outline-secondary w-100">Clear</a>
           {% endif %}
@@ -103,19 +103,19 @@
         data-bs-target="#student-{{ student.student_id }}"
         data-semester="{{ student.semester }}"
       >
-        <div class="row align-items-center">
-          <div class="col-md-1">
+        <div class="row align-items-center g-1">
+          <div class="col-auto col-md-1">
             <small class="text-muted">#{{ loop.index }}</small>
           </div>
-          <div class="col-md-2">
+          <div class="col-auto col-md-2">
             <small class="text-muted d-block" style="font-size: 0.75rem"
               >{{ student.student_number or '-' }}</small
             >
           </div>
-          <div class="col-md-5">
+          <div class="col col-md-5">
             <strong>{{ student.student_name }}</strong>
           </div>
-          <div class="col-md-4 text-end">
+          <div class="col-12 col-md-4 text-md-end">
             <small class="text-muted"
               >Sem {{ student.semester }} | {{ student.shift }} | Class {{ student.section }}</small
             >

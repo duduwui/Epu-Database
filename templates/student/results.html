@@ -34,7 +34,7 @@
         <div class="col-auto">
           <i class="bi bi-mortarboard-fill" style="font-size: 3rem; color:#1C0770;"></i>
         </div>
-        <div class="col text-end">
+        <div class="col text-md-end text-center">
           <h6 class="text-muted mb-1">Technical Institute of Management</h6>
           <h6 class="text-muted mb-1">ERBIL POLYTECHNIC UNIVERSITY</h6>
           <p class="mb-0 small text-muted">Department of Management Information Systems</p>
@@ -44,11 +44,11 @@
       <hr class="my-3">
 
       <div class="row">
-        <div class="col-md-6 text-end">
+        <div class="col-md-6 text-md-end text-start">
           <p class="mb-1"><strong>Student Name:</strong> {{ student.full_name }}</p>
           <p class="mb-1"><strong>Student ID:</strong> {{ student.student_number }}</p>
         </div>
-        <div class="col-md-6 text-end">
+        <div class="col-md-6 text-md-end text-start">
           <p class="mb-1"><strong>Current Semester:</strong>
             {% if student.semester %}{{ student.semester }}{% else %}Graduated{% endif %}
           </p>

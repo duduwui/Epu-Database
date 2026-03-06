@@ -26,7 +26,7 @@
 
   <!-- KPI Summary -->
   <div class="row mb-3">
-    <div class="col-md-4 mb-3">
+    <div class="col-4 col-md-4 mb-3">
       <div class="card border-0 shadow-sm text-center">
         <div class="card-body py-3">
           <h2 class="mb-0" style="color:#1C0770;">{{ preview.passed|length + preview.failed|length }}</h2>
@@ -34,7 +34,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4 mb-3">
+    <div class="col-4 col-md-4 mb-3">
       <div class="card border-0 shadow-sm text-center">
         <div class="card-body py-3">
           <h2 class="mb-0 text-success">{{ preview.passed|length }}</h2>
@@ -42,7 +42,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4 mb-3">
+    <div class="col-4 col-md-4 mb-3">
       <div class="card border-0 shadow-sm text-center">
         <div class="card-body py-3">
           <h2 class="mb-0 text-danger">{{ preview.failed|length }}</h2>
@@ -86,7 +86,7 @@
   <div class="card shadow-sm border-0 mb-4">
     <div class="card-body py-3">
       <div class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
           <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
             <i class="bi bi-funnel me-1"></i>Shift
           </label>
@@ -96,7 +96,7 @@
             <option value="night">Night</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
           <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
             <i class="bi bi-grid me-1"></i>Class
           </label>
@@ -107,13 +107,13 @@
             <option value="C">C</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
           <label class="form-label small fw-semibold mb-1" style="color:#1C0770;">
             <i class="bi bi-search me-1"></i>Search
           </label>
           <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="Student name..." oninput="applyFilters()">
         </div>
-        <div class="col-md-1 d-flex align-items-end">
+        <div class="col-6 col-md-1 d-flex align-items-end">
           <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()" title="Clear all filters">
             <i class="bi bi-x-lg"></i>
           </button>

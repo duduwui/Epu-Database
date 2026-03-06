@@ -163,7 +163,7 @@ content %}
 
   <!-- Management Cards -->
   <div class="row">
-    <div class="col-md-4 mb-4">
+    <div class="col-6 col-md-4 mb-4">
       <div class="card h-100 management-card">
         <div class="card-body text-center py-4">
           <div class="mgmt-icon bg-primary-soft">
@@ -177,7 +177,7 @@ content %}
         </div>
       </div>
     </div>
-    <div class="col-md-4 mb-4">
+    <div class="col-6 col-md-4 mb-4">
       <div class="card h-100 management-card">
         <div class="card-body text-center py-4">
           <div class="mgmt-icon bg-primary-soft"><i class="bi bi-book-half text-primary"></i></div>
@@ -189,7 +189,7 @@ content %}
         </div>
       </div>
     </div>
-    <div class="col-md-4 mb-4">
+    <div class="col-6 col-md-4 mb-4">
       <div class="card h-100 management-card">
         <div class="card-body text-center py-4">
           <div class="mgmt-icon bg-primary-soft">
@@ -759,6 +759,7 @@ content %}
   .scheduler-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 600px;
   }
 
   .scheduler-table th {
@@ -1236,6 +1237,21 @@ content %}
     .current-view {
       width: 100%;
       justify-content: center;
+    }
+    .scheduler-header {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .scheduler-filters {
+      padding: 10px 12px;
+    }
+    .chip {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+    }
+    .scheduler-controls {
+      flex-wrap: wrap;
+      gap: 6px;
     }
   }
 </style>

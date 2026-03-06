@@ -196,8 +196,8 @@ extra_css %}
 
   <div class="card mb-3">
     <div class="card-body py-2">
-      <div class="row align-items-center">
-        <div class="col-md-2">
+      <div class="row align-items-center g-2">
+        <div class="col-6 col-md-2">
           <input
             type="date"
             id="attendanceDate"
@@ -205,7 +205,7 @@ extra_css %}
             value="{{ attendance_date }}"
           />
         </div>
-        <div class="col-md-5">
+        <div class="col-6 col-md-5">
           <button type="button" class="btn btn-success btn-sm" onclick="setAll('present')">
             All Present
           </button>
@@ -213,7 +213,7 @@ extra_css %}
             All Absent
           </button>
         </div>
-        <div class="col-md-5 text-end">
+        <div class="col-12 col-md-5 text-md-end text-center">
           <span class="stats-box present me-2" id="presentCount">Present: 0</span>
           <span class="stats-box absent" id="absentCount">Absent: 0</span>
         </div>
@@ -236,10 +236,10 @@ extra_css %}
       <table class="table table-sm attendance-table mb-0">
         <thead>
           <tr>
-            <th style="width: 50px">#</th>
-            <th style="width: 120px">ID</th>
+            <th style="width: 40px">#</th>
+            <th style="width: 90px">ID</th>
             <th>Student Name</th>
-            <th style="width: 80px" class="text-center">Status</th>
+            <th style="width: 70px" class="text-center">Status</th>
           </tr>
         </thead>
         <tbody id="studentsBody">

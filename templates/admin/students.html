@@ -31,8 +31,8 @@
                 <h2><i class="bi bi-people me-2"></i>Student Management</h2>
                 <p>Manage all students in the MIS program</p>
             </div>
-            <div class="col-auto">
-                <a href="{{ url_for('admin_assign_sections') }}" class="btn btn-outline-primary me-2">
+            <div class="col-12 col-md-auto d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                <a href="{{ url_for('admin_assign_sections') }}" class="btn btn-outline-primary">
                     <i class="bi bi-diagram-3 me-1"></i>Assign Classes
                 </a>
                 <a href="{{ url_for('admin_add_student') }}" class="btn btn-primary">
@@ -55,7 +55,7 @@
     <div class="card mb-3">
         <div class="card-body py-2">
             <form method="GET" id="filterForm" class="row g-2 align-items-end">
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Year</label>
                     <select name="year" id="filterYear" class="form-select form-select-sm" onchange="updateSemesterFilter(); applyFilters()">
                         <option value="">All Years</option>
@@ -63,7 +63,7 @@
                         <option value="2" {{ 'selected' if request.args.get('year') == '2' }}>Year 2</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Semester</label>
                     <select name="semester" id="filterSemester" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Semesters</option>
@@ -83,7 +83,7 @@
                         {% endif %}
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Shift</label>
                     <select name="shift" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Shifts</option>
@@ -91,7 +91,7 @@
                         <option value="night" {{ 'selected' if request.args.get('shift') == 'night' }}>☾ Night</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Class</label>
                     <select name="section" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Classes</option>
@@ -101,11 +101,11 @@
                         <option value="none" {{ 'selected' if request.args.get('section') == 'none' }}>Not Assigned</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Search</label>
                     <input type="text" id="studentSearch" class="form-control form-control-sm" placeholder="First name or ID...">
                 </div>
-                <div class="col-md-2 d-flex gap-1">
+                <div class="col-6 col-md-2 d-flex gap-1">
                     <a href="{{ url_for('admin_students') }}" class="btn btn-outline-secondary btn-sm flex-fill" title="Clear Filters">
                         <i class="bi bi-x-lg me-1"></i>Clear
                     </a>

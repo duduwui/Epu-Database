@@ -13,7 +13,7 @@
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
           <label class="form-label small">Teacher Name</label>
           <input
             type="text"
@@ -22,7 +22,7 @@
             placeholder="Search teacher name..."
           />
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small">Shift</label>
           <select class="form-select form-select-sm" id="shiftFilter">
             <option value="">All Shifts</option>
@@ -30,7 +30,7 @@
             <option value="night">Night</option>
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small">Semester</label>
           <select class="form-select form-select-sm" id="semesterFilter">
             <option value="">All Semesters</option>
@@ -40,16 +40,16 @@
             <option value="4">Semester 4</option>
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <label class="form-label small">Date</label>
           <input type="date" class="form-control form-control-sm" id="dateFilter" />
         </div>
-        <div class="col-md-1">
+        <div class="col-6 col-md-1">
           <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
             Clear
           </button>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
           <a href="{{ url_for('admin_attendance_summary') }}" class="btn btn-primary btn-sm w-100">
             <i class="bi bi-bar-chart me-1"></i>Summary
           </a>
@@ -73,27 +73,27 @@
         style="cursor: pointer; background-color: #fff; border-bottom: 1px solid #e0e0e0"
         onclick="toggleDetails('details-{{ loop.index }}')"
       >
-        <div class="row align-items-center">
-          <div class="col-md-2">
+        <div class="row align-items-center g-2">
+          <div class="col-6 col-md-2">
             <strong>{{ submission.date.strftime('%b %d, %Y') }}</strong>
           </div>
-          <div class="col-md-2">
+          <div class="col-6 col-md-2">
             <small class="text-muted">Teacher:</small><br />
             {{ submission.teacher_name or 'Unknown' }}
           </div>
-          <div class="col-md-2">
+          <div class="col-6 col-md-2">
             <small class="text-muted">Subject:</small><br />
             {{ submission.subject_name }}
           </div>
-          <div class="col-md-2">
+          <div class="col-6 col-md-2">
             <small class="text-muted">Class:</small><br />
             Sem {{ submission.semester }} - {{ submission.section }}
           </div>
-          <div class="col-md-1">
+          <div class="col-6 col-md-1">
             <small class="text-muted">Shift:</small><br />
             {{ submission.shift|capitalize }}
           </div>
-          <div class="col-md-3 text-end">
+          <div class="col-6 col-md-3 text-md-end">
             <small class="text-muted"
               >{{ submission.submitted_at.strftime('%I:%M %p') if submission.submitted_at else '-'
               }}</small
