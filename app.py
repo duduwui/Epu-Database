@@ -530,9 +530,9 @@ def student_exams():
     second_round_subjects = []
 
     if final_period:
-        final_subjects = db.get_exam_eligible_subjects(student['id'], 'final')
+        final_subjects = db.get_exam_eligible_subjects(student['id'], 'final', semester)
     if second_round_period:
-        second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round')
+        second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round', semester)
 
     return render_template('student/exams.html',
                          student=student,
@@ -566,7 +566,7 @@ def student_exam_signup(subject_id, exam_type):
         return jsonify({'success': False, 'error': 'No active exam period for this type'}), 400
 
     # Verify eligibility
-    eligible = db.get_exam_eligible_subjects(student['id'], exam_type)
+    eligible = db.get_exam_eligible_subjects(student['id'], exam_type, semester)
     subject_ids = [s['id'] for s in eligible if s.get('eligible')]
     if subject_id not in subject_ids:
         return jsonify({'success': False, 'error': 'Not eligible for this exam'}), 400

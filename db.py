@@ -864,12 +864,15 @@ def get_student_midterm_score(student_id, subject_id):
     return {'total_score': total_score, 'total_max': total_max}
 
 
-def get_exam_eligible_subjects(student_id, exam_type):
+def get_exam_eligible_subjects(student_id, exam_type, semester=None):
     """Get subjects a student is eligible to sign up for.
     - final: enrolled subjects where midterm score >= 20/60
     - second_round: enrolled subjects where total percentage < 60 and results published
+    If semester is provided, only subjects from that semester are included.
     """
     enrolled = get_enrolled_subjects_for_student(student_id) or []
+    if semester:
+        enrolled = [s for s in enrolled if s.get('semester') == semester]
     eligible = []
 
     if exam_type == 'final':

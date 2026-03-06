@@ -41,7 +41,7 @@
   <h4 class="mb-3"><i class="bi bi-journal-check me-2"></i>Final Exam Signup</h4>
 
   {% if final_period %}
-  <div class="alert alert-success mb-3">
+  <div class="alert alert-primary mb-3">
     <div class="row align-items-center">
       <div class="col-md-8">
         <i class="bi bi-clock-history me-2"></i>
@@ -50,7 +50,7 @@
       </div>
       <div class="col-md-4 text-end">
         <i class="bi bi-hourglass-split me-2"></i>
-        <strong class="text-success" id="finalCountdown"></strong>
+        <strong class="text-primary" id="finalCountdown"></strong>
       </div>
     </div>
   </div>
@@ -93,7 +93,7 @@
             <tr id="final-{{ subj.id }}">
               <td><strong>{{ subj.name }}</strong></td>
               <td>
-                <span class="badge {{ 'bg-success' if subj.eligible else 'bg-danger' }}">
+                <span class="badge {{ 'bg-primary' if subj.eligible else 'bg-danger' }}">
                   {{ subj.midterm_score }}/{{ subj.midterm_max }}
                 </span>
                 <small class="text-muted ms-1">({{ subj.midterm_normalized }}/60)</small>
@@ -102,9 +102,9 @@
                 {% if not subj.eligible %}
                   <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Not Eligible</span>
                 {% elif subj.already_signed_up %}
-                  <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                  <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
                 {% else %}
-                  <span class="badge bg-info">Eligible</span>
+                  <span class="badge bg-primary">Eligible</span>
                 {% endif %}
               </td>
               <td class="text-center">
@@ -147,7 +147,7 @@
   <h4 class="mb-3"><i class="bi bi-arrow-repeat me-2"></i>Second Round Signup</h4>
 
   {% if second_round_period %}
-  <div class="alert alert-success mb-3">
+  <div class="alert alert-primary mb-3">
     <div class="row align-items-center">
       <div class="col-md-8">
         <i class="bi bi-clock-history me-2"></i>
@@ -156,7 +156,7 @@
       </div>
       <div class="col-md-4 text-end">
         <i class="bi bi-hourglass-split me-2"></i>
-        <strong class="text-success" id="secondCountdown"></strong>
+        <strong class="text-primary" id="secondCountdown"></strong>
       </div>
     </div>
   </div>
@@ -204,14 +204,14 @@
               </td>
               <td>
                 {% if subj.already_signed_up %}
-                  <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                  <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
                 {% else %}
-                  <span class="badge bg-info">Eligible</span>
+                  <span class="badge bg-primary">Eligible</span>
                 {% endif %}
               </td>
               <td class="text-center">
                 {% if not subj.already_signed_up %}
-                  <button class="btn btn-sm btn-warning second-btn" onclick="examAction('signup', {{ subj.id }}, 'second_round', this)">
+                  <button class="btn btn-sm btn-primary second-btn" onclick="examAction('signup', {{ subj.id }}, 'second_round', this)">
                     <i class="bi bi-check-lg me-1"></i>Sign Up
                   </button>
                 {% else %}
@@ -246,7 +246,7 @@
 
 <!-- Toast -->
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-  <div id="toast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+  <div id="toast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="d-flex">
       <div class="toast-body" id="toastMessage">Success!</div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
