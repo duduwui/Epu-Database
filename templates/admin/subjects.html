@@ -62,10 +62,13 @@ content %}
         <div
           class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2"
         >
-          <span>Semester 1</span>
+          <span>Semester 1 {% if sem1_subjects|selectattr('results_published')|list|length > 0 %}<span class="badge bg-success ms-1" style="font-size:0.65rem">Published</span>{% endif %}</span>
           <div>
             <button class="btn btn-sm btn-light publish-semester-btn" data-semester="1" title="Publish Final Results for Semester 1">
               <i class="bi bi-send-check me-1"></i>Publish Results
+            </button>
+            <button class="btn btn-sm btn-warning close-semester-btn ms-1" data-semester="1" title="Close Results for Semester 1 — students will no longer see them">
+              <i class="bi bi-eye-slash me-1"></i>Close Results
             </button>
             <span class="badge bg-white text-primary ms-2">{{ sem1_subjects|length }}/5</span>
           </div>
@@ -83,8 +86,10 @@ content %}
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
-                class="btn btn-sm btn-outline-primary py-0 px-2"
-                title="Grade Distribution"
+                class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="{% if subject.total_weight >= 100 %}&#10003; {{ subject.total_weight }}% configured ({{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}){% elif subject.total_weight > 0 %}{{ subject.total_weight }}% / 100% &middot; {{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}{% else %}No grades set up yet{% endif %}"
               >
                 <i class="bi bi-calculator"></i>
               </a>
@@ -122,14 +127,17 @@ content %}
     <div class="col-md-6 mb-3">
       <div class="card h-100">
         <div
-          class="card-header bg-info text-white d-flex justify-content-between align-items-center py-2"
+          class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2"
         >
-          <span>Semester 2</span>
+          <span>Semester 2 {% if sem2_subjects|selectattr('results_published')|list|length > 0 %}<span class="badge bg-success ms-1" style="font-size:0.65rem">Published</span>{% endif %}</span>
           <div>
             <button class="btn btn-sm btn-light publish-semester-btn" data-semester="2" title="Publish Final Results for Semester 2">
               <i class="bi bi-send-check me-1"></i>Publish Results
             </button>
-            <span class="badge bg-white text-info ms-2">{{ sem2_subjects|length }}/5</span>
+            <button class="btn btn-sm btn-warning close-semester-btn ms-1" data-semester="2" title="Close Results for Semester 2 — students will no longer see them">
+              <i class="bi bi-eye-slash me-1"></i>Close Results
+            </button>
+            <span class="badge bg-white text-primary ms-2">{{ sem2_subjects|length }}/5</span>
           </div>
         </div>
         <ul class="list-group list-group-flush">
@@ -145,8 +153,10 @@ content %}
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
-                class="btn btn-sm btn-outline-primary py-0 px-2"
-                title="Grade Distribution"
+                class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="{% if subject.total_weight >= 100 %}&#10003; {{ subject.total_weight }}% configured ({{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}){% elif subject.total_weight > 0 %}{{ subject.total_weight }}% / 100% &middot; {{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}{% else %}No grades set up yet{% endif %}"
               >
                 <i class="bi bi-calculator"></i>
               </a>
@@ -192,14 +202,17 @@ content %}
     <div class="col-md-6 mb-3">
       <div class="card h-100">
         <div
-          class="card-header bg-success text-white d-flex justify-content-between align-items-center py-2"
+          class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2"
         >
-          <span>Semester 3</span>
+          <span>Semester 3 {% if sem3_subjects|selectattr('results_published')|list|length > 0 %}<span class="badge bg-success ms-1" style="font-size:0.65rem">Published</span>{% endif %}</span>
           <div>
             <button class="btn btn-sm btn-light publish-semester-btn" data-semester="3" title="Publish Final Results for Semester 3">
               <i class="bi bi-send-check me-1"></i>Publish Results
             </button>
-            <span class="badge bg-white text-success ms-2">{{ sem3_subjects|length }}/5</span>
+            <button class="btn btn-sm btn-warning close-semester-btn ms-1" data-semester="3" title="Close Results for Semester 3 — students will no longer see them">
+              <i class="bi bi-eye-slash me-1"></i>Close Results
+            </button>
+            <span class="badge bg-white text-primary ms-2">{{ sem3_subjects|length }}/5</span>
           </div>
         </div>
         <ul class="list-group list-group-flush">
@@ -215,8 +228,10 @@ content %}
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
-                class="btn btn-sm btn-outline-primary py-0 px-2"
-                title="Grade Distribution"
+                class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="{% if subject.total_weight >= 100 %}&#10003; {{ subject.total_weight }}% configured ({{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}){% elif subject.total_weight > 0 %}{{ subject.total_weight }}% / 100% &middot; {{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}{% else %}No grades set up yet{% endif %}"
               >
                 <i class="bi bi-calculator"></i>
               </a>
@@ -254,14 +269,17 @@ content %}
     <div class="col-md-6 mb-3">
       <div class="card h-100">
         <div
-          class="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-2"
+          class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2"
         >
-          <span>Semester 4</span>
+          <span>Semester 4 {% if sem4_subjects|selectattr('results_published')|list|length > 0 %}<span class="badge bg-success ms-1" style="font-size:0.65rem">Published</span>{% endif %}</span>
           <div>
             <button class="btn btn-sm btn-light publish-semester-btn" data-semester="4" title="Publish Final Results for Semester 4">
               <i class="bi bi-send-check me-1"></i>Publish Results
             </button>
-            <span class="badge bg-white text-warning ms-2">{{ sem4_subjects|length }}/5</span>
+            <button class="btn btn-sm btn-warning close-semester-btn ms-1" data-semester="4" title="Close Results for Semester 4 — students will no longer see them">
+              <i class="bi bi-eye-slash me-1"></i>Close Results
+            </button>
+            <span class="badge bg-white text-primary ms-2">{{ sem4_subjects|length }}/5</span>
           </div>
         </div>
         <ul class="list-group list-group-flush">
@@ -277,8 +295,10 @@ content %}
             <div>
               <a
                 href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
-                class="btn btn-sm btn-outline-primary py-0 px-2"
-                title="Grade Distribution"
+                class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="{% if subject.total_weight >= 100 %}&#10003; {{ subject.total_weight }}% configured ({{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}){% elif subject.total_weight > 0 %}{{ subject.total_weight }}% / 100% &middot; {{ subject.component_count }} component{{ 's' if subject.component_count != 1 else '' }}{% else %}No grades set up yet{% endif %}"
               >
                 <i class="bi bi-calculator"></i>
               </a>
@@ -607,6 +627,44 @@ content %}
         });
       });
     });
+
+    // Close/Unpublish Semester Results
+    document.querySelectorAll('.close-semester-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const semester = this.dataset.semester;
+        const confirmMsg = `Close results for Semester ${semester}?\n\nStudents will no longer be able to view their results until you publish again.\n\nAre you sure?`;
+        if (!confirm(confirmMsg)) return;
+        const originalHTML = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Closing...';
+        fetch(`/admin/unpublish-semester-results/${semester}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            document.getElementById('toastMessage').textContent = data.message;
+            toast.show();
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            alert('Error: ' + data.message);
+            this.innerHTML = originalHTML;
+            this.disabled = false;
+          }
+        })
+        .catch(() => {
+          alert('An error occurred while closing results.');
+          this.innerHTML = originalHTML;
+          this.disabled = false;
+        });
+      });
+    });
+  });
+
+  // Init Bootstrap tooltips for calculator buttons
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+    new bootstrap.Tooltip(el);
   });
 </script>
 {% endblock %}

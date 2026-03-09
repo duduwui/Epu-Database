@@ -93,8 +93,8 @@
                 <label class="form-label">Shift <span class="text-danger">*</span></label>
                 <select name="shift" id="shift" class="form-select" required>
                   <option value="">Select shift...</option>
-                  <option value="morning">â˜€ï¸ Morning</option>
-                  <option value="night">ðŸŒ™ Night</option>
+                  <option value="morning">&#9728; Morning</option>
+                  <option value="night">&#9790; Night</option>
                 </select>
               </div>
               <div class="col-md-4">
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="student-name">${student.name}</div>
         <div class="student-id">${student.student_number}</div>
       </div>
-      <span class="student-badge">Sem ${student.semester} â€¢ ${shiftLabel}</span>
+      <span class="student-badge">Sem ${student.semester} &bull; ${shiftLabel}</span>
     `;
     
     // Insert at top

@@ -89,14 +89,12 @@
           <label class="form-label mb-1" style="font-size: 0.85rem">Subject</label>
           <select id="subjectFilter" class="form-select form-select-sm" onchange="filterUsers()">
             <option value="">All Subjects</option>
-            <!-- Will be populated dynamically -->
           </select>
         </div>
         <div class="col-6 col-md-2 smart-filter teacher-filter d-none">
-          <label class="form-label mb-1" style="font-size: 0.85rem">Department</label>
-          <select id="departmentFilter" class="form-select form-select-sm" onchange="filterUsers()">
-            <option value="">All Departments</option>
-            <!-- Will be populated dynamically -->
+          <label class="form-label mb-1" style="font-size: 0.85rem">Class</label>
+          <select id="sectionFilter" class="form-select form-select-sm" onchange="filterUsers()">
+            <option value="">All Classes</option>
           </select>
         </div>
 
@@ -322,9 +320,10 @@
                 {% for user in teacher_users %} {% set teacher_info = teacher_lookup.get(user.id,
                 {}) %} {% set teacher_subjects = teacher_info.get('subjects', []) |
                 map(attribute='name') | list | unique | list %}
+                {% set teacher_sections = teacher_info.get('subjects', []) | map(attribute='section') | select | unique | list %}
                 <tr
                   id="user-row-{{ user.id }}"
-                  data-department="{{ teacher_info.get('department', '') | lower }}"
+                  data-sections="{{ teacher_sections | join(',') | upper }}"
                   data-subjects="{{ teacher_subjects | join(',') | lower }}"
                 >
                   <td>
@@ -377,11 +376,7 @@
             </nav>
           </div>
 
-          <div class="mt-3">
-            <a href="{{ url_for('admin_teachers') }}" class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-arrow-right me-1"></i>Go to Faculty Management for subject assignments
-            </a>
-          </div>
+
           {% else %}
           <div class="text-center py-4 text-muted">
             <i class="bi bi-person-badge" style="font-size: 2rem"></i>
@@ -505,7 +500,7 @@
         class="modal-header"
         style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
-        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Add New User</h5>
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i><span id="modalTitle">Add New User</span></h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <form id="addUserForm">
@@ -760,10 +755,15 @@
   document.addEventListener('DOMContentLoaded', function () {
     const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
     const addModal = new bootstrap.Modal(document.getElementById('addUserModal'));
+    const addUserModalElement = document.getElementById('addUserModal');
     const toast = new bootstrap.Toast(document.getElementById('successToast'));
+
+    // Track currently active tab for role pre-selection
+    let currentActiveTab = 'admin';
 
     // Initialize smart filters
     populateTeacherFilters();
+    updateSmartFilters();
 
     // Pagination state
     const paginationState = {
@@ -777,11 +777,12 @@
     initPagination('teacher');
     initPagination('student');
 
-    // Tab click → auto-sync role filter
+    // Tab click → auto-sync role filter & track active tab
     let tabSyncInProgress = false;
     document.getElementById('admins-tab').addEventListener('shown.bs.tab', function() {
       if (tabSyncInProgress) return;
       tabSyncInProgress = true;
+      currentActiveTab = 'admin';
       document.getElementById('roleFilter').value = 'admin';
       updateSmartFilters();
       filterUsers();
@@ -790,6 +791,7 @@
     document.getElementById('teachers-tab').addEventListener('shown.bs.tab', function() {
       if (tabSyncInProgress) return;
       tabSyncInProgress = true;
+      currentActiveTab = 'teacher';
       document.getElementById('roleFilter').value = 'teacher';
       updateSmartFilters();
       filterUsers();
@@ -798,10 +800,35 @@
     document.getElementById('students-tab').addEventListener('shown.bs.tab', function() {
       if (tabSyncInProgress) return;
       tabSyncInProgress = true;
+      currentActiveTab = 'student';
       document.getElementById('roleFilter').value = 'student';
       updateSmartFilters();
       filterUsers();
       tabSyncInProgress = false;
+    });
+
+    // When Add User modal is shown, pre-fill role based on active tab
+    addUserModalElement.addEventListener('show.bs.modal', function() {
+      // Reset form first
+      document.getElementById('addUserForm').reset();
+      
+      // Pre-select role and update title based on current active tab
+      const roleSelect = document.getElementById('addRole');
+      const modalTitle = document.getElementById('modalTitle');
+      
+      if (currentActiveTab === 'admin') {
+        roleSelect.value = 'admin';
+        modalTitle.textContent = 'Add New Administrator';
+      } else if (currentActiveTab === 'teacher') {
+        roleSelect.value = 'teacher';
+        modalTitle.textContent = 'Add New Teacher';
+      } else if (currentActiveTab === 'student') {
+        roleSelect.value = '';
+        modalTitle.textContent = 'Add New User';
+      } else {
+        roleSelect.value = '';
+        modalTitle.textContent = 'Add New User';
+      }
     });
 
     // Edit User Button Click
@@ -1104,70 +1131,58 @@
     // Filter Functions
     function updateSmartFilters() {
       const role = document.getElementById('roleFilter').value;
-      const allSmartFilters = document.querySelectorAll('.smart-filter');
-      const searchCol = document.getElementById('searchCol');
 
       // Hide all smart filters first
-      allSmartFilters.forEach((f) => f.classList.add('d-none'));
+      document.querySelectorAll('.smart-filter').forEach((f) => f.classList.add('d-none'));
 
       // Show role-specific filters
       if (role === 'teacher') {
         document.querySelectorAll('.teacher-filter').forEach((f) => f.classList.remove('d-none'));
-        searchCol.classList.remove('col-md-4');
-        searchCol.classList.add('col-md-2');
         populateTeacherFilters();
       } else if (role === 'student') {
         document.querySelectorAll('.student-filter').forEach((f) => f.classList.remove('d-none'));
-        searchCol.classList.remove('col-md-4');
-        searchCol.classList.add('col-md-2');
-      } else {
-        searchCol.classList.remove('col-md-2');
-        searchCol.classList.add('col-md-4');
       }
     }
 
     function populateTeacherFilters() {
       const subjectFilter = document.getElementById('subjectFilter');
-      const departmentFilter = document.getElementById('departmentFilter');
+      const sectionFilter = document.getElementById('sectionFilter');
 
-      // Get unique subjects and departments from teacher rows
       const subjects = new Set();
-      const departments = new Set();
+      const sections = new Set();
 
       document.querySelectorAll('#teachers tr[data-subjects]').forEach((row) => {
         const subjectsStr = row.dataset.subjects;
         if (subjectsStr) {
           subjectsStr.split(',').forEach((s) => s.trim() && subjects.add(s.trim()));
         }
-        const dept = row.dataset.department;
-        if (dept) departments.add(dept);
+        const sectionsStr = row.dataset.sections;
+        if (sectionsStr) {
+          sectionsStr.split(',').forEach((s) => s.trim() && sections.add(s.trim().toUpperCase()));
+        }
       });
 
       // Populate subjects dropdown
       const currentSubject = subjectFilter.value;
       subjectFilter.innerHTML = '<option value="">All Subjects</option>';
-      Array.from(subjects)
-        .sort()
-        .forEach((subject) => {
-          const option = document.createElement('option');
-          option.value = subject.toLowerCase();
-          option.textContent = subject.charAt(0).toUpperCase() + subject.slice(1);
-          subjectFilter.appendChild(option);
-        });
+      Array.from(subjects).sort().forEach((subject) => {
+        const option = document.createElement('option');
+        option.value = subject.toLowerCase();
+        option.textContent = subject.charAt(0).toUpperCase() + subject.slice(1);
+        subjectFilter.appendChild(option);
+      });
       subjectFilter.value = currentSubject;
 
-      // Populate departments dropdown
-      const currentDept = departmentFilter.value;
-      departmentFilter.innerHTML = '<option value="">All Departments</option>';
-      Array.from(departments)
-        .sort()
-        .forEach((dept) => {
-          const option = document.createElement('option');
-          option.value = dept.toLowerCase();
-          option.textContent = dept.charAt(0).toUpperCase() + dept.slice(1);
-          departmentFilter.appendChild(option);
-        });
-      departmentFilter.value = currentDept;
+      // Populate class/section dropdown
+      const currentSection = sectionFilter.value;
+      sectionFilter.innerHTML = '<option value="">All Classes</option>';
+      Array.from(sections).sort().forEach((section) => {
+        const option = document.createElement('option');
+        option.value = section;
+        option.textContent = 'Class ' + section;
+        sectionFilter.appendChild(option);
+      });
+      sectionFilter.value = currentSection;
     }
 
     function filterUsers() {
@@ -1176,7 +1191,7 @@
 
       // Smart filter values
       const subjectFilter = document.getElementById('subjectFilter').value.toLowerCase();
-      const departmentFilter = document.getElementById('departmentFilter').value.toLowerCase();
+      const sectionFilter = document.getElementById('sectionFilter').value.toUpperCase();
       const yearFilter = document.getElementById('yearFilter').value;
       const semesterFilter = document.getElementById('semesterFilter').value;
       const shiftFilter = document.getElementById('shiftFilter').value.toLowerCase();
@@ -1208,14 +1223,14 @@
 
         // Teacher-specific filters
         let teacherMatch = true;
-        if (userRole === 'teacher' && (subjectFilter || departmentFilter)) {
+        if (userRole === 'teacher' && (subjectFilter || sectionFilter)) {
           const subjects = row.dataset.subjects || '';
-          const department = row.dataset.department || '';
+          const sections = row.dataset.sections || '';
 
           if (subjectFilter && !subjects.includes(subjectFilter)) {
             teacherMatch = false;
           }
-          if (departmentFilter && department !== departmentFilter) {
+          if (sectionFilter && !sections.toUpperCase().split(',').includes(sectionFilter)) {
             teacherMatch = false;
           }
         }
@@ -1245,28 +1260,14 @@
         }
       });
 
-      // Auto-switch to the filtered tab if role is selected
-      if (roleFilter) {
-        const tabMap = {
-          admin: 'admins-tab',
-          teacher: 'teachers-tab',
-          student: 'students-tab',
-        };
-        const tabButton = document.getElementById(tabMap[roleFilter]);
-        if (tabButton) {
-          const tab = new bootstrap.Tab(tabButton);
-          tab.show();
-        }
-      }
     }
 
     function clearFilters() {
-      document.getElementById('roleFilter').value = '';
       document.getElementById('userSearchInput').value = '';
 
       // Clear smart filters
       document.getElementById('subjectFilter').value = '';
-      document.getElementById('departmentFilter').value = '';
+      document.getElementById('sectionFilter').value = '';
       document.getElementById('yearFilter').value = '';
       document.getElementById('semesterFilter').value = '';
       document.getElementById('shiftFilter').value = '';
@@ -1326,10 +1327,14 @@
       const showingStart = totalVisible > 0 ? start + 1 : 0;
       const showingEnd = Math.min(end, totalVisible);
 
-      document.querySelector(`.${role}-showing-start`).textContent = showingStart;
-      document.querySelector(`.${role}-showing-end`).textContent = showingEnd;
-      document.querySelector(`.${role}-showing-total`).textContent = totalVisible;
-      document.querySelector(`.${role}-total`).textContent = allRows.length;
+      const _ss = document.querySelector(`.${role}-showing-start`);
+      const _se = document.querySelector(`.${role}-showing-end`);
+      const _st = document.querySelector(`.${role}-showing-total`);
+      const _tc = document.querySelector(`.${role}-total`);
+      if (_ss) _ss.textContent = showingStart;
+      if (_se) _se.textContent = showingEnd;
+      if (_st) _st.textContent = totalVisible;
+      if (_tc) _tc.textContent = allRows.length;
 
       // Update pagination controls
       renderPaginationControls(role, totalVisible);
@@ -1345,6 +1350,8 @@
             ? 'teacherPagination'
             : 'studentPagination';
       const paginationEl = document.getElementById(paginationId);
+
+      if (!paginationEl) return;
 
       if (totalPages <= 1) {
         paginationEl.innerHTML = '';

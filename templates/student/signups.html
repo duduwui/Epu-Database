@@ -1,0 +1,580 @@
+{% extends 'base.html' %}
+{% block title %}Signups - Student{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 1400px;">
+
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card bg-primary text-white shadow-sm">
+        <div class="card-body py-3">
+          <div class="row align-items-center">
+            <div class="col">
+              <h5 class="mb-1">
+                <i class="bi bi-ui-checks me-2"></i>Signups
+              </h5>
+              <p class="mb-0 opacity-75" style="font-size: 0.9rem">
+                {% if class_info %}
+                <i class="bi bi-calendar3 me-1"></i>Year {{ class_info.year }} - Semester {{ class_info.semester }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-building me-1"></i>Section {{ class_info.section }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-clock me-1"></i>{{ class_info.shift|capitalize }} Shift
+                {% else %}
+                <i class="bi bi-calendar3 me-1"></i>Viewing Semester {{ selected_semester }}
+                <span class="mx-2 opacity-50">|</span>
+                <span class="opacity-75">Not assigned to a class/section</span>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not class_info %}
+  <div class="alert alert-info mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>No class assigned yet.</strong>
+        <span class="ms-2">You can still browse and enroll in subjects by selecting your semester below.</span>
+      </div>
+      <div class="col-md-4 text-md-end mt-2 mt-md-0">
+        <label for="semesterSelector" class="form-label mb-1 small">Select Semester:</label>
+        <select id="semesterSelector" class="form-select form-select-sm d-inline-block w-auto">
+          {% for sem in range(1, 9) %}
+          <option value="{{ sem }}" {% if sem == selected_semester %}selected{% endif %}>Semester {{ sem }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tab switcher -->
+  <ul class="nav nav-tabs mb-4" id="signupTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if active_tab == 'subjects' %}active{% endif %}"
+              id="subjects-tab" data-bs-toggle="tab" data-bs-target="#subjectsPane"
+              type="button" role="tab">
+        <i class="bi bi-journal-bookmark me-1"></i>Subject Enrollment
+        {% if enrollment_active %}
+        <span class="badge bg-success ms-1" style="font-size:0.7rem">Open</span>
+        {% endif %}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if active_tab == 'exams' %}active{% endif %}"
+              id="exams-tab" data-bs-toggle="tab" data-bs-target="#examsPane"
+              type="button" role="tab">
+        <i class="bi bi-pencil-square me-1"></i>Exam Signup
+        {% if final_period or second_round_period %}
+        <span class="badge bg-success ms-1" style="font-size:0.7rem">Open</span>
+        {% endif %}
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="signupTabContent">
+
+    <!-- ============================================================ -->
+    <!--  TAB 1 — SUBJECT ENROLLMENT                                  -->
+    <!-- ============================================================ -->
+    <div class="tab-pane fade {% if active_tab == 'subjects' %}show active{% endif %}"
+         id="subjectsPane" role="tabpanel">
+
+      {% if enrollment_active %}
+      <div class="alert alert-primary mb-4">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <i class="bi bi-clock-history me-2"></i>
+            <strong>Enrollment Period Active!</strong>
+            <span class="ms-2">You can enroll or unenroll in subjects until the deadline.</span>
+          </div>
+          <div class="col-md-4 text-end">
+            <i class="bi bi-hourglass-split me-2"></i>
+            <strong class="text-primary" id="enrollCountdown"></strong>
+          </div>
+        </div>
+      </div>
+      <script>
+      (function() {
+        const endDate = new Date('{{ enrollment_period.end_date }}').getTime();
+        function tick() {
+          const dist = endDate - Date.now();
+          if (dist < 0) {
+            document.getElementById('enrollCountdown').innerHTML = 'EXPIRED';
+            document.getElementById('enrollCountdown').className = 'text-danger';
+            document.querySelectorAll('.enroll-btn, .unenroll-btn').forEach(b => { b.disabled = true; b.classList.add('disabled'); });
+            return;
+          }
+          const d = Math.floor(dist/86400000), h = Math.floor((dist%86400000)/3600000),
+                m = Math.floor((dist%3600000)/60000), s = Math.floor((dist%60000)/1000);
+          let t = ''; if(d>0) t+=d+'d '; t+=h+'h '+m+'m '+s+'s';
+          document.getElementById('enrollCountdown').innerHTML = t;
+        }
+        tick(); setInterval(tick, 1000);
+      })();
+      </script>
+      {% else %}
+      <div class="alert alert-warning mb-4">
+        <i class="bi bi-lock me-2"></i>
+        <strong>Enrollment Period Closed</strong>
+        <span class="ms-2">The enrollment period has ended or not started yet.</span>
+      </div>
+      {% endif %}
+
+      <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>How to enroll:</strong> Click the "Enroll" button next to any subject you want to take this semester.
+      </div>
+
+      {% if subjects %}
+      <!-- Enrolled Subjects -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-check-circle me-2"></i>Enrolled Subjects
+          <span class="badge bg-white text-primary ms-2" id="enrolledCount">{{ subjects|selectattr('is_enrolled')|list|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0" id="enrolledTable">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:50%">Subject Name</th>
+                  <th style="width:15%">Credits</th>
+                  <th style="width:20%">Teacher</th>
+                  <th style="width:15%" class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set enrolled_subjects = subjects|selectattr('is_enrolled')|list %}
+                {% if enrolled_subjects %}
+                  {% for subject in enrolled_subjects %}
+                <tr id="subject-{{ subject.id }}" data-subject-id="{{ subject.id }}">
+                    <td><strong>{{ subject.name }}</strong></td>
+                    <td><span class="badge bg-secondary">{{ subject.credits or 6 }} cr</span></td>
+                    <td><small class="text-muted">{{ subject.teacher_names or '\u2014' }}</small></td>
+                    <td class="text-center">
+                      <button class="btn btn-sm btn-outline-danger unenroll-btn"
+                              onclick="unenrollSubject({{ subject.id }}, this)"
+                              {% if not enrollment_active %}disabled{% endif %}>
+                        <i class="bi bi-x-circle me-1"></i>Unenroll
+                      </button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr id="noEnrolledMsg">
+                    <td colspan="4" class="text-center text-muted py-3">
+                      <i class="bi bi-inbox me-2"></i>No enrolled subjects yet.
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Subjects -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-list-ul me-2"></i>Available Subjects
+          <span class="badge bg-white text-primary ms-2" id="availableCount">{{ subjects|rejectattr('is_enrolled')|list|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0" id="availableTable">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:50%">Subject Name</th>
+                  <th style="width:15%">Credits</th>
+                  <th style="width:20%">Teacher</th>
+                  <th style="width:15%" class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set available_subjects = subjects|rejectattr('is_enrolled')|list %}
+                {% if available_subjects %}
+                  {% for subject in available_subjects %}
+                  <tr id="subject-{{ subject.id }}" data-subject-id="{{ subject.id }}">
+                    <td><strong>{{ subject.name }}</strong></td>
+                    <td><span class="badge bg-secondary">{{ subject.credits or 6 }} cr</span></td>
+                    <td><small class="text-muted">{{ subject.teacher_names or '\u2014' }}</small></td>
+                    <td class="text-center">
+                      <button class="btn btn-sm btn-primary enroll-btn"
+                              onclick="enrollSubject({{ subject.id }}, this)"
+                              {% if not enrollment_active %}disabled{% endif %}>
+                        <i class="bi bi-plus-circle me-1"></i>Enroll
+                      </button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr id="noAvailableMsg">
+                    <td colspan="4" class="text-center text-muted py-3">
+                      <i class="bi bi-check-all me-2"></i>All subjects enrolled!
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        No subjects available for Semester {{ class_info.semester }} yet. Please contact the admin.
+      </div>
+      {% endif %}
+    </div><!-- /subjectsPane -->
+
+
+    <!-- ============================================================ -->
+    <!--  TAB 2 — EXAM SIGNUP                                         -->
+    <!-- ============================================================ -->
+    <div class="tab-pane fade {% if active_tab == 'exams' %}show active{% endif %}"
+         id="examsPane" role="tabpanel">
+
+      <!-- FINAL EXAM -->
+      <h5 class="mb-3"><i class="bi bi-journal-check me-2"></i>Final Exam Signup</h5>
+
+      {% if final_period %}
+      <div class="alert alert-primary mb-3">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <i class="bi bi-clock-history me-2"></i>
+            <strong>Final Exam Signup Open!</strong>
+            <span class="ms-2">You need a midterm score &ge; 20/60 to be eligible.</span>
+          </div>
+          <div class="col-md-4 text-end">
+            <i class="bi bi-hourglass-split me-2"></i>
+            <strong class="text-primary" id="finalCountdown"></strong>
+          </div>
+        </div>
+      </div>
+      <script>
+      (function() {
+        const endDate = new Date('{{ final_period.end_date }}').getTime();
+        function tick() {
+          const dist = endDate - Date.now();
+          if (dist < 0) {
+            document.getElementById('finalCountdown').innerHTML = 'EXPIRED';
+            document.getElementById('finalCountdown').className = 'text-danger';
+            document.querySelectorAll('.final-btn').forEach(b => { b.disabled = true; b.classList.add('disabled'); });
+            return;
+          }
+          const d = Math.floor(dist/86400000), h = Math.floor((dist%86400000)/3600000),
+                m = Math.floor((dist%3600000)/60000), s = Math.floor((dist%60000)/1000);
+          let t = ''; if(d>0) t+=d+'d '; t+=h+'h '+m+'m '+s+'s';
+          document.getElementById('finalCountdown').innerHTML = t;
+        }
+        tick(); setInterval(tick, 1000);
+      })();
+      </script>
+
+      {% if final_subjects %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Subject</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for subj in final_subjects %}
+                <tr id="final-{{ subj.id }}">
+                  <td><strong>{{ subj.name }}</strong></td>
+                  <td>
+                    <span class="badge {{ 'bg-primary' if subj.eligible else 'bg-danger' }}">
+                      {{ subj.midterm_normalized }}/60
+                    </span>
+                  </td>
+                  <td>
+                    {% if not subj.eligible %}
+                      <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Not Eligible</span>
+                    {% elif subj.already_signed_up %}
+                      <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                    {% else %}
+                      <span class="badge bg-primary">Eligible</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if subj.eligible and not subj.already_signed_up %}
+                      <button class="btn btn-sm btn-primary final-btn" onclick="examAction('signup', {{ subj.id }}, 'final', this)">
+                        <i class="bi bi-check-lg me-1"></i>Sign Up
+                      </button>
+                    {% elif subj.eligible and subj.already_signed_up %}
+                      <button class="btn btn-sm btn-outline-danger final-btn" onclick="examAction('cancel', {{ subj.id }}, 'final', this)">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                      </button>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="alert alert-light mb-4">
+        <i class="bi bi-inbox me-2"></i>No subjects available for final exam signup.
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="alert alert-warning mb-4">
+        <i class="bi bi-lock me-2"></i>
+        <strong>Final Exam Signup Closed</strong>
+        <span class="ms-2">The admin has not opened a final exam period yet, or it has expired.</span>
+      </div>
+      {% endif %}
+
+      <hr class="my-4">
+
+      <!-- SECOND ROUND -->
+      <h5 class="mb-3"><i class="bi bi-arrow-repeat me-2"></i>Second Round Signup</h5>
+
+      {% if second_round_period %}
+      <div class="alert alert-primary mb-3">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <i class="bi bi-clock-history me-2"></i>
+            <strong>Second Round Signup Open!</strong>
+            <span class="ms-2">Only subjects where you scored &lt; 60% are eligible.</span>
+          </div>
+          <div class="col-md-4 text-end">
+            <i class="bi bi-hourglass-split me-2"></i>
+            <strong class="text-primary" id="secondCountdown"></strong>
+          </div>
+        </div>
+      </div>
+      <script>
+      (function() {
+        const endDate = new Date('{{ second_round_period.end_date }}').getTime();
+        function tick() {
+          const dist = endDate - Date.now();
+          if (dist < 0) {
+            document.getElementById('secondCountdown').innerHTML = 'EXPIRED';
+            document.getElementById('secondCountdown').className = 'text-danger';
+            document.querySelectorAll('.second-btn').forEach(b => { b.disabled = true; b.classList.add('disabled'); });
+            return;
+          }
+          const d = Math.floor(dist/86400000), h = Math.floor((dist%86400000)/3600000),
+                m = Math.floor((dist%3600000)/60000), s = Math.floor((dist%60000)/1000);
+          let t = ''; if(d>0) t+=d+'d '; t+=h+'h '+m+'m '+s+'s';
+          document.getElementById('secondCountdown').innerHTML = t;
+        }
+        tick(); setInterval(tick, 1000);
+      })();
+      </script>
+
+      {% if second_round_subjects %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Subject</th>
+                  <th>Current Score</th>
+                  <th>Status</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for subj in second_round_subjects %}
+                <tr id="second-{{ subj.id }}">
+                  <td><strong>{{ subj.name }}</strong></td>
+                  <td>
+                    <span class="badge bg-danger">{{ subj.percentage }}%</span>
+                    <small class="text-muted ms-1">(Failed)</small>
+                  </td>
+                  <td>
+                    {% if subj.already_signed_up %}
+                      <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                    {% else %}
+                      <span class="badge bg-primary">Eligible</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if not subj.already_signed_up %}
+                      <button class="btn btn-sm btn-primary second-btn" onclick="examAction('signup', {{ subj.id }}, 'second_round', this)">
+                        <i class="bi bi-check-lg me-1"></i>Sign Up
+                      </button>
+                    {% else %}
+                      <button class="btn btn-sm btn-outline-danger second-btn" onclick="examAction('cancel', {{ subj.id }}, 'second_round', this)">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                      </button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="alert alert-light mb-4">
+        <i class="bi bi-inbox me-2"></i>No subjects eligible for second round.
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="alert alert-warning mb-4">
+        <i class="bi bi-lock me-2"></i>
+        <strong>Second Round Signup Closed</strong>
+        <span class="ms-2">The admin has not opened a second-round period yet, or it has expired.</span>
+      </div>
+      {% endif %}
+
+    </div><!-- /examsPane -->
+  </div><!-- /tab-content -->
+
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="toast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMessage">Done!</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Exam actions ──────────────────────────────────────────────
+const examToast = new bootstrap.Toast(document.getElementById('toast'));
+
+function examAction(action, subjectId, examType, btn) {
+  if (action === 'cancel' && !confirm('Cancel this exam signup?')) return;
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>...';
+  fetch(`/student/exams/${action}/${subjectId}/${examType}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('toastMessage').textContent = data.message;
+      examToast.show();
+      setTimeout(() => location.reload(), 600);
+    } else {
+      alert('Error: ' + (data.error || 'Operation failed'));
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  })
+  .catch(() => {
+    alert('An error occurred. Please try again.');
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  });
+}
+
+// ── Subject enrollment ────────────────────────────────────────
+function enrollSubject(subjectId, button) {
+  const row = button.closest('tr');
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enrolling...';
+  fetch(`/student/subjects/enroll/${subjectId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) { moveToEnrolled(row, subjectId); }
+      else { alert('Error: ' + (data.error || 'Failed to enroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; }
+    })
+    .catch(() => { alert('An error occurred.'); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; });
+}
+
+function unenrollSubject(subjectId, button) {
+  if (!confirm('Are you sure you want to unenroll from this subject?')) return;
+  const row = button.closest('tr');
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Unenrolling...';
+  fetch(`/student/subjects/unenroll/${subjectId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) { moveToAvailable(row, subjectId); }
+      else { alert('Error: ' + (data.error || 'Failed to unenroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; }
+    })
+    .catch(() => { alert('An error occurred.'); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; });
+}
+
+function moveToEnrolled(row, subjectId) {
+  const cells = row.querySelectorAll('td');
+  const name = cells[0].innerHTML, credits = cells[1].innerHTML, description = cells[2].innerHTML;
+  row.remove();
+  const noAvailableMsg = document.getElementById('noAvailableMsg');
+  if (noAvailableMsg) noAvailableMsg.remove();
+  const enrolledTbody = document.querySelector('#enrolledTable tbody');
+  const noEnrolledMsg = document.getElementById('noEnrolledMsg');
+  if (noEnrolledMsg) noEnrolledMsg.remove();
+  const newRow = document.createElement('tr');
+  newRow.id = `subject-${subjectId}`; newRow.setAttribute('data-subject-id', subjectId);
+  newRow.innerHTML = `<td>${name}</td><td>${credits}</td><td>${description}</td>
+    <td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="unenrollSubject(${subjectId}, this)">
+      <i class="bi bi-x-circle me-1"></i>Unenroll</button></td>`;
+  enrolledTbody.appendChild(newRow);
+  newRow.classList.add('table-primary'); setTimeout(() => newRow.classList.remove('table-primary'), 1000);
+  updateCounts();
+  if (document.querySelectorAll('#availableTable tbody tr[data-subject-id]').length === 0) {
+    document.querySelector('#availableTable tbody').innerHTML =
+      `<tr id="noAvailableMsg"><td colspan="4" class="text-center text-muted py-3"><i class="bi bi-check-all me-2"></i>All subjects enrolled!</td></tr>`;
+  }
+}
+
+function moveToAvailable(row, subjectId) {
+  const cells = row.querySelectorAll('td');
+  const name = cells[0].innerHTML, credits = cells[1].innerHTML, description = cells[2].innerHTML;
+  row.remove();
+  const noEnrolledMsg = document.getElementById('noEnrolledMsg');
+  if (noEnrolledMsg) noEnrolledMsg.remove();
+  const availableTbody = document.querySelector('#availableTable tbody');
+  const noAvailableMsg = document.getElementById('noAvailableMsg');
+  if (noAvailableMsg) noAvailableMsg.remove();
+  const newRow = document.createElement('tr');
+  newRow.id = `subject-${subjectId}`; newRow.setAttribute('data-subject-id', subjectId);
+  newRow.innerHTML = `<td>${name}</td><td>${credits}</td><td>${description}</td>
+    <td class="text-center"><button class="btn btn-sm btn-primary" onclick="enrollSubject(${subjectId}, this)">
+      <i class="bi bi-plus-circle me-1"></i>Enroll</button></td>`;
+  availableTbody.appendChild(newRow);
+  updateCounts();
+  if (document.querySelectorAll('#enrolledTable tbody tr[data-subject-id]').length === 0) {
+    document.querySelector('#enrolledTable tbody').innerHTML =
+      `<tr id="noEnrolledMsg"><td colspan="4" class="text-center text-muted py-3"><i class="bi bi-inbox me-2"></i>No enrolled subjects yet.</td></tr>`;
+  }
+}
+
+function updateCounts() {
+  document.getElementById('enrolledCount').textContent = document.querySelectorAll('#enrolledTable tbody tr[data-subject-id]').length;
+  document.getElementById('availableCount').textContent = document.querySelectorAll('#availableTable tbody tr[data-subject-id]').length;
+}
+
+// ── Semester selector ─────────────────────────────────────────
+const semesterSelector = document.getElementById('semesterSelector');
+if (semesterSelector) {
+  semesterSelector.addEventListener('change', function() {
+    const semester = this.value;
+    const url = new URL(window.location.href);
+    url.searchParams.set('semester', semester);
+    window.location.href = url.toString();
+  });
+}
+</script>
+{% endblock %}

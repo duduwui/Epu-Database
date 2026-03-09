@@ -9,8 +9,7 @@ block content %}
         <p class="mb-0">
           <strong>{{ subject.name }}</strong>
           <span class="text-muted ms-2">
-            â€¢ Semester {{ subject.semester }} {% if subject.shift %}â€¢ {{ subject.shift|title }}
-            Shift{% endif %}
+            &bull; Semester {{ subject.semester or '-' }} {% if subject.shift %}&bull; {{ subject.shift|title }} Shift{% endif %}
           </span>
         </p>
       </div>
@@ -33,9 +32,9 @@ block content %}
     <div class="flex-grow-1">
       <strong>Total Weight: {{ "%.2f"|format(total_weight) }}%</strong>
       {% if is_valid %}
-      <span class="ms-2">âœ“ Complete distribution (100%)</span>
+      <span class="ms-2">&#10003; Complete distribution (100%)</span>
       {% else %}
-      <span class="ms-2">âš  Incomplete - Add more components to reach 100%</span>
+      <span class="ms-2">&#9888; Incomplete &ndash; Add more components to reach 100%</span>
       {% endif %}
     </div>
     <div class="progress" style="width: 200px; height: 25px">
@@ -67,7 +66,7 @@ block content %}
           >
             <div class="mb-3">
               <label class="form-label">Type <span class="text-danger">*</span></label>
-              <select name="component_type" id="componentType" class="form-select" required>
+              <select name="component_type" id="componentType" class="form-select form-select-sm" required>
                 <option value="">Select type...</option>
                 <option value="homework">Homework</option>
                 <option value="quiz">Quiz</option>
@@ -80,6 +79,42 @@ block content %}
                 <option value="activity">Classroom Activity</option>
                 <option value="seminar">Seminar</option>
               </select>
+            </div>
+
+            <!-- Paired Report+Seminar mode (shown when type = report or seminar) -->
+            <div class="mb-2" id="pairModeDiv" style="display:none">
+              <label class="form-label small mb-1">Scoring Mode <span class="text-danger">*</span></label>
+              <div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="pair_mode" id="pairIndependent" value="independent" checked>
+                  <label class="form-check-label small" for="pairIndependent">
+                    <strong>Independent</strong> — each item contributes its own weight
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="pair_mode" id="pairPaired" value="paired">
+                  <label class="form-check-label small" for="pairPaired">
+                    <strong>Paired</strong> — adds Report+Seminar together, scores averaged
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paired names (shown when paired mode) -->
+            <div class="mb-2" id="pairedNamesDiv" style="display:none">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small mb-1">Report Name</label>
+                  <input type="text" name="report_name" id="reportNameInput"
+                         class="form-control form-control-sm" value="Report" placeholder="Report" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label small mb-1">Seminar Name</label>
+                  <input type="text" name="seminar_name" id="seminarNameInput"
+                         class="form-control form-control-sm" value="Seminar" placeholder="Seminar" />
+                </div>
+              </div>
+              <small class="text-muted">Each scored 0-weight each. Grade = average of both.</small>
             </div>
 
             <div class="mb-3" id="midtermStructureDiv" style="display: none">
@@ -100,15 +135,15 @@ block content %}
               </div>
             </div>
 
-            <div class="mb-3" id="splitWeightsDiv" style="display: none">
-              <div class="row">
+            <div class="mb-2" id="splitWeightsDiv" style="display: none">
+              <div class="row g-2">
                 <div class="col-6">
-                  <label class="form-label">Practical Weight % <span class="text-danger">*</span></label>
+                  <label class="form-label small mb-1">Practical Weight % <span class="text-danger">*</span></label>
                   <input
                     type="number"
                     name="practical_weight"
                     id="practicalWeight"
-                    class="form-control"
+                    class="form-control form-control-sm"
                     step="0.1"
                     min="0"
                     max="100"
@@ -116,12 +151,12 @@ block content %}
                   />
                 </div>
                 <div class="col-6">
-                  <label class="form-label">Theoretical Weight % <span class="text-danger">*</span></label>
+                  <label class="form-label small mb-1">Theoretical Weight % <span class="text-danger">*</span></label>
                   <input
                     type="number"
                     name="theoretical_weight"
                     id="theoreticalWeight"
-                    class="form-control"
+                    class="form-control form-control-sm"
                     step="0.1"
                     min="0"
                     max="100"
@@ -129,51 +164,46 @@ block content %}
                   />
                 </div>
               </div>
-              <small class="text-muted">Max scores will equal the weights (15% = 15 pts, 10% = 10 pts)</small>
+              <small class="text-muted">Max scores will equal the weights</small>
             </div>
 
-            <div class="mb-3" id="quantityDiv">
-              <label class="form-label">Quantity <span class="text-danger">*</span></label>
+            <div class="mb-2" id="quantityDiv">
+              <label class="form-label small mb-1">Quantity <span class="text-danger">*</span></label>
               <input
                 type="number"
                 name="quantity"
                 id="quantityInput"
-                class="form-control"
+                class="form-control form-control-sm"
                 value="1"
                 min="1"
                 max="20"
                 required
               />
-              <small class="text-muted"
-                >How many items of this type? (e.g., 3 homeworks, 2 quizzes)</small
-              >
+              <small class="text-muted">How many items? (e.g., 3 homeworks)</small>
             </div>
 
-            <div class="mb-3" id="weightDiv">
-              <label class="form-label">Total Weight % <span class="text-danger">*</span></label>
+            <div class="mb-2" id="weightDiv">
+              <label class="form-label small mb-1">Total Weight % <span class="text-danger">*</span></label>
               <input
                 type="number"
                 name="weight_percentage"
                 id="weightInput"
-                class="form-control"
+                class="form-control form-control-sm"
                 step="0.1"
                 min="0"
                 max="100"
                 placeholder="e.g., 10, 15, 20"
                 required
               />
-              <small class="text-muted">
-                <strong>Important:</strong> Max score will EQUAL this weight. (5% \u2192 max 5 pts each). Teachers enter scores out of this number. Remaining:
-                <strong>{{ "%.2f"|format(100 - total_weight) }}%</strong>
-              </small>
+              <small class="text-muted">Remaining: <strong>{{ "%.2f"|format(100 - total_weight) }}%</strong></small>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label">Display Order</label>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Display Order</label>
               <input
                 type="number"
                 name="display_order"
-                class="form-control"
+                class="form-control form-control-sm"
                 value="{{ components|length }}"
                 min="0"
               />
@@ -330,6 +360,11 @@ block content %}
                       <td>
                         <i class="bi bi-circle-fill text-secondary me-2" style="font-size: 6px;"></i>
                         <strong>{{ component.component_name }}</strong>
+                        {% if component.pair_group is not none %}
+                        <span class="badge bg-warning text-dark ms-1" title="Paired pair – scores averaged with partner">
+                          <i class="bi bi-link-45deg"></i> Paired
+                        </span>
+                        {% endif %}
                       </td>
                       <td class="text-center">
                         <span class="badge bg-light text-dark border">{{ component.max_score }}</span>
@@ -586,8 +621,27 @@ block content %}
   const splitWeightsDiv = document.getElementById('splitWeightsDiv');
   const practicalWeight = document.getElementById('practicalWeight');
   const theoreticalWeight = document.getElementById('theoreticalWeight');
+  const pairModeDiv = document.getElementById('pairModeDiv');
+  const pairedNamesDiv = document.getElementById('pairedNamesDiv');
+
+  function updatePairModeUI() {
+    const isPaired = document.querySelector('input[name="pair_mode"]:checked')?.value === 'paired';
+    pairedNamesDiv.style.display = isPaired ? 'block' : 'none';
+    // When paired: hide quantity (always 2), keep weight visible
+    quantityDiv.style.display = isPaired ? 'none' : 'block';
+    quantityInput.required = !isPaired;
+    if (isPaired) quantityInput.value = 1;
+  }
 
   componentType.addEventListener('change', function() {
+    const isPairableType = (this.value === 'report' || this.value === 'seminar');
+    pairModeDiv.style.display = isPairableType ? 'block' : 'none';
+    if (!isPairableType) {
+      // Reset pair mode to independent when switching away
+      document.getElementById('pairIndependent').checked = true;
+      pairedNamesDiv.style.display = 'none';
+    }
+
     if (this.value === 'midterm') {
       midtermStructureDiv.style.display = 'block';
       // Check current structure
@@ -633,6 +687,11 @@ block content %}
         theoreticalWeight.required = false;
       }
     });
+  });
+
+  // Toggle paired names when pair mode changes
+  document.querySelectorAll('input[name="pair_mode"]').forEach(function(radio) {
+    radio.addEventListener('change', updatePairModeUI);
   });
 
   // Handle edit modal

@@ -83,7 +83,7 @@
           <thead class="table-light">
             <tr>
               <th>Subject</th>
-              <th>Midterm Score</th>
+              <th>Score</th>
               <th>Status</th>
               <th class="text-center">Action</th>
             </tr>
@@ -94,9 +94,8 @@
               <td><strong>{{ subj.name }}</strong></td>
               <td>
                 <span class="badge {{ 'bg-primary' if subj.eligible else 'bg-danger' }}">
-                  {{ subj.midterm_score }}/{{ subj.midterm_max }}
+                  {{ subj.midterm_normalized }}/60
                 </span>
-                <small class="text-muted ms-1">({{ subj.midterm_normalized }}/60)</small>
               </td>
               <td>
                 {% if not subj.eligible %}

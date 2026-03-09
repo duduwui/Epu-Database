@@ -72,14 +72,14 @@
                 onchange="toggleRoleFields()"
               >
                 <option value="">Select role...</option>
-                <option value="admin" {% if default_role="" ="admin" %}selected{% endif %}>
+                <option value="admin" {% if default_role == "admin" %}selected{% endif %}>
                   Admin
                 </option>
-                <option value="teacher" {% if default_role="" ="teacher" %}selected{% endif %}>
+                <option value="teacher" {% if default_role == "teacher" %}selected{% endif %}>
                   Teacher
                 </option>
                 {% if not default_role or default_role != 'teacher' %}
-                <option value="student" {% if default_role="" ="student" %}selected{% endif %}>
+                <option value="student" {% if default_role == "student" %}selected{% endif %}>
                   Student
                 </option>
                 {% endif %}

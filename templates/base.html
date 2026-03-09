@@ -35,10 +35,10 @@
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container">
         <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-          <img src="{{ url_for('static', filename='images/epu-logo.png') }}"
+          <img src="{{ url_for('static', filename='images/epu-logo.png') }}?v=5"
                alt="EPU"
                height="38"
-               style="margin-right:8px;vertical-align:middle;object-fit:contain;mix-blend-mode:multiply;"
+               style="margin-right:8px;vertical-align:middle;"
                onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
           <i class="bi bi-mortarboard-fill" style="display:none;margin-right:6px"></i>
           <span>EPU - MIS</span>
@@ -97,13 +97,7 @@
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('admin_enrollment_periods') }}">
                 <i class="bi bi-calendar-range"></i>
-                <span>Enrollment Periods</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin_exam_periods') }}">
-                <i class="bi bi-pencil-square"></i>
-                <span>Exam Periods</span>
+                <span>Periods</span>
               </a>
             </li>
 
@@ -155,9 +149,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student_subjects') }}">
-                <i class="bi bi-journal-bookmark"></i>
-                <span>My Subjects</span>
+              <a class="nav-link" href="{{ url_for('student_signups') }}">
+                <i class="bi bi-ui-checks"></i>
+                <span>Signups</span>
               </a>
             </li>
             <li class="nav-item">
@@ -173,12 +167,6 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student_exams') }}">
-                <i class="bi bi-pencil-square"></i>
-                <span>Exams</span>
-              </a>
-            </li>
-            <li class="nav-item">
               <a class="nav-link" href="{{ url_for('student_files') }}">
                 <i class="bi bi-folder2-open"></i>
                 <span>Files</span>
@@ -190,18 +178,20 @@
 
           <!-- User Menu -->
           <ul class="navbar-nav align-items-center">
-            <li class="nav-item me-3">
-              <span class="nav-link d-flex align-items-center gap-2" style="cursor: default">
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 px-2" href="#"
+                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-person-circle"></i>
                 <span>{{ current_user.full_name }}</span>
-                <span class="badge bg-light text-dark">{{ current_user.role|title }}</span>
-              </span>
-            </li>
-            <li class="nav-item">
-              <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">
-                <i class="bi bi-box-arrow-right"></i>
-                <span class="d-none d-md-inline ms-1">Logout</span>
+                <span class="badge bg-light text-dark ms-1">{{ current_user.role|title }}</span>
               </a>
+              <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                <li>
+                  <a class="dropdown-item text-danger fw-semibold" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                  </a>
+                </li>
+              </ul>
             </li>
           </ul>
         </div>

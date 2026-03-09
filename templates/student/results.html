@@ -102,6 +102,7 @@
             </tr>
           </thead>
           <tbody>
+            {% if sem_data.results %}
             {% for result in sem_data.results %}
             <tr class="{% if not result.passed %}table-danger{% endif %}">
               <td class="text-end pe-4 fw-semibold">{{ result.subject_name }}</td>
@@ -123,6 +124,13 @@
               </td>
             </tr>
             {% endfor %}
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                <i class="bi bi-inbox me-2"></i>No grades have been recorded for this semester yet.
+              </td>
+            </tr>
+            {% endif %}
           </tbody>
           <tfoot>
             <tr style="background:#150555; color:#fff;" class="fw-bold">

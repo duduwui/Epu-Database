@@ -228,6 +228,9 @@ content %}
         <button class="ctrl-btn" onclick="window.print()" title="Print">
           <i class="bi bi-printer"></i>
         </button>
+        <button class="ctrl-btn" id="generateScheduleBtn" title="Generate sample schedule from subjects">
+          <i class="bi bi-magic"></i>
+        </button>
         <button class="ctrl-btn delete" id="clearScheduleBtn" title="Clear All">
           <i class="bi bi-trash3"></i>
         </button>
@@ -1939,6 +1942,32 @@ content %}
         updateSaveStatus('error', 'Error');
       }
     }
+
+    // Auto-generate sample schedule
+    document.getElementById('generateScheduleBtn').addEventListener('click', async function () {
+      if (scheduleData.length > 0) {
+        if (!confirm('This will replace the current schedule with a generated sample. Continue?')) return;
+      }
+      const btn = this;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try {
+        const res = await fetch(`/admin/api/schedule/${currentSemester}/${currentShift}/${currentSection}/auto-generate`, { method: 'POST' });
+        const result = await res.json();
+        if (result.success) {
+          scheduleData = result.data || [];
+          renderGrid();
+          updateSaveStatus('', 'Generated');
+        } else {
+          alert('Could not generate schedule: ' + (result.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Error generating schedule.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic"></i>';
+      }
+    });
 
     // Clear schedule
     document.getElementById('clearScheduleBtn').addEventListener('click', async function () {

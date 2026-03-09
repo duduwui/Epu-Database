@@ -276,6 +276,14 @@ content %}
                   </div>
 
                   <div class="mb-3">
+                    <label class="form-label small text-muted mb-1">Teacher Type</label>
+                    <select name="teacher_type" class="form-select form-select-sm" required>
+                      <option value="theoretical">Theoretical</option>
+                      <option value="practical">Practical</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
                     <label class="form-label small text-muted mb-1">Classes</label>
                     <div
                       id="classCheckboxes"
@@ -318,7 +326,7 @@ content %}
 <script id="classesData" type="application/json">
   [
     {% for cls in classes %}
-    {"id": {{ cls.id }}, "name": "{{ cls.name }}", "section": "{{ cls.section }}", "year": {{ cls.year }}, "semester": {{ cls.semester }}, "shift": "{{ cls.shift }}"}{% if not loop.last %},{% endif %}
+    {"key": "{{ cls.group_key }}", "section": "{{ cls.section }}", "year": {{ cls.year }}, "semester": {{ cls.semester }}, "shift": "{{ cls.shift }}"}{% if not loop.last %},{% endif %}
     {% endfor %}
   ]
 </script>
@@ -406,19 +414,19 @@ content %}
       const sections = [...new Set(filteredClasses.map((c) => c.section))].sort();
 
       let html = '<div class="d-flex gap-3">';
-      sections.forEach((section) => {
+      sections.forEach((section, i) => {
         const cls = filteredClasses.find((c) => c.section === section);
         html += `
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="class_ids" value="${cls.id}" id="cls${cls.id}">
-            <label class="form-check-label" for="cls${cls.id}">Class ${section}</label>
+            <input class="form-check-input" type="checkbox" name="group_keys" value="${cls.key}" id="grp${i}">
+            <label class="form-check-label" for="grp${i}">Class ${section}</label>
           </div>
         `;
       });
       html += '</div>';
 
       if (sections.length === 0) {
-        html = '<span class="text-muted small">No classes available for this selection</span>';
+        html = '<span class="text-info small"><i class="bi bi-info-circle me-1"></i>No sections defined — subject will be assigned directly to all Semester ' + selectedSemester + ' students.</span>';
       }
 
       checkboxContainer.innerHTML = html;
@@ -508,11 +516,16 @@ content %}
             </div>
             <div class="d-flex flex-wrap gap-2">`;
             classes.forEach((c) => {
-              const shiftLabel = c.shift === 'morning' ? 'Morning' : 'Evening';
+              const shiftLabel = c.shift === 'morning' ? 'Morning' : c.shift === 'evening' ? 'Evening' : '';
+              const typeLabel = c.teacher_type ? (c.teacher_type.charAt(0).toUpperCase() + c.teacher_type.slice(1)) : '';
+              const chipLabel = c.year != null
+                ? `Year ${c.year} - Class ${c.section || '?'}${shiftLabel ? ' - ' + shiftLabel : ''}${typeLabel ? ' [' + typeLabel + ']' : ''}`
+                : `Semester ${c.semester}`;
+              const chipId = c.assignment_id != null ? `assign-chip-${c.assignment_id}` : `assign-chip-sub-${c.id}`;
               html += `
-              <div class="d-inline-flex align-items-center bg-light border rounded px-2 py-1" id="assign-chip-${c.assignment_id}">
-                <span class="small">Year ${c.year} - ${c.section} - ${shiftLabel}</span>
-                <button type="button" class="btn btn-link btn-sm text-danger p-0 lh-1 ms-2 unassign-btn" data-id="${c.assignment_id}" title="Remove">
+              <div class="d-inline-flex align-items-center bg-light border rounded px-2 py-1" id="${chipId}">
+                <span class="small">${chipLabel}</span>
+                <button type="button" class="btn btn-link btn-sm text-danger p-0 lh-1 ms-2 unassign-btn" data-id="${c.assignment_id}" data-subject-id="${c.id}" title="Remove">
                   <i class="bi bi-x"></i>
                 </button>
               </div>`;
@@ -533,16 +546,20 @@ content %}
       // Bind unassign buttons
       document.querySelectorAll('.unassign-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-          const assignmentId = this.dataset.id;
+          const assignmentId = this.dataset.id !== 'null' && this.dataset.id ? this.dataset.id : null;
+          const subjectId = this.dataset.subjectId;
           if (!confirm('Remove this assignment?')) return;
-          unassignSubjectAjax(assignmentId);
+          unassignSubjectAjax(assignmentId, subjectId);
         });
       });
     }
 
     // --- AJAX: Unassign subject (modal stays open) ---
-    function unassignSubjectAjax(assignmentId) {
-      fetch('/admin/teachers/unassign-subject-ajax/' + assignmentId, {
+    function unassignSubjectAjax(assignmentId, subjectId) {
+      const url = assignmentId
+        ? '/admin/teachers/unassign-subject-ajax/' + assignmentId
+        : '/admin/teachers/unassign-subject-by-subject/' + subjectId;
+      fetch(url, {
         method: 'POST'
       })
       .then(res => res.json())
@@ -550,7 +567,11 @@ content %}
         if (data.success) {
           // Remove from local data
           const subjects = teachersData[currentTeacherKey] || [];
-          teachersData[currentTeacherKey] = subjects.filter(s => s.assignment_id != assignmentId);
+          if (assignmentId) {
+            teachersData[currentTeacherKey] = subjects.filter(s => s.assignment_id != assignmentId);
+          } else {
+            teachersData[currentTeacherKey] = subjects.filter(s => s.id != subjectId);
+          }
           refreshSubjectsList();
         } else {
           alert('Error: ' + (data.error || 'Could not remove assignment'));

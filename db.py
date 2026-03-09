@@ -348,6 +348,34 @@ def get_all_classes():
     return execute_query(query, fetch_all=True)
 
 
+def get_distinct_student_groups():
+    """Get distinct year/section/shift/semester groups from actual students data."""
+    query = """
+        SELECT DISTINCT year, section, shift, semester,
+               CONCAT(year, '|', section, '|', shift, '|', semester) AS group_key
+        FROM students
+        WHERE year IS NOT NULL AND section IS NOT NULL
+          AND shift IS NOT NULL AND semester IS NOT NULL
+        ORDER BY year, semester, section, shift
+    """
+    return execute_query(query, fetch_all=True)
+
+
+def find_or_create_class(year, semester, section, shift):
+    """Find existing class or create a new one. Returns the class id."""
+    existing = execute_query(
+        "SELECT id FROM classes WHERE year = %s AND semester = %s AND section = %s AND shift = %s",
+        (year, semester, section, shift), fetch_one=True
+    )
+    if existing:
+        return existing['id']
+    name = f"Year {year} Sem {semester} {section} {shift.capitalize()}"
+    return execute_insert_returning(
+        "INSERT INTO classes (name, year, semester, section, shift) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (name, year, semester, section, shift)
+    )
+
+
 def get_class_student_counts():
     """Get student counts for each class (semester, shift, section) and semester totals"""
     # Count students by their semester/shift/section columns (not class_id)
@@ -488,17 +516,32 @@ def get_all_teachers_with_subjects():
 
 
 def get_subjects_by_teacher_id(teacher_id):
-    """Get all subjects assigned to a teacher with class info via teacher_assignments"""
+    """Get all subjects assigned to a teacher.
+    First tries teacher_assignments (class-based), falls back to subjects.teacher_id."""
+    # Try class-based assignments first
     query = """
         SELECT s.id, s.name, c.name as class_name, c.year, c.semester, c.section, c.shift,
-               ta.id as assignment_id
+               ta.id as assignment_id, ta.teacher_type
         FROM teacher_assignments ta
         JOIN subjects s ON ta.subject_id = s.id
         JOIN classes c ON ta.class_id = c.id
         WHERE ta.teacher_id = %s
         ORDER BY s.name, c.year, c.section
     """
-    return execute_query(query, (teacher_id,), fetch_all=True)
+    results = execute_query(query, (teacher_id,), fetch_all=True)
+    if results:
+        return results
+    # Fallback: subjects assigned via direct teacher_id column (no class required)
+    fallback_query = """
+        SELECT s.id, s.name,
+               'Semester ' || s.semester AS class_name,
+               NULL::int AS year, s.semester, NULL::varchar AS section, NULL::varchar AS shift,
+               NULL::int AS assignment_id
+        FROM subjects s
+        WHERE s.teacher_id = %s
+        ORDER BY s.semester, s.name
+    """
+    return execute_query(fallback_query, (teacher_id,), fetch_all=True)
 
 
 # =============================================
@@ -645,19 +688,41 @@ def get_students_filtered(year=None, class_id=None):
 # STUDENT ENROLLMENT QUERIES
 # =============================================
 
-def get_available_subjects_for_student(student_id):
-    """Get subjects available for student's semester (enrolled + not enrolled)"""
+def get_available_subjects_for_student(student_id, semester=None):
+    """Get subjects available for student's semester (enrolled + not enrolled).
+    Uses student.semester directly (no class assignment required)."""
+    if semester is None:
+        # Use semester stored directly on the students table
+        result = execute_query(
+            "SELECT semester FROM students WHERE id = %s",
+            (student_id,), fetch_one=True
+        )
+        if result and result['semester']:
+            semester = result['semester']
+
+    if semester is None:
+        return []
+
     query = """
-        SELECT s.*, 
-               CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled
-        FROM students st
-        JOIN classes c ON st.class_id = c.id
-        JOIN subjects s ON s.semester = c.semester
-        LEFT JOIN student_enrollments se ON se.student_id = st.id AND se.subject_id = s.id
-        WHERE st.id = %s
+        SELECT s.*,
+               CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled,
+               (SELECT STRING_AGG(
+                    u.full_name || ' (' ||
+                    INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                    ' / '
+                    ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                )
+                FROM teacher_assignments ta
+                JOIN teachers t ON ta.teacher_id = t.id
+                JOIN users u ON t.user_id = u.id
+                WHERE ta.subject_id = s.id
+               ) as teacher_names
+        FROM subjects s
+        LEFT JOIN student_enrollments se ON se.student_id = %s AND se.subject_id = s.id
+        WHERE s.semester = %s
         ORDER BY s.name
     """
-    return execute_query(query, (student_id,), fetch_all=True)
+    return execute_query(query, (student_id, semester), fetch_all=True)
 
 
 def get_enrolled_subjects_for_student(student_id):
@@ -826,6 +891,7 @@ def get_student_midterm_score(student_id, subject_id):
     Returns dict with total_score and total_max."""
     query = """
         SELECT gc.component_type,
+               gc.pair_group,
                COALESCE(g.score, 0) as score,
                gc.max_score
         FROM grade_components gc
@@ -838,29 +904,7 @@ def get_student_midterm_score(student_id, subject_id):
         ORDER BY gc.component_type, gc.id
     """
     rows = execute_query(query, (student_id, subject_id, subject_id), fetch_all=True) or []
-
-    # Group by component_type and calculate using sum_types logic
-    sum_types = ['midterm', 'final']
-    grouped = {}
-    for row in rows:
-        ct = row['component_type']
-        if ct not in grouped:
-            grouped[ct] = []
-        grouped[ct].append(row)
-
-    total_score = 0
-    total_max = 0
-    for component_type, group in grouped.items():
-        group_score = sum(float(g['score'] or 0) for g in group)
-        group_max = sum(float(g['max_score']) for g in group)
-        count = len(group)
-        if component_type in sum_types:
-            total_score += group_score
-            total_max += group_max
-        elif count > 0:
-            total_score += group_score / count
-            total_max += group_max / count
-
+    total_score, total_max = _calc_grade_totals(rows)
     return {'total_score': total_score, 'total_max': total_max}
 
 
@@ -903,27 +947,7 @@ def get_exam_eligible_subjects(student_id, exam_type, semester=None):
             grades_data = get_student_grades_for_subject(student_id, subj['id']) or []
             if not grades_data:
                 continue
-            # Calculate full percentage (same logic as student_results)
-            sum_types = ['midterm', 'final']
-            grouped = {}
-            for g in grades_data:
-                ct = g['component_type']
-                if ct not in grouped:
-                    grouped[ct] = []
-                grouped[ct].append(g)
-
-            total_score = 0
-            total_max = 0
-            for ct, grp in grouped.items():
-                gs = sum(float(g['score'] or 0) for g in grp)
-                gm = sum(float(g['max_score']) for g in grp)
-                gc = len(grp)
-                if ct in sum_types:
-                    total_score += gs
-                    total_max += gm
-                elif gc > 0:
-                    total_score += gs / gc
-                    total_max += gm / gc
+            total_score, total_max = _calc_grade_totals(grades_data)
 
             percentage = (total_score / total_max * 100) if total_max > 0 else 0
             if percentage >= 60:
@@ -1058,9 +1082,10 @@ def get_subjects_by_class(class_id):
 
 
 def get_subjects_by_teacher(teacher_id):
-    """Get all subjects taught by a teacher with class info"""
+    """Get all subjects taught by a teacher with class info.
+    Falls back to subjects.teacher_id when no class-based assignments exist."""
     query = """
-        SELECT DISTINCT s.*, 
+        SELECT DISTINCT s.*,
                c.name as class_name, c.year, c.semester, c.section, c.shift,
                ta.id as assignment_id, ta.class_id
         FROM subjects s
@@ -1069,7 +1094,20 @@ def get_subjects_by_teacher(teacher_id):
         WHERE ta.teacher_id = %s
         ORDER BY c.year, c.semester, c.section, s.name
     """
-    return execute_query(query, (teacher_id,), fetch_all=True)
+    results = execute_query(query, (teacher_id,), fetch_all=True)
+    if results:
+        return results
+    # Fallback: subjects assigned via direct teacher_id column (no class required)
+    fallback_query = """
+        SELECT DISTINCT s.*,
+               'Semester ' || s.semester AS class_name,
+               NULL::int AS year, s.semester, NULL::varchar AS section, NULL::varchar AS shift,
+               NULL::int AS assignment_id, NULL::int AS class_id
+        FROM subjects s
+        WHERE s.teacher_id = %s
+        ORDER BY s.semester, s.name
+    """
+    return execute_query(fallback_query, (teacher_id,), fetch_all=True)
 
 
 def get_all_subjects():
@@ -1104,17 +1142,26 @@ def get_unique_subjects_by_semester():
 
 
 def get_subjects_grouped_by_semester():
-    """Get all subjects grouped by semester with their assignment info"""
+    """Get all subjects grouped by semester with their assignment info and grade weight summary"""
     query = """
         SELECT s.id, s.name, s.semester, s.description, s.credits, s.results_published,
                c.year, c.section,
                ta.id as assignment_id,
-               t.id as teacher_id, u.full_name as teacher_name
+               t.id as teacher_id, u.full_name as teacher_name,
+               COALESCE(gw.total_weight, 0) AS total_weight,
+               COALESCE(gw.component_count, 0) AS component_count
         FROM subjects s
         LEFT JOIN teacher_assignments ta ON s.id = ta.subject_id
         LEFT JOIN classes c ON ta.class_id = c.id
         LEFT JOIN teachers t ON ta.teacher_id = t.id
         LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN (
+            SELECT subject_id,
+                   COUNT(*) AS component_count,
+                   SUM(weight_percentage) AS total_weight
+            FROM grade_components
+            GROUP BY subject_id
+        ) gw ON s.id = gw.subject_id
         WHERE s.semester IS NOT NULL
         ORDER BY c.year, s.semester, c.section, s.name
     """
@@ -1146,9 +1193,10 @@ def get_subject_by_id(subject_id):
     """Get subject by ID with teacher assignments"""
     query = """
         SELECT s.*,
+               s.semester as semester,
                ta.id as assignment_id,
                ta.class_id,
-               c.year, c.semester, c.section, c.shift,
+               c.year, c.section, c.shift,
                t.id as teacher_id,
                u.full_name as teacher_name
         FROM subjects s
@@ -1388,6 +1436,7 @@ def get_student_grades_for_subject(student_id, subject_id):
             gc.max_score,
             gc.weight_percentage,
             gc.display_order,
+            gc.pair_group,
             g.score,
             g.date as grade_date,
             g.published
@@ -1404,29 +1453,48 @@ def get_student_grades_for_subject(student_id, subject_id):
 
 def publish_grades_for_subject(subject_id, class_id):
     """Publish all draft grades for a specific subject and class"""
-    query = """
-        UPDATE grades 
-        SET published = TRUE
-        WHERE subject_id = %s 
-        AND student_id IN (
-            SELECT id FROM students WHERE class_id = %s
-        )
-        AND published = FALSE
-    """
-    return execute_query(query, (subject_id, class_id))
+    if class_id:
+        query = """
+            UPDATE grades 
+            SET published = TRUE
+            WHERE subject_id = %s 
+            AND student_id IN (
+                SELECT id FROM students WHERE class_id = %s
+            )
+            AND published = FALSE
+        """
+        return execute_query(query, (subject_id, class_id))
+    else:
+        # No class assignment — publish all grades for this subject
+        query = """
+            UPDATE grades 
+            SET published = TRUE
+            WHERE subject_id = %s 
+            AND published = FALSE
+        """
+        return execute_query(query, (subject_id,))
 
 
 def get_unpublished_grade_count(subject_id, class_id):
     """Get count of unpublished grades for a subject/class"""
-    query = """
-        SELECT COUNT(*) as count
-        FROM grades g
-        JOIN students s ON g.student_id = s.id
-        WHERE g.subject_id = %s 
-        AND s.class_id = %s
-        AND g.published = FALSE
-    """
-    result = execute_query(query, (subject_id, class_id), fetch_one=True)
+    if class_id:
+        query = """
+            SELECT COUNT(*) as count
+            FROM grades g
+            JOIN students s ON g.student_id = s.id
+            WHERE g.subject_id = %s 
+            AND s.class_id = %s
+            AND g.published = FALSE
+        """
+        result = execute_query(query, (subject_id, class_id), fetch_one=True)
+    else:
+        query = """
+            SELECT COUNT(*) as count
+            FROM grades g
+            WHERE g.subject_id = %s 
+            AND g.published = FALSE
+        """
+        result = execute_query(query, (subject_id,), fetch_one=True)
     return result['count'] if result else 0
 
 
@@ -1445,6 +1513,16 @@ def publish_semester_results(semester):
     query = """
         UPDATE subjects 
         SET results_published = TRUE
+        WHERE semester = %s
+    """
+    return execute_query(query, (semester,))
+
+
+def unpublish_semester_results(semester):
+    """Admin: Close/unpublish all subject results for an entire semester"""
+    query = """
+        UPDATE subjects 
+        SET results_published = FALSE
         WHERE semester = %s
     """
     return execute_query(query, (semester,))
@@ -1505,15 +1583,65 @@ def delete_homework(homework_id, teacher_id):
 # GRADE COMPONENTS QUERIES
 # =============================================
 
-def add_grade_component(subject_id, component_type, component_name, max_score, weight_percentage, display_order=0):
+def _calc_grade_totals(rows):
+    """Pair-aware grade total calculator.
+    
+    Rows must have keys: pair_group, score, max_score.
+    - Components with the same non-null pair_group are AVERAGED (score and max).
+    - Components with pair_group=None are summed directly.
+    Returns (total_score, total_max).
+    """
+    paired = {}
+    non_score = 0.0
+    non_max = 0.0
+    for row in rows:
+        pg = row.get('pair_group')
+        if pg is not None:
+            if pg not in paired:
+                paired[pg] = {'scores': [], 'maxes': []}
+            paired[pg]['scores'].append(float(row.get('score') or 0))
+            paired[pg]['maxes'].append(float(row['max_score']))
+        else:
+            non_score += float(row.get('score') or 0)
+            non_max += float(row['max_score'])
+
+    total_score = non_score
+    total_max = non_max
+    for data in paired.values():
+        cnt = len(data['scores'])
+        if cnt:
+            total_score += sum(data['scores']) / cnt
+            total_max += sum(data['maxes']) / cnt
+    return total_score, total_max
+
+
+def get_next_pair_group(subject_id):
+    """Return the next available pair_group integer for a subject (1-based)."""
+    result = execute_query(
+        "SELECT COALESCE(MAX(pair_group), 0) + 1 AS next_pg FROM grade_components WHERE subject_id = %s",
+        (subject_id,), fetch_one=True
+    )
+    return int(result['next_pg']) if result else 1
+
+
+def add_grade_component(subject_id, component_type, component_name, max_score, weight_percentage, display_order=0, pair_group=None):
     """Add a grade component to a subject's grading rubric"""
     query = """
         INSERT INTO grade_components 
-        (subject_id, component_type, component_name, max_score, weight_percentage, display_order)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        (subject_id, component_type, component_name, max_score, weight_percentage, display_order, pair_group)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (subject_id, component_type, component_name, max_score, weight_percentage, display_order))
+    return execute_insert_returning(query, (subject_id, component_type, component_name, max_score, weight_percentage, display_order, pair_group))
+
+
+def add_paired_components(subject_id, report_name, seminar_name, weight, display_order=0):
+    """Add a paired Report+Seminar pair. Both share the same pair_group so their scores
+    are averaged for grade calculation and together consume only `weight`% of the budget."""
+    pg = get_next_pair_group(subject_id)
+    rid = add_grade_component(subject_id, 'report', report_name, weight, weight, display_order, pair_group=pg)
+    sid = add_grade_component(subject_id, 'seminar', seminar_name, weight, weight, display_order + 1, pair_group=pg)
+    return rid, sid, pg
 
 
 def get_grade_components_by_subject(subject_id):
@@ -1596,11 +1724,21 @@ def update_grade_components_by_type(subject_id, component_type, new_total_weight
 
 
 def get_subject_total_weight(subject_id):
-    """Calculate total weight percentage for a subject's grade components"""
+    """Calculate effective total weight for a subject.
+    Paired components (same pair_group) count as ONE component's weight."""
     query = """
-        SELECT COALESCE(SUM(weight_percentage), 0) as total_weight
-        FROM grade_components
-        WHERE subject_id = %s
+        SELECT COALESCE(SUM(weight_percentage), 0) AS total_weight
+        FROM (
+            SELECT weight_percentage,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY CASE WHEN pair_group IS NULL THEN id::text
+                                         ELSE (subject_id::text || '-' || pair_group::text) END
+                       ORDER BY id
+                   ) AS rn
+            FROM grade_components
+            WHERE subject_id = %s
+        ) sub
+        WHERE rn = 1
     """
     result = execute_query(query, (subject_id,), fetch_one=True)
     return float(result['total_weight']) if result else 0.0
@@ -1952,7 +2090,7 @@ def get_teacher_assignments(teacher_id):
     return execute_query(query, (teacher_id,), fetch_all=True)
 
 
-def assign_teacher_to_subject(teacher_id, subject_id, class_id):
+def assign_teacher_to_subject(teacher_id, subject_id, class_id, teacher_type='theoretical'):
     """Assign a teacher to teach a subject for a specific class"""
     # Get shift from class
     class_info = execute_query(
@@ -1964,12 +2102,12 @@ def assign_teacher_to_subject(teacher_id, subject_id, class_id):
         return None
     
     query = """
-        INSERT INTO teacher_assignments (teacher_id, subject_id, class_id, shift)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (teacher_id, subject_id, class_id) DO NOTHING
+        INSERT INTO teacher_assignments (teacher_id, subject_id, class_id, shift, teacher_type)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (teacher_id, subject_id, class_id) DO UPDATE SET teacher_type = EXCLUDED.teacher_type
         RETURNING id
     """
-    return execute_insert_returning(query, (teacher_id, subject_id, class_id, class_info['shift']))
+    return execute_insert_returning(query, (teacher_id, subject_id, class_id, class_info['shift'], teacher_type))
 
 
 def remove_teacher_assignment(assignment_id):
@@ -2301,8 +2439,6 @@ def get_semester_upgrade_preview(semester):
     A student passes only if they score >= 60% in EVERY enrolled subject.
     Returns dict with 'passed' and 'failed' student lists.
     """
-    sum_types = ('midterm', 'final')
-
     # All students in this semester
     students_query = """
         SELECT s.id, s.shift, s.section, s.year, u.full_name, s.student_number
@@ -2335,7 +2471,7 @@ def get_semester_upgrade_preview(semester):
 
         for subj in enrolled:
             grades = execute_query("""
-                SELECT gc.component_type, g.score, gc.max_score
+                SELECT gc.component_type, gc.pair_group, g.score, gc.max_score
                 FROM grade_components gc
                 LEFT JOIN grades g ON gc.id = g.component_id
                     AND g.student_id = %s AND g.subject_id = %s
@@ -2347,26 +2483,7 @@ def get_semester_upgrade_preview(semester):
                 all_passed = False
                 continue
 
-            # Group by component_type
-            grouped = {}
-            for g in grades:
-                t = g['component_type']
-                if t not in grouped:
-                    grouped[t] = []
-                grouped[t].append(g)
-
-            total_score = 0
-            total_max = 0
-            for comp_type, items in grouped.items():
-                gs = sum(float(i['score'] or 0) for i in items)
-                gm = sum(float(i['max_score']) for i in items)
-                cnt = len(items)
-                if comp_type in sum_types:
-                    total_score += gs
-                    total_max += gm
-                else:
-                    total_score += gs / cnt if cnt else 0
-                    total_max += gm / cnt if cnt else 0
+            total_score, total_max = _calc_grade_totals(grades)
 
             pct = (total_score / total_max * 100) if total_max > 0 else 0
             subj_passed = pct >= 60
@@ -2485,8 +2602,6 @@ def get_student_semester_results(student_id, semester):
     """Calculate per-subject results for a student in a given semester.
     Returns list of {subject_name, credits, percentage, letter_grade, passed}.
     """
-    sum_types = ('midterm', 'final')
-
     enrolled = execute_query("""
         SELECT sub.id, sub.name, sub.credits
         FROM student_enrollments se
@@ -2498,33 +2613,14 @@ def get_student_semester_results(student_id, semester):
     results = []
     for subj in enrolled:
         grades = execute_query("""
-            SELECT gc.component_type, g.score, gc.max_score
+            SELECT gc.component_type, gc.pair_group, g.score, gc.max_score
             FROM grade_components gc
             LEFT JOIN grades g ON gc.id = g.component_id
                 AND g.student_id = %s AND g.subject_id = %s
             WHERE gc.subject_id = %s
         """, (student_id, subj['id'], subj['id']), fetch_all=True) or []
 
-        grouped = {}
-        for g in grades:
-            t = g['component_type']
-            if t not in grouped:
-                grouped[t] = []
-            grouped[t].append(g)
-
-        total_score = 0
-        total_max = 0
-        for comp_type, items in grouped.items():
-            gs = sum(float(i['score'] or 0) for i in items)
-            gm = sum(float(i['max_score']) for i in items)
-            cnt = len(items)
-            if comp_type in sum_types:
-                total_score += gs
-                total_max += gm
-            else:
-                total_score += gs / cnt if cnt else 0
-                total_max += gm / cnt if cnt else 0
-
+        total_score, total_max = _calc_grade_totals(grades)
         pct = (total_score / total_max * 100) if total_max > 0 else 0
 
         if pct >= 90: lg = 'A'

@@ -13,8 +13,7 @@
               <p class="mb-0 opacity-75" style="font-size: 0.85rem">
                 <i class="bi bi-hash me-1"></i>{{ student.student_number or 'N/A' }}
                 <span class="mx-2">|</span>
-                <i class="bi bi-calendar3 me-1"></i>{{ (student.class_name|replace_section) or 'No
-                Semester' }}
+                <i class="bi bi-calendar3 me-1"></i>{% if student.semester %}Year {{ student.year or '?' }} - Sem {{ student.semester }}{% if student.section %} - Class {{ student.section }}{% endif %}{% if student.shift %} - {{ student.shift|capitalize }}{% endif %}{% else %}No Semester{% endif %}
               </p>
             </div>
           </div>

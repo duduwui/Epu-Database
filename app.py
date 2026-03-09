@@ -300,17 +300,14 @@ def student_dashboard():
         homework = db.get_homework_by_class(student['class_id']) or []
         weekly_topics = db.get_weekly_topics_by_class(student['class_id']) or []
 
-        # Use students table as the single source of truth for semester/shift/section.
-        # classes.semester can diverge from students.semester when admin reassigns a student;
-        # update_student() now syncs them, but use students table here to stay consistent
-        # with the admin view which also reads from the students table (get_all_students_v2).
-        if student.get('semester'):
-            current_semester = student['semester']
-            schedule_data = db.get_class_schedule_data(
-                student['semester'],
-                student['shift'],
-                student['section']
-            )
+    # Load schedule directly from semester/shift/section columns — works even when class_id is NULL
+    if student.get('semester') and student.get('shift') and student.get('section'):
+        current_semester = student['semester']
+        schedule_data = db.get_class_schedule_data(
+            student['semester'],
+            student['shift'],
+            student['section']
+        )
     
     # Filter attendance by current semester so promoted students only see current data
     attendance = db.get_attendance_by_student(student['id'], semester=current_semester) or []
@@ -326,47 +323,82 @@ def student_dashboard():
                          today=today)
 
 
-@app.route('/student/subjects')
+# =============================================
+# STUDENT - COMBINED SIGNUPS (Subjects + Exams)
+# =============================================
+
+@app.route('/student/signups')
 @login_required
-def student_subjects():
-    """Student subjects - view and enroll"""
+def student_signups():
+    """Combined signups page — subject enrollment + exam signup"""
     if session.get('role') != 'student':
         return redirect(url_for('dashboard'))
-    
+
     student = db.get_student_by_user_id(session['user_id'])
-    
     if not student:
         flash('Student profile not found.', 'danger')
         return redirect(url_for('dashboard'))
-    
-    # Get class info to show semester
+
+    # Which tab to show: 'subjects' (default) or 'exams'
+    active_tab = request.args.get('tab', 'subjects')
+    if active_tab not in ('subjects', 'exams'):
+        active_tab = 'subjects'
+
+    # ── Semester selection (manual or from class or direct student field) ──
+    selected_semester = request.args.get('semester', type=int)
+
+    # ── Class info ──────────────────────────────────────────────
     class_info = None
-    semester = None
+    semester = selected_semester  # Start with manually selected semester
     if student['class_id']:
         class_info = db.execute_query(
-            'SELECT year, semester, section, shift FROM classes WHERE id = %s', 
-            (student['class_id'],), 
-            fetch_one=True
+            'SELECT year, semester, section, shift FROM classes WHERE id = %s',
+            (student['class_id'],), fetch_one=True
         )
-        if class_info:
+        if class_info and semester is None:
             semester = class_info['semester']
-    
-    # Check if enrollment is active for this semester
+
+    # Fall back to semester stored directly on the student record
+    if semester is None and student.get('semester'):
+        semester = student['semester']
+
+    # Last resort: default to 1
+    if semester is None:
+        semester = 1
+
+    # ── Subject enrollment data ──────────────────────────────────
     enrollment_period = None
     enrollment_active = False
     if semester:
         enrollment_period = db.get_active_enrollment_period(semester)
         enrollment_active = enrollment_period is not None
-    
-    # Get available subjects for student's semester
-    subjects = db.get_available_subjects_for_student(student['id']) or []
-    
-    return render_template('student/subjects.html',
-                         student=student,
-                         class_info=class_info,
-                         subjects=subjects,
-                         enrollment_period=enrollment_period,
-                         enrollment_active=enrollment_active)
+    subjects = db.get_available_subjects_for_student(student['id'], semester) or []
+
+    # ── Exam signup data ─────────────────────────────────────────
+    final_period = db.get_active_exam_period(semester, 'final') if semester else None
+    second_round_period = db.get_active_exam_period(semester, 'second_round') if semester else None
+    final_subjects = db.get_exam_eligible_subjects(student['id'], 'final', semester) if final_period else []
+    second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round', semester) if second_round_period else []
+
+    return render_template('student/signups.html',
+                           student=student,
+                           class_info=class_info,
+                           active_tab=active_tab,
+                           subjects=subjects,
+                           enrollment_period=enrollment_period,
+                           enrollment_active=enrollment_active,
+                           final_period=final_period,
+                           second_round_period=second_round_period,
+                           final_subjects=final_subjects,
+                           second_round_subjects=second_round_subjects,
+                           selected_semester=semester)
+
+
+@app.route('/student/subjects')
+@login_required
+def student_subjects():
+    """Redirect to combined signups page — subjects tab"""
+    return redirect(url_for('student_signups', tab='subjects'))
 
 
 @app.route('/student/subjects/enroll/<int:subject_id>', methods=['POST'])
@@ -437,6 +469,65 @@ def student_unenroll_subject(subject_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _build_grade_display_groups(grades_data):
+    """Build display groups for student grades.
+    Paired components (same pair_group) are merged into one block with a Paired Average row.
+    'final' components must already be filtered out before calling this.
+    """
+    SUM_TYPES = {'midterm'}
+    pair_group_items = {}
+    non_paired_by_type = {}
+    for g in grades_data:
+        pg = g.get('pair_group')
+        ct = g.get('component_type')
+        if pg is not None:
+            pair_group_items.setdefault(pg, []).append(g)
+        else:
+            non_paired_by_type.setdefault(ct, []).append(g)
+
+    display_groups = []
+    seen_pgs = set()
+    seen_cts = set()
+    for g in grades_data:
+        pg = g.get('pair_group')
+        ct = g.get('component_type')
+        if pg is not None:
+            if pg not in seen_pgs:
+                seen_pgs.add(pg)
+                items = pair_group_items[pg]
+                scores = [float(i.get('score') or 0) for i in items]
+                maxes = [float(i['max_score']) for i in items]
+                n = len(items)
+                display_groups.append({
+                    'is_paired': True,
+                    'label': 'Paired Average',
+                    'rows': items,
+                    'subtotal_score': round(sum(scores) / n, 1) if n else 0,
+                    'subtotal_max': round(sum(maxes) / n, 1) if n else 0,
+                })
+        else:
+            if ct not in seen_cts:
+                seen_cts.add(ct)
+                items = non_paired_by_type[ct]
+                n = len(items)
+                s_sum = sum(float(i.get('score') or 0) for i in items)
+                m_sum = sum(float(i['max_score']) for i in items)
+                if ct in SUM_TYPES:
+                    s, m = s_sum, m_sum
+                else:
+                    s = s_sum / n if n else 0
+                    m = m_sum / n if n else 0
+                display_groups.append({
+                    'is_paired': False,
+                    'label': ct.replace('_', ' ').title(),
+                    'component_type': ct,
+                    'rows': items,
+                    'subtotal_score': round(s, 1),
+                    'subtotal_max': round(m, 1),
+                })
+    return display_groups
+
+
 @app.route('/student/grades')
 @login_required
 def student_grades():
@@ -473,28 +564,32 @@ def student_grades():
     selected_subject_id = request.args.get('subject_id', type=int)
     
     grades_data = []
+    display_groups = []
     subject_info = None
     total_score = 0
     total_max = 0
-    
+
     if selected_subject_id:
         # Verify the selected subject is in the filtered list
         if any(s['id'] == selected_subject_id for s in enrolled_subjects):
-            grades_data = db.get_student_grades_for_subject(student['id'], selected_subject_id) or []
+            raw_grades = db.get_student_grades_for_subject(student['id'], selected_subject_id) or []
             subject_info = next((s for s in enrolled_subjects if s['id'] == selected_subject_id), None)
-            for grade in grades_data:
-                if grade.get('score') is not None:
-                    total_score += float(grade['score'])
-                total_max += float(grade['max_score'])
+            # Hide final exam components — student total is shown out of 60 (non-final marks only)
+            grades_data = [g for g in raw_grades if g.get('component_type') != 'final']
+            display_groups = _build_grade_display_groups(grades_data)
+            # Derive totals from averaged display_groups so max sums to 60 (not raw 80)
+            total_score = round(sum(g['subtotal_score'] for g in display_groups), 1)
+            total_max = round(sum(g['subtotal_max'] for g in display_groups), 1)
         else:
             # Subject not in selected semester, reset
             selected_subject_id = None
-    
-    return render_template('student/grades.html', 
+
+    return render_template('student/grades.html',
                          enrolled_subjects=enrolled_subjects,
                          selected_subject_id=selected_subject_id,
                          subject_info=subject_info,
                          grades_data=grades_data,
+                         display_groups=display_groups,
                          total_score=total_score,
                          total_max=total_max,
                          student=student,
@@ -510,37 +605,8 @@ def student_grades():
 @app.route('/student/exams')
 @login_required
 def student_exams():
-    """View exam signup page — final and second round"""
-    if session.get('role') != 'student':
-        flash('Unauthorized access.', 'danger')
-        return redirect(url_for('dashboard'))
-
-    student = db.get_student_by_user_id(session['user_id'])
-    if not student:
-        flash('Student profile not found.', 'danger')
-        return redirect(url_for('dashboard'))
-
-    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
-    semester = class_info['semester'] if class_info else None
-
-    final_period = db.get_active_exam_period(semester, 'final') if semester else None
-    second_round_period = db.get_active_exam_period(semester, 'second_round') if semester else None
-
-    final_subjects = []
-    second_round_subjects = []
-
-    if final_period:
-        final_subjects = db.get_exam_eligible_subjects(student['id'], 'final', semester)
-    if second_round_period:
-        second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round', semester)
-
-    return render_template('student/exams.html',
-                         student=student,
-                         class_info=class_info,
-                         final_period=final_period,
-                         second_round_period=second_round_period,
-                         final_subjects=final_subjects,
-                         second_round_subjects=second_round_subjects)
+    """Redirect to combined signups page — exams tab"""
+    return redirect(url_for('student_signups', tab='exams'))
 
 
 @app.route('/student/exams/signup/<int:subject_id>/<exam_type>', methods=['POST'])
@@ -553,33 +619,36 @@ def student_exam_signup(subject_id, exam_type):
     if exam_type not in ('final', 'second_round'):
         return jsonify({'success': False, 'error': 'Invalid exam type'}), 400
 
-    student = db.get_student_by_user_id(session['user_id'])
-    if not student:
-        return jsonify({'success': False, 'error': 'Student not found'}), 404
-
-    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
-    semester = class_info['semester'] if class_info else None
-
-    # Verify active period exists
-    period = db.get_active_exam_period(semester, exam_type) if semester else None
-    if not period:
-        return jsonify({'success': False, 'error': 'No active exam period for this type'}), 400
-
-    # Verify eligibility
-    eligible = db.get_exam_eligible_subjects(student['id'], exam_type, semester)
-    subject_ids = [s['id'] for s in eligible if s.get('eligible')]
-    if subject_id not in subject_ids:
-        return jsonify({'success': False, 'error': 'Not eligible for this exam'}), 400
-
     try:
+        student = db.get_student_by_user_id(session['user_id'])
+        if not student:
+            return jsonify({'success': False, 'error': 'Student not found'}), 404
+
+        class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
+        semester = (class_info['semester'] if class_info else None) or student.get('semester')
+
+        # Verify active period exists
+        period = db.get_active_exam_period(semester, exam_type) if semester else None
+        if not period:
+            return jsonify({'success': False, 'error': 'No active exam period for this type'}), 400
+
+        # Verify eligibility
+        eligible = db.get_exam_eligible_subjects(student['id'], exam_type, semester) or []
+        subject_ids = [s['id'] for s in eligible if s.get('eligible')]
+        if subject_id not in subject_ids:
+            # Check if already signed up (eligible list excludes already-signed-up in some paths)
+            existing = db.get_exam_signup(student['id'], subject_id, exam_type)
+            if existing:
+                return jsonify({'success': True, 'message': 'Already signed up'})
+            return jsonify({'success': False, 'error': 'Not eligible for this exam'}), 400
+
         result = db.signup_for_exam(student['id'], subject_id, exam_type)
-        if result:
-            return jsonify({'success': True, 'message': 'Successfully signed up for exam'})
-        else:
-            return jsonify({'success': True, 'message': 'Already signed up'})
+        # result is the new row id; None means ON CONFLICT (already exists)
+        return jsonify({'success': True, 'message': 'Successfully signed up for exam'})
     except Exception as e:
         print(f"Error signing up for exam: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': 'Signup failed, please try again'}), 500
 
 
 @app.route('/student/exams/cancel/<int:subject_id>/<exam_type>', methods=['POST'])
@@ -592,24 +661,25 @@ def student_exam_cancel(subject_id, exam_type):
     if exam_type not in ('final', 'second_round'):
         return jsonify({'success': False, 'error': 'Invalid exam type'}), 400
 
-    student = db.get_student_by_user_id(session['user_id'])
-    if not student:
-        return jsonify({'success': False, 'error': 'Student not found'}), 404
-
-    class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
-    semester = class_info['semester'] if class_info else None
-
-    # Verify active period still open
-    period = db.get_active_exam_period(semester, exam_type) if semester else None
-    if not period:
-        return jsonify({'success': False, 'error': 'Exam period is not active'}), 400
-
     try:
+        student = db.get_student_by_user_id(session['user_id'])
+        if not student:
+            return jsonify({'success': False, 'error': 'Student not found'}), 404
+
+        class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
+        semester = (class_info['semester'] if class_info else None) or student.get('semester')
+
+        # Verify active period still open
+        period = db.get_active_exam_period(semester, exam_type) if semester else None
+        if not period:
+            return jsonify({'success': False, 'error': 'Exam period is not active'}), 400
+
         db.cancel_exam_signup(student['id'], subject_id, exam_type)
         return jsonify({'success': True, 'message': 'Exam signup cancelled'})
     except Exception as e:
         print(f"Error cancelling exam signup: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': 'Cancel failed, please try again'}), 500
 
 
 @app.route('/student/results')
@@ -657,6 +727,10 @@ def student_results():
         sem_has_published = False
         
         for subject in sem_subjects:
+            # Check published flag regardless of whether this student has grades
+            if subject.get('results_published'):
+                sem_has_published = True
+
             grades_data = db.get_student_grades_for_subject(student['id'], subject['id']) or []
             if not grades_data:
                 continue
@@ -664,8 +738,6 @@ def student_results():
             
             if not subject.get('results_published'):
                 continue
-            
-            sem_has_published = True
             
             # Group by component type
             grouped = {}
@@ -725,7 +797,7 @@ def student_results():
             if passed:
                 sem_credits_earned += credits
         
-        if sem_has_published and results:
+        if sem_has_published:
             sem_weighted = round(sum(r['weighted_score'] for r in results), 3)
             year = 1 if sem <= 2 else 2
             semester_results.append({
@@ -736,8 +808,9 @@ def student_results():
                 'credits_possible': sem_credits_possible,
                 'credits_earned': sem_credits_earned
             })
-            grand_total_credits += sem_credits_possible
-            grand_total_weighted += sem_weighted
+            if results:
+                grand_total_credits += sem_credits_possible
+                grand_total_weighted += sem_weighted
     
     return render_template('student/results.html', 
                          student=student,
@@ -1244,7 +1317,7 @@ def admin_edit_user(user_id):
 def admin_teachers():
     """View all teachers with their subjects"""
     teachers = db.get_all_teachers_with_subjects() or []
-    classes = db.get_all_classes() or []
+    classes = db.get_distinct_student_groups() or []
     unique_subjects = db.get_unique_subjects_by_semester() or []
     # Get subjects for each teacher
     for teacher in teachers:
@@ -1255,87 +1328,70 @@ def admin_teachers():
 @app.route('/admin/teachers/<int:teacher_id>/assign-subject', methods=['POST'])
 @admin_required
 def admin_assign_subject_to_teacher(teacher_id):
-    """Quick assign a subject to a teacher for multiple classes"""
+    """Quick assign a subject to a teacher for multiple classes (or directly if no classes exist)"""
     subject_name = request.form.get('subject_name', '').strip()
     class_ids = request.form.getlist('class_ids')  # Get multiple class IDs
-    
-    if not subject_name or not class_ids:
-        flash('Please enter subject name and select at least one class.', 'warning')
+
+    if not subject_name:
+        flash('Please select a subject.', 'warning')
         return redirect(url_for('admin_teachers'))
-    
-    # Get the subject's actual semester from the subjects table
-    conn = db.get_db_connection()
-    semester = None
-    if conn:
-        cur = conn.cursor()
-        # Look up the subject's semester
-        cur.execute("""
-            SELECT semester FROM subjects
-            WHERE LOWER(name) = LOWER(%s) AND semester IS NOT NULL
-            LIMIT 1
-        """, (subject_name,))
-        subj_row = cur.fetchone()
-        if subj_row:
-            semester = subj_row[0]
-        
-        if semester:
-            # VALIDATION: Ensure all selected classes belong to this semester
-            cur.execute("""
-                SELECT id FROM classes 
-                WHERE id = ANY(%s) AND semester != %s
-            """, (class_ids, semester))
+
+    # Find subjects matching this name
+    subjects_found = db.execute_query(
+        "SELECT id, semester FROM subjects WHERE LOWER(name) = LOWER(%s)",
+        (subject_name,), fetch_all=True
+    ) or []
+
+    if not subjects_found:
+        flash(f'Subject "{subject_name}" not found.', 'danger')
+        return redirect(url_for('admin_teachers'))
+
+    if not class_ids:
+        # No classes defined — assign directly via subjects.teacher_id
+        updated = 0
+        for subj in subjects_found:
+            result = db.execute_query(
+                "UPDATE subjects SET teacher_id = %s WHERE id = %s",
+                (teacher_id, subj['id'])
+            )
+            updated += 1
+        if updated:
+            flash(f'Subject "{subject_name}" assigned to teacher directly (no sections defined).', 'success')
+        else:
+            flash('Error assigning subject.', 'danger')
+        return redirect(url_for('admin_teachers'))
+
+    # Classes provided — validate semester consistency
+    semester = subjects_found[0]['semester'] if subjects_found else None
+
+    if semester:
+        conn = db.get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT id FROM classes WHERE id = ANY(%s) AND semester != %s",
+                (class_ids, semester)
+            )
             wrong_classes = cur.fetchall()
+            cur.close()
+            conn.close()
             if wrong_classes:
-                cur.close()
-                conn.close()
-                flash(f'⚠️ ERROR: "{subject_name}" belongs to Semester {semester}. You can only assign it to Semester {semester} classes!', 'danger')
+                flash(f'"{subject_name}" belongs to Semester {semester}. Only assign to Semester {semester} classes.', 'danger')
                 return redirect(url_for('admin_teachers'))
-        
-        cur.close()
-        conn.close()
-    
-    if not semester:
-        # Subject doesn't exist yet — derive semester from selected classes
-        conn2 = db.get_db_connection()
-        if conn2:
-            cur2 = conn2.cursor()
-            cur2.execute("SELECT DISTINCT semester FROM classes WHERE id = ANY(%s)", (class_ids,))
-            rows = cur2.fetchall()
-            if len(rows) == 1:
-                semester = rows[0][0]
-            else:
-                cur2.close()
-                conn2.close()
-                flash('⚠️ ERROR: Select classes from only ONE semester!', 'danger')
-                return redirect(url_for('admin_teachers'))
-            cur2.close()
-            conn2.close()
-    
-    if not semester:
-        flash('Error determining semester for classes.', 'danger')
-        return redirect(url_for('admin_teachers'))
-    
+
+    teacher_type = request.form.get('teacher_type', 'theoretical')
     success_count = 0
     for class_id in class_ids:
-        # Create or get the subject for this semester
         subject_id = db.create_subject(subject_name, semester)
         if subject_id:
-            # Always create a new assignment for this teacher+subject+class.
-            # Multiple teachers can be assigned to the same subject+class independently.
-            # assign_teacher_to_subject uses ON CONFLICT DO NOTHING so duplicates are safe.
-            assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id)
-            if assignment_id:
-                success_count += 1
-            else:
-                # assignment_id is None means it already existed (ON CONFLICT DO NOTHING)
-                # Still count as success since the assignment is already there
-                success_count += 1
-    
+            assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id, teacher_type)
+            success_count += 1
+
     if success_count > 0:
-        flash(f'Subject "{subject_name}" assigned to {success_count} class(es) in Semester {semester} successfully!', 'success')
+        flash(f'Subject "{subject_name}" assigned to {success_count} class(es) successfully!', 'success')
     else:
         flash('Error assigning subject.', 'danger')
-    
+
     return redirect(url_for('admin_teachers'))
 
 
@@ -1363,71 +1419,87 @@ def admin_unassign_subject_ajax(assignment_id):
     return jsonify({'success': False, 'error': 'Could not remove assignment'}), 400
 
 
+@app.route('/admin/teachers/unassign-subject-by-subject/<int:subject_id>', methods=['POST'])
+@admin_required
+def admin_unassign_subject_by_subject(subject_id):
+    """AJAX: Remove a direct teacher_id assignment (no class) from subjects table"""
+    db.execute_query(
+        "UPDATE subjects SET teacher_id = NULL WHERE id = %s",
+        (subject_id,)
+    )
+    return jsonify({'success': True})
+
+
 @app.route('/admin/teachers/<int:teacher_id>/assign-subject-ajax', methods=['POST'])
 @admin_required
 def admin_assign_subject_ajax(teacher_id):
-    """AJAX: Assign a subject to a teacher for multiple classes"""
+    """AJAX: Assign a subject to a teacher for selected student groups (auto-creates class records)."""
     subject_name = request.form.get('subject_name', '').strip()
-    class_ids = request.form.getlist('class_ids')
+    group_keys = request.form.getlist('group_keys')  # each key: "year|section|shift|semester"
 
-    if not subject_name or not class_ids:
-        return jsonify({'success': False, 'error': 'Please select a subject and at least one class.'}), 400
+    if not subject_name:
+        return jsonify({'success': False, 'error': 'Please select a subject.'}), 400
 
-    # Get subject semester
-    conn = db.get_db_connection()
-    semester = None
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT semester FROM subjects WHERE LOWER(name) = LOWER(%s) AND semester IS NOT NULL LIMIT 1", (subject_name,))
-        row = cur.fetchone()
-        if row:
-            semester = row[0]
-        cur.close()
-        conn.close()
+    subjects_found = db.execute_query(
+        "SELECT id, semester FROM subjects WHERE LOWER(name) = LOWER(%s)",
+        (subject_name,), fetch_all=True
+    ) or []
 
-    if not semester:
-        conn2 = db.get_db_connection()
-        if conn2:
-            cur2 = conn2.cursor()
-            cur2.execute("SELECT DISTINCT semester FROM classes WHERE id = ANY(%s)", (class_ids,))
-            rows = cur2.fetchall()
-            semester = rows[0][0] if len(rows) == 1 else None
-            cur2.close()
-            conn2.close()
+    if not subjects_found:
+        return jsonify({'success': False, 'error': f'Subject "{subject_name}" not found.'}), 400
 
-    if not semester:
-        return jsonify({'success': False, 'error': 'Could not determine semester.'}), 400
+    if not group_keys:
+        # No sections selected — assign directly via subjects.teacher_id
+        for subj in subjects_found:
+            db.execute_query(
+                "UPDATE subjects SET teacher_id = %s WHERE id = %s",
+                (teacher_id, subj['id'])
+            )
+        return jsonify({'success': True, 'count': len(subjects_found), 'assignments': []})
 
+    teacher_type = request.form.get('teacher_type', 'theoretical')
     success_count = 0
     new_assignments = []
-    for class_id in class_ids:
+    for key in group_keys:
+        parts = key.split('|')
+        if len(parts) != 4:
+            continue
+        try:
+            year, section, shift, semester = int(parts[0]), parts[1], parts[2], int(parts[3])
+        except (ValueError, IndexError):
+            continue
+
+        # Ensure the class record exists (creates it if missing)
+        class_id = db.find_or_create_class(year, semester, section, shift)
+        if not class_id:
+            continue
+
+        # Link matching students to this class
+        db.execute_query(
+            """UPDATE students SET class_id = %s
+               WHERE year = %s AND section = %s AND shift = %s AND semester = %s
+                 AND (class_id IS NULL OR class_id != %s)""",
+            (class_id, year, section, shift, semester, class_id)
+        )
+
+        # Get or create the subject for this semester
         subject_id = db.create_subject(subject_name, semester)
-        if subject_id:
-            assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id)
+        if not subject_id:
+            continue
+
+        assignment_id = db.assign_teacher_to_subject(teacher_id, subject_id, class_id, teacher_type)
+        if assignment_id:
             success_count += 1
-            # Get class info for return
-            conn3 = db.get_db_connection()
-            if conn3:
-                cur3 = conn3.cursor()
-                cur3.execute("""
-                    SELECT ta.id as assignment_id, s.name, c.year, c.section, c.shift, c.semester
-                    FROM teacher_assignments ta
-                    JOIN subjects s ON ta.subject_id = s.id
-                    JOIN classes c ON ta.class_id = c.id
-                    WHERE ta.teacher_id = %s AND ta.subject_id = %s AND ta.class_id = %s
-                """, (teacher_id, subject_id, class_id))
-                row = cur3.fetchone()
-                if row:
-                    new_assignments.append({
-                        'assignment_id': row[0],
-                        'name': row[1],
-                        'year': row[2],
-                        'section': row[3],
-                        'shift': row[4],
-                        'semester': row[5]
-                    })
-                cur3.close()
-                conn3.close()
+            new_assignments.append({
+                'assignment_id': assignment_id,
+                'id': subject_id,
+                'name': subject_name,
+                'year': year,
+                'section': section,
+                'shift': shift,
+                'semester': semester,
+                'teacher_type': teacher_type,
+            })
 
     if success_count > 0:
         return jsonify({'success': True, 'count': success_count, 'assignments': new_assignments})
@@ -1959,6 +2031,26 @@ def admin_publish_semester_results(semester):
         }), 500
 
 
+@app.route('/admin/unpublish-semester-results/<int:semester>', methods=['POST'])
+@admin_required
+def admin_unpublish_semester_results(semester):
+    """Close/unpublish all subject results for an entire semester"""
+    try:
+        if semester not in [1, 2, 3, 4]:
+            return jsonify({'success': False, 'message': 'Invalid semester'}), 400
+        result = db.unpublish_semester_results(semester)
+        if result:
+            return jsonify({
+                'success': True,
+                'message': f'Results for Semester {semester} have been closed. Students can no longer view them.'
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Failed to close semester results'}), 500
+    except Exception as e:
+        print(f"Error closing semester results: {e}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+
 # =============================================
 # ADMIN - GRADE COMPONENTS (Grading Rubric)
 # =============================================
@@ -2013,6 +2105,33 @@ def admin_add_grade_component(subject_id):
     total_weight = request.form.get('weight_percentage', type=float)
     display_order = request.form.get('display_order', type=int, default=0)
     midterm_structure = request.form.get('midterm_structure', 'single')
+    pair_mode = request.form.get('pair_mode', 'independent')  # 'independent' or 'paired'
+
+    # ── PAIRED REPORT+SEMINAR ─────────────────────────────────────────────────
+    if component_type in ('report', 'seminar') and pair_mode == 'paired':
+        paired_weight = request.form.get('weight_percentage', type=float)
+        report_name = request.form.get('report_name', '').strip() or 'Report'
+        seminar_name = request.form.get('seminar_name', '').strip() or 'Seminar'
+
+        if not paired_weight or paired_weight <= 0:
+            flash('Shared weight is required for paired mode!', 'danger')
+            return redirect(url_for('admin_subject_grading', subject_id=subject_id))
+
+        current_total = db.get_subject_total_weight(subject_id)
+        if current_total + paired_weight > 100.01:
+            flash(f'Cannot add! Total weight would be {current_total + paired_weight:.2f}% (max 100%)', 'danger')
+            return redirect(url_for('admin_subject_grading', subject_id=subject_id))
+
+        rid, sid, pg = db.add_paired_components(subject_id, report_name, seminar_name, paired_weight, display_order)
+        if rid and sid:
+            flash(
+                f'Paired Report+Seminar added (Group {pg})! '
+                f'Each scored out of {paired_weight} pts, average counts as {paired_weight}% of grade.',
+                'success'
+            )
+        else:
+            flash('Error adding paired components!', 'danger')
+        return redirect(url_for('admin_subject_grading', subject_id=subject_id))
     
     # Type display names
     type_names = {
@@ -2322,17 +2441,25 @@ def admin_reorder_grade_components(subject_id):
 @app.route('/admin/enrollment-periods')
 @admin_required
 def admin_enrollment_periods():
-    """Manage enrollment periods"""
+    """Manage enrollment and exam periods (combined)"""
     from datetime import datetime
-    periods = db.get_all_enrollment_periods()
-    
-    # Add status flags to each period
     now = datetime.now()
-    for period in periods:
-        period['is_active'] = period['start_date'] <= now <= period['end_date']
-        period['is_upcoming'] = period['start_date'] > now
-    
-    return render_template('admin/enrollment_periods.html', periods=periods)
+    active_tab = request.args.get('tab', 'enrollment')
+
+    enroll_periods = db.get_all_enrollment_periods()
+    for p in enroll_periods:
+        p['is_active'] = p['start_date'] <= now <= p['end_date']
+        p['is_upcoming'] = p['start_date'] > now
+
+    exam_periods = db.get_all_exam_periods()
+    for p in exam_periods:
+        p['is_active'] = p['start_date'] <= now <= p['end_date']
+        p['is_upcoming'] = p['start_date'] > now
+
+    return render_template('admin/enrollment_periods.html',
+                           enroll_periods=enroll_periods,
+                           exam_periods=exam_periods,
+                           active_tab=active_tab)
 
 
 @app.route('/admin/enrollment-periods/add', methods=['POST'])
@@ -2395,16 +2522,8 @@ def admin_delete_enrollment_period(period_id):
 @app.route('/admin/exam-periods')
 @admin_required
 def admin_exam_periods():
-    """Manage exam periods (final & second round)"""
-    from datetime import datetime
-    periods = db.get_all_exam_periods()
-
-    now = datetime.now()
-    for period in periods:
-        period['is_active'] = period['start_date'] <= now <= period['end_date']
-        period['is_upcoming'] = period['start_date'] > now
-
-    return render_template('admin/exam_periods.html', periods=periods)
+    """Redirect to combined period management page (exams tab)"""
+    return redirect(url_for('admin_enrollment_periods', tab='exams'))
 
 
 @app.route('/admin/exam-periods/add', methods=['POST'])
@@ -2628,20 +2747,30 @@ def teacher_grades():
         name = s['name']
         if name not in grouped_subjects:
             grouped_subjects[name] = {'classes': []}
-        
-        class_name = s.get('class_name', '')
-        parts = class_name.split(' - ')
-        year = parts[0].replace('Year ', '') if len(parts) > 0 else '?'
-        semester = parts[1].replace('Sem ', '') if len(parts) > 1 else '?'
-        section = parts[2].replace('Section ', '') if len(parts) > 2 else ''
-        shift = parts[3].lower() if len(parts) > 3 else 'morning'
-        
+
+        class_id = s.get('class_id')
+        if class_id:
+            # Class-based assignment — parse display info from class_name
+            class_name = s.get('class_name', '')
+            parts = class_name.split(' - ')
+            year = parts[0].replace('Year ', '') if len(parts) > 0 else '?'
+            sem = parts[1].replace('Sem ', '') if len(parts) > 1 else str(s.get('semester', '?'))
+            section = parts[2].replace('Section ', '') if len(parts) > 2 else ''
+            shift = parts[3].lower() if len(parts) > 3 else 'morning'
+        else:
+            # Direct semester assignment (no class)
+            sem = str(s.get('semester', '?'))
+            year = str(s.get('year', ''))
+            section = s.get('section') or ''
+            shift = s.get('shift') or 'morning'
+            class_name = f'Semester {sem}'
+
         grouped_subjects[name]['classes'].append({
             'subject_id': s['id'],
-            'class_id': s.get('class_id'),
+            'class_id': class_id or 0,  # use 0 as sentinel for "no class" (avoids null in JS URLs)
             'class_name': class_name,
             'year': year,
-            'semester': semester,
+            'semester': sem,
             'section': section,
             'shift': shift
         })
@@ -2658,15 +2787,17 @@ def teacher_add_grades(subject_id, class_id):
         flash('Teacher profile not found.', 'danger')
         return redirect(url_for('dashboard'))
     
+    # 0 is the sentinel value used in URLs when there is no class assignment
+    effective_class_id = None if class_id == 0 else class_id
     subjects = db.get_subjects_by_teacher(teacher['id']) or []
-    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == class_id), None)
+    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == effective_class_id), None)
     
     if not subject:
         flash('Subject not found or access denied.', 'danger')
         return redirect(url_for('teacher_grades'))
     
     # Get only enrolled students from this specific class
-    students = db.get_enrolled_students_for_subject(subject_id, class_id) or []
+    students = db.get_enrolled_students_for_subject(subject_id, effective_class_id) or []
     
     # Get grade components (templates) created by admin
     components = db.get_grade_components_by_subject(subject_id) or []
@@ -2793,15 +2924,16 @@ def teacher_publish_grades(subject_id, class_id):
     if not teacher:
         return jsonify({'success': False, 'message': 'Teacher profile not found'}), 403
     
+    effective_class_id = None if class_id == 0 else class_id
     subjects = db.get_subjects_by_teacher(teacher['id']) or []
-    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == class_id), None)
+    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == effective_class_id), None)
     
     if not subject:
         return jsonify({'success': False, 'message': 'Subject not found or access denied'}), 403
     
     try:
         # Publish all draft grades for this subject/class
-        db.publish_grades_for_subject(subject_id, class_id)
+        db.publish_grades_for_subject(subject_id, effective_class_id)
         return jsonify({'success': True, 'message': 'Grades published successfully! Students can now see their grades.'})
     except Exception as e:
         print(f"Error publishing grades: {e}")
@@ -2880,8 +3012,9 @@ def teacher_view_grades(subject_id, class_id):
         flash('Teacher profile not found.', 'danger')
         return redirect(url_for('dashboard'))
     
+    effective_class_id = None if class_id == 0 else class_id
     subjects = db.get_subjects_by_teacher(teacher['id']) or []
-    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == class_id), None)
+    subject = next((s for s in subjects if s['id'] == subject_id and s.get('class_id') == effective_class_id), None)
     
     if not subject:
         flash('Subject not found or access denied.', 'danger')
@@ -3538,6 +3671,103 @@ def api_save_schedule(semester, shift, section):
     return {'success': False, 'message': 'Error saving schedule'}, 500
 
 
+@app.route('/admin/api/schedule/<int:semester>/<shift>/<section>/auto-generate', methods=['POST'])
+@admin_required
+def api_auto_generate_schedule(semester, shift, section):
+    """API: Auto-generate a sample schedule from existing subject/teacher data"""
+    import json
+
+    # Fetch subjects for this semester with assigned teachers
+    # First try teacher_assignments for this specific section/shift
+    rows = db.execute_query("""
+        SELECT DISTINCT s.id, s.name,
+               u.full_name AS teacher
+        FROM subjects s
+        LEFT JOIN teacher_assignments ta
+            ON ta.subject_id = s.id
+            AND ta.class_id IN (
+                SELECT id FROM classes
+                WHERE semester = %s AND shift = %s AND section = %s
+            )
+        LEFT JOIN teachers t ON ta.teacher_id = t.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE s.semester = %s
+        ORDER BY s.name
+    """, (semester, shift, section, semester), fetch_all=True) or []
+
+    # Fallback: if no teacher_assignments, use any morning/section assignment for that semester
+    if rows:
+        # Deduplicate by subject name keeping first teacher found
+        seen, subjects = set(), []
+        for r in rows:
+            if r['name'] not in seen:
+                seen.add(r['name'])
+                subjects.append({'name': r['name'], 'teacher': r['teacher'] or ''})
+    else:
+        return jsonify({'success': False, 'error': 'No subjects found for this semester'}), 400
+
+    if not subjects:
+        return jsonify({'success': False, 'error': 'No subjects found for this semester'}), 400
+
+    # Time slots: rows 0-6 → 8:00-9:00 … 14:00-15:00
+    time_slots = [
+        ('8:00',  '9:00'),
+        ('9:00',  '10:00'),
+        ('10:00', '11:00'),
+        ('11:00', '12:00'),
+        ('12:00', '13:00'),
+        ('13:00', '14:00'),
+        ('14:00', '15:00'),
+    ]
+    days = 5   # Sun–Thu (cols 0-4)
+    n = len(subjects)
+
+    # Distribute subjects: 2 sessions/week → round-robin across (col, row) pairs
+    # Slots used: rows 0, 2, 4 → 3 per day => up to 15 slots for 5 days
+    preferred_rows = [0, 2, 4]
+    slots = []
+    for row in preferred_rows:
+        for col in range(days):
+            slots.append((row, col))
+
+    schedule = []
+    occupied = set()
+    assignments = {}  # subject_idx → list of (row, col)
+
+    slot_idx = 0
+    times_per_subject = 2
+    for i, subj in enumerate(subjects):
+        count = 0
+        while count < times_per_subject and slot_idx < len(slots):
+            row, col = slots[slot_idx]
+            slot_idx += 1
+            if (row, col) in occupied:
+                continue
+            occupied.add((row, col))
+            start, end = time_slots[row]
+            schedule.append({
+                'row': row,
+                'col': col,
+                'rowSpan': 1,
+                'colSpan': 1,
+                'startTime': start,
+                'endTime': end,
+                'theoryStartTime': start,
+                'theoryEndTime': end,
+                'practicalStartTime': '',
+                'practicalEndTime': '',
+                'subject': subj['name'],
+                'teacher': subj['teacher'],
+                'practicalTeacher': '',
+                'lectureType': 'theory',
+                'room': '',
+            })
+            count += 1
+
+    db.save_schedule(semester, shift, section, json.dumps(schedule))
+    return jsonify({'success': True, 'data': schedule})
+
+
 @app.route('/admin/api/teachers-subjects/<int:semester>')
 @admin_required
 def api_get_teachers_subjects_by_semester(semester):
@@ -3736,6 +3966,13 @@ def admin_add_user_ajax():
     user_id = db.create_user(username, password_hash, full_name, role, email, password)
     
     if user_id:
+        # Create role-specific profile if needed
+        if role == 'teacher':
+            db.create_teacher(user_id)
+        elif role == 'student':
+            # Students are created via student management, not here
+            pass
+        
         # Fetch the newly created user to return full data
         new_user = db.get_user_by_id(user_id)
         if new_user:
@@ -3745,7 +3982,12 @@ def admin_add_user_ajax():
                 'full_name': new_user['full_name'],
                 'email': new_user.get('email'),
                 'role': new_user['role'],
-                'plain_password': new_user.get('plain_password')
+                'plain_password': new_user.get('plain_password'),
+                'year': None,
+                'semester': None,
+                'shift': None,
+                'section': None,
+                'subjects': None
             }
             
             # Add additional info based on role
@@ -3754,7 +3996,7 @@ def admin_add_user_ajax():
                 if teacher:
                     subjects = db.get_subjects_by_teacher_id(teacher['id'])
                     user_data['subjects'] = ','.join([str(s['id']) for s in subjects]) if subjects else None
-                    user_data['department'] = teacher.get('department')
+                    user_data['sections'] = ''  # Teacher has no sections yet
             elif role == 'student':
                 student = db.get_student_by_user_id(user_id)
                 if student:

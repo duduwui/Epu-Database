@@ -31,445 +31,461 @@
         overflow: hidden;
       }
 
-      /* Ambient background orbs */
       body::before,
       body::after {
         content: "";
         position: fixed;
         border-radius: 50%;
         filter: blur(80px);
-        opacity: 0.4;
+        opacity: 0.45;
         pointer-events: none;
         z-index: 0;
       }
-
       body::before {
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(28, 7, 112, 0.4), transparent 70%);
-        top: -100px;
-        right: -100px;
+        width: 420px; height: 420px;
+        background: radial-gradient(circle, rgba(28, 7, 112, 0.55), transparent 70%);
+        top: -110px; right: -110px;
         animation: float1 8s ease-in-out infinite;
       }
-
       body::after {
-        width: 350px;
-        height: 350px;
-        background: radial-gradient(circle, rgba(40, 20, 120, 0.35), transparent 70%);
-        bottom: -80px;
-        left: -80px;
+        width: 360px; height: 360px;
+        background: radial-gradient(circle, rgba(50, 20, 150, 0.45), transparent 70%);
+        bottom: -90px; left: -90px;
         animation: float2 10s ease-in-out infinite;
       }
-
       @keyframes float1 {
         0%, 100% { transform: translate(0, 0); }
-        50% { transform: translate(-30px, 30px); }
+        50%       { transform: translate(-30px, 30px); }
       }
-
       @keyframes float2 {
         0%, 100% { transform: translate(0, 0); }
-        50% { transform: translate(20px, -20px); }
+        50%       { transform: translate(20px, -20px); }
       }
 
-      /* Outer container — spinning border glow */
-      .login-container {
-        --form-width: 360px;
-        --aspect-ratio: 1.45;
-        --box-bg: #0e0530;
-        --input-bg: #1a0c45;
-        --button-bg: #150940;
-        --footer-color: rgba(255, 255, 255, 0.5);
+      .page-wrapper {
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
-        position: relative;
-        overflow: hidden;
-        background: var(--box-bg);
-        border-radius: 24px;
-        width: calc(var(--form-width) + 1px);
-        height: calc(var(--form-width) * var(--aspect-ratio) + 1px);
-        z-index: 8;
-        box-shadow:
-          0 4px 8px rgba(0, 0, 0, 0.2),
-          0 8px 16px rgba(0, 0, 0, 0.2),
-          0 0 8px rgba(120, 100, 255, 0.1),
-          0 0 16px rgba(120, 100, 255, 0.08);
-      }
-
-      .login-container::before {
-        content: "";
-        position: absolute;
-        inset: -50px;
-        z-index: -2;
-        background: conic-gradient(
-          from 45deg,
-          transparent 75%,
-          #fff,
-          transparent 100%
-        );
-        animation: spin 4s ease-in-out infinite;
-      }
-
-      @keyframes spin {
-        100% { transform: rotate(360deg); }
-      }
-
-      /* Inner box */
-      .login-box {
-        background: var(--box-bg);
-        border-radius: 24px;
-        padding: 28px;
-        width: var(--form-width);
-        height: calc(var(--form-width) * var(--aspect-ratio));
-        position: absolute;
+        gap: 0;
         z-index: 10;
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        box-shadow:
-          inset 0 40px 60px -8px rgba(255, 255, 255, 0.08),
-          inset 4px 0 12px -6px rgba(255, 255, 255, 0.08),
-          inset 0 0 12px -4px rgba(255, 255, 255, 0.06);
+        position: relative;
+      }
+
+      .logo-area {
         display: flex;
         flex-direction: column;
-        justify-content: center;
-      }
-
-      .form {
-        display: flex;
-        justify-content: center;
         align-items: center;
-        flex-direction: column;
-        gap: 10px;
+        gap: 6px;
+        margin-bottom: 22px;
+        transform: translateX(-12px);
       }
-
-      /* Logo */
-      .logo {
-        width: 65px;
-        height: 65px;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.2));
-        box-shadow:
-          8px 8px 16px rgba(0, 0, 0, 0.2),
-          -8px -8px 16px rgba(255, 255, 255, 0.06);
-        border-radius: 20px;
-        border: 2px solid #fff;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-      }
-
-      .logo img {
-        width: 54px;
-        height: 54px;
+      .logo-area img {
+        width: 92px;
+        height: auto;
         object-fit: contain;
+        filter: drop-shadow(0 4px 18px rgba(100, 140, 255, 0.45));
       }
-
-      .logo .logo-icon {
-        font-size: 32px;
-        color: #fff;
-      }
-
-      .header {
-        width: 100%;
-        text-align: center;
-        font-size: 22px;
+      .logo-area .site-title {
+        font-size: 24px;
         font-weight: 700;
-        padding: 4px 0 0;
-        color: white;
-        letter-spacing: -0.3px;
-      }
-
-      .sub-header {
-        width: 100%;
-        text-align: center;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.55);
-        margin-bottom: 4px;
-        font-weight: 500;
-      }
-
-      /* Inputs */
-      .input-wrapper {
-        width: 100%;
-        position: relative;
-      }
-
-      .input-wrapper .icon {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: rgba(255, 255, 255, 0.35);
-        font-size: 14px;
-        pointer-events: none;
-        transition: color 0.2s;
-      }
-
-      .input-wrapper .eye-toggle {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #1C0770;
-        font-size: 14px;
-        cursor: pointer;
-        transition: color 0.2s;
-        background: none;
-        border: none;
-        padding: 0;
-        line-height: 1;
-        text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
-      }
-
-      .input-wrapper .eye-toggle:hover {
-        color: #2a10a0;
-      }
-
-      .input {
-        width: 100%;
-        padding: 11px 12px 11px 36px;
-        border: none;
-        border-radius: 12px;
-        background: var(--input-bg);
-        color: white;
-        outline: none;
-        font-size: 14px;
-        transition: all 0.2s;
-      }
-
-      .input:focus {
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        padding: 10px 11px 10px 35px;
-      }
-
-      .input:focus ~ .icon {
-        color: rgba(255, 255, 255, 0.8);
-      }
-
-      .input::placeholder {
-        color: rgba(255, 255, 255, 0.3);
-      }
-
-      /* Labels */
-      .label {
-        width: 100%;
-        font-size: 12px;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.65);
-        margin-bottom: -4px;
-      }
-
-      /* Button */
-      .button {
-        width: 100%;
-        height: 42px;
-        border: none;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        background: var(--button-bg);
-        color: white;
-        transition: 0.3s;
-        margin-top: 6px;
-        box-shadow:
-          inset 0px 3px 6px -4px rgba(255, 255, 255, 0.6),
-          inset 0px -3px 6px -2px rgba(0, 0, 0, 0.8);
-      }
-
-      .button:hover {
-        background: rgba(255, 255, 255, 0.15);
-        box-shadow:
-          inset 0px 3px 6px rgba(255, 255, 255, 0.6),
-          inset 0px -3px 6px rgba(0, 0, 0, 0.8),
-          0px 0px 8px rgba(255, 255, 255, 0.05);
-      }
-
-      .button:active {
-        transform: scale(0.98);
-      }
-
-      /* Footer */
-      .footer {
-        width: 100%;
-        text-align: center;
-        color: var(--footer-color);
-        font-size: 11px;
-        margin-top: 8px;
-      }
-
-      .footer .link {
-        position: relative;
-        color: var(--footer-color);
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.3s ease;
-      }
-
-      .footer .link::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        bottom: -2px;
-        width: 0;
-        border-radius: 6px;
-        height: 1px;
-        background: currentColor;
-        transition: width 0.3s ease;
-      }
-
-      .footer .link:hover {
         color: #fff;
+        letter-spacing: -0.3px;
+        text-shadow: 0 0 24px rgba(100, 130, 255, 0.55);
+      }
+      .logo-area .site-sub {
+        font-size: 12px;
+        color: rgba(180, 195, 255, 0.55);
+        font-weight: 500;
+        letter-spacing: 0.5px;
       }
 
-      .footer .link:hover::after {
-        width: 100%;
+      .alerts-area {
+        width: 316px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
       }
-
-      /* Alerts */
       .alert {
-        width: 100%;
-        border-radius: 10px;
+        border-radius: 8px;
         font-size: 12px;
         padding: 8px 12px;
         display: flex;
         align-items: center;
         gap: 8px;
         color: #fff;
+        font-style: normal;
+      }
+      .alert-danger  { background: rgba(220, 38, 38, 0.25);  border: 1px solid rgba(220, 38, 38, 0.4); }
+      .alert-warning { background: rgba(217, 119, 6, 0.25);  border: 1px solid rgba(217, 119, 6, 0.4); }
+      .alert-success { background: rgba(5, 150, 105, 0.25);  border: 1px solid rgba(5, 150, 105, 0.4); }
+      .alert-info    { background: rgba(80, 120, 255, 0.15); border: 1px solid rgba(80, 120, 255, 0.3); }
+
+      /* ── Uiverse sci-fi card ── */
+      .container {
+        font-family: 'Inter', sans-serif;
+        font-style: italic;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1em;
       }
 
-      .alert-danger {
-        background: rgba(220, 38, 38, 0.25);
-        border: 1px solid rgba(220, 38, 38, 0.4);
+      .input-container {
+        filter:
+          drop-shadow(28px 22px 28px rgba(28, 50, 200, 0.42))
+          drop-shadow(-28px -22px 25px rgba(80, 20, 180, 0.48));
+        animation: blinkShadowsFilter 8s ease-in-out infinite;
       }
 
-      .alert-warning {
-        background: rgba(217, 119, 6, 0.25);
-        border: 1px solid rgba(217, 119, 6, 0.4);
+      .input-content {
+        display: grid;
+        align-content: center;
+        justify-items: center;
+        align-items: center;
+        text-align: center;
+        padding-inline: 1em;
+        position: relative;
       }
 
-      .alert-success {
-        background: rgba(5, 150, 105, 0.25);
-        border: 1px solid rgba(5, 150, 105, 0.4);
+      .input-content::before {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        filter: blur(40px);
+        -webkit-clip-path: polygon(26% 0, 66% 0, 92% 0, 100% 8%, 100% 89%, 91% 100%, 7% 100%, 0 92%, 0 0);
+        clip-path: polygon(26% 0, 66% 0, 92% 0, 100% 8%, 100% 89%, 91% 100%, 7% 100%, 0 92%, 0 0);
+        background: rgba(50, 90, 255, 0.42);
+        transition: all 1s ease-in-out;
+        z-index: 0;
       }
 
-      .alert-info {
-        background: rgba(130, 160, 255, 0.15);
-        border: 1px solid rgba(130, 160, 255, 0.3);
+      .input-content::after {
+        content: "";
+        position: absolute;
+        width: 98%;
+        height: 98%;
+        box-shadow: inset 0px 0px 20px 20px #080220;
+        background:
+          repeating-linear-gradient(
+            to bottom,
+            transparent 0%,
+            rgba(28, 7, 112, 0.52) 1px,
+            rgb(4, 0, 20) 3px,
+            hsl(252, 62%, 7%) 5px,
+            #090228 4px,
+            transparent 0.5%
+          ),
+          repeating-linear-gradient(
+            to left,
+            hsl(252, 62%, 7%) 100%,
+            hsla(252, 62%, 7%, 0.99) 100%
+          );
+        -webkit-clip-path: polygon(26% 0, 31% 5%, 61% 5%, 66% 0, 92% 0, 100% 8%, 100% 89%, 91% 100%, 7% 100%, 0 92%, 0 0);
+        clip-path: polygon(26% 0, 31% 5%, 61% 5%, 66% 0, 92% 0, 100% 8%, 100% 89%, 91% 100%, 7% 100%, 0 92%, 0 0);
+        animation: backglitch 50ms linear infinite;
+        z-index: 1;
       }
 
-      /* Responsive */
-      @media (max-width: 400px) {
-        .login-container {
-          --form-width: calc(100vw - 40px);
-        }
+      .input-dist {
+        z-index: 80;
+        display: grid;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+        padding-inline: 1.6em;
+        padding-block: 1.8em;
+        grid-template-columns: 1fr;
+        position: relative;
+      }
 
-        .login-box {
-          padding: 22px 18px;
-        }
+      .input-type {
+        display: flex;
+        flex-direction: column;
+        gap: 1.4em;
+        background-color: transparent;
+        width: 100%;
+        border: none;
+        min-width: 290px;
+      }
 
-        .header {
-          font-size: 18px;
-        }
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        width: 100%;
+        text-align: left;
+      }
 
-        .logo {
-          width: 55px;
-          height: 55px;
-        }
+      .input-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        font-style: normal;
+        color: rgba(150, 175, 255, 0.52);
+        letter-spacing: 0.9px;
+        text-transform: uppercase;
+        padding-left: 1.4em;
+      }
 
-        .logo img {
-          width: 44px;
-          height: 44px;
+      .input-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .input-row .field-icon {
+        position: absolute;
+        left: 0;
+        color: rgba(80, 130, 255, 0.80);
+        font-size: 13px;
+        pointer-events: none;
+        font-style: normal;
+        z-index: 2;
+      }
+
+      .input-row .eye-toggle {
+        position: absolute;
+        right: 0;
+        background: none;
+        border: none;
+        padding: 0;
+        color: rgba(80, 130, 255, 0.70);
+        font-size: 13px;
+        cursor: pointer;
+        font-style: normal;
+        line-height: 1;
+        z-index: 2;
+        transition: color 0.2s;
+      }
+      .input-row .eye-toggle:hover { color: rgba(160, 200, 255, 1); }
+
+      .input-is {
+        color: #d8e4ff;
+        font-size: 0.875rem;
+        font-style: normal;
+        font-weight: 500;
+        background: transparent !important;
+        color-scheme: dark;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.65em 1.4em 0.65em 1.8em;
+        border: none;
+        outline: none;
+        transition: all 0.4s ease-in-out;
+        border-bottom: 1px solid rgba(50, 80, 210, 0.48);
+        position: relative;
+        z-index: 2;
+      }
+
+      /* Override browser autofill white background */
+      .input-is:-webkit-autofill,
+      .input-is:-webkit-autofill:hover,
+      .input-is:-webkit-autofill:focus {
+        -webkit-text-fill-color: #d8e4ff;
+        -webkit-box-shadow: 0 0 0px 1000px transparent inset;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+
+      .input-is:hover {
+        background: linear-gradient(90deg, transparent 0%, rgba(28, 40, 180, 0.18) 30%, rgba(28, 40, 180, 0.18) 70%, transparent 100%);
+      }
+
+      .input-content:focus-within::before {
+        background: rgba(80, 130, 255, 0.52);
+        transition: all 1s ease-in-out;
+      }
+
+      .input-is:focus {
+        border-bottom: 1px solid rgba(130, 170, 255, 0.85);
+        color: hsl(220, 100%, 88%);
+        background: linear-gradient(90deg, transparent 0%, rgba(28, 40, 200, 0.2) 30%, rgba(28, 40, 200, 0.2) 70%, transparent 100%);
+      }
+
+      .input-is::placeholder {
+        color: hsla(225, 70%, 78%, 0.32);
+        font-style: italic;
+      }
+
+      .submit-button {
+        width: 58%;
+        border: none;
+        color: hsla(220, 100%, 88%, 0.88);
+        font-family: 'Inter', sans-serif;
+        font-size: 13.5px;
+        font-weight: 600;
+        font-style: normal;
+        letter-spacing: 0.3px;
+        background: linear-gradient(90deg, transparent 0%, rgba(28, 7, 112, 0.58) 28%, rgba(40, 20, 150, 0.58) 72%, transparent 100%);
+        clip-path: polygon(0 0, 85% 0%, 100% 0, 100% 15%, 100% 90%, 91% 100%, 0 100%);
+        border-top: 1px solid rgba(80, 120, 255, 0.28);
+        border-left: 1px solid rgba(80, 120, 255, 0.18);
+        padding: 0.65em 1em;
+        animation: blinkShadowsFilter 8s ease-in-out infinite;
+        transition: all 400ms;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+      }
+
+      .submit-button:hover {
+        color: #ffffff;
+        background: linear-gradient(90deg, transparent 0%, rgba(50, 25, 200, 0.75) 28%, rgba(70, 40, 220, 0.75) 72%, transparent 100%);
+        text-shadow: 0 0 14px rgba(130, 170, 255, 0.9);
+      }
+
+      .submit-button:active { transform: scale(0.97); }
+
+      /* ── Hide browser native password reveal ── */
+      input[type="password"]::-ms-reveal,
+      input[type="password"]::-ms-clear {
+        display: none;
+      }
+
+      .footer-text {
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 400;
+        color: rgba(160, 180, 255, 0.38);
+        text-align: center;
+        margin-top: 2px;
+      }
+
+      @keyframes backglitch {
+        0%  { box-shadow: inset 0px  20px 20px 30px #080220; }
+        50% { box-shadow: inset 0px -20px 20px 30px hsl(252, 62%, 6%); }
+        to  { box-shadow: inset 0px  20px 20px 30px #080220; }
+      }
+
+      @keyframes blinkShadowsFilter {
+        0% {
+          filter:
+            drop-shadow(28px  22px 28px rgba(28, 50, 200, 0.38))
+            drop-shadow(-28px -22px 28px rgba(80, 20, 180, 0.5));
         }
+        25% {
+          filter:
+            drop-shadow(28px -22px 24px rgba(28, 80, 230, 0.9))
+            drop-shadow(-28px  22px 24px rgba(80, 20, 180, 0.62));
+        }
+        50% {
+          filter:
+            drop-shadow(28px  22px 30px rgba(28, 80, 230, 0.9))
+            drop-shadow(-28px  22px 30px rgba(60, 10, 150, 0.3));
+        }
+        75% {
+          filter:
+            drop-shadow(16px -14px 25px rgba(28, 80, 210, 0.9))
+            drop-shadow(-16px  14px 25px rgba(60, 10, 150, 0.3));
+        }
+        to {
+          filter:
+            drop-shadow(28px  22px 28px rgba(28, 50, 200, 0.38))
+            drop-shadow(-28px -22px 28px rgba(80, 20, 180, 0.5));
+        }
+      }
+
+      @media (max-width: 420px) {
+        .logo-area img         { width: 74px; }
+        .logo-area .site-title { font-size: 20px; }
+        .input-type            { min-width: 240px; }
+        .alerts-area           { width: 90vw; }
+        .submit-button         { width: 72%; }
       }
     </style>
   </head>
   <body>
 
-    <div class="login-container">
-      <div class="login-box">
-        <div class="form">
+    <div class="page-wrapper">
 
-          <!-- Logo -->
-          <div class="logo">
-            <img src="{{ url_for('static', filename='images/epu-logo.png') }}"
-                 alt="EPU"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-            <i class="bi bi-mortarboard-fill logo-icon" style="display:none"></i>
+      <!-- Flash Messages (outside form, centered) -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="alerts-area">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {% if category == 'danger' %}<i class="bi bi-exclamation-circle"></i>
+            {% elif category == 'warning' %}<i class="bi bi-exclamation-triangle"></i>
+            {% elif category == 'success' %}<i class="bi bi-check-circle"></i>
+            {% else %}<i class="bi bi-info-circle"></i>{% endif %}
+            {{ message }}
           </div>
-
-          <div class="header">EPU - MIS</div>
-          <div class="sub-header">Management Information System</div>
-
-          <!-- Flash Messages -->
-          {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-              {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">
-                {% if category == 'danger' %}
-                <i class="bi bi-exclamation-circle"></i>
-                {% elif category == 'warning' %}
-                <i class="bi bi-exclamation-triangle"></i>
-                {% elif category == 'success' %}
-                <i class="bi bi-check-circle"></i>
-                {% else %}
-                <i class="bi bi-info-circle"></i>
-                {% endif %}
-                {{ message }}
-              </div>
-              {% endfor %}
-            {% endif %}
-          {% endwith %}
-
-          <!-- Login Form -->
-          <form method="POST" action="{{ url_for('login') }}" style="width:100%;display:flex;flex-direction:column;gap:10px;">
-
-            <div class="label">Email</div>
-            <div class="input-wrapper">
-              <input type="email" name="email" class="input" placeholder="Enter your email" required autofocus>
-              <i class="bi bi-envelope icon"></i>
-            </div>
-
-            <div class="label">Password</div>
-            <div class="input-wrapper">
-              <input type="password" name="password" id="passwordInput" class="input" placeholder="Enter your password" required style="padding-right:36px">
-              <i class="bi bi-lock icon"></i>
-              <button type="button" class="eye-toggle" onclick="togglePassword()" id="eyeBtn">
-                <i class="bi bi-eye" id="eyeIcon"></i>
-              </button>
-            </div>
-
-            <button type="submit" class="button">
-              <i class="bi bi-box-arrow-in-right"></i>
-              Sign In
-            </button>
-
-          </form>
-
-          <div class="footer">
-            <span class="link">EPU</span> &mdash; MIS Department &copy; 2025
-          </div>
-
+          {% endfor %}
         </div>
-      </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Sci-fi Form Card (logo lives inside so it shares the same center axis) -->
+      <form class="container" method="POST" action="{{ url_for('login') }}">
+
+        <!-- Logo & Title (inside form = always aligned with card) -->
+        <div class="logo-area">
+          <img src="{{ url_for('static', filename='images/epu-logo.png') }}?v=5"
+               alt="EPU"
+               onerror="this.style.display='none'">
+          <div class="site-title">EPU &mdash; MIS</div>
+          <div class="site-sub">Management Information System</div>
+        </div>
+        <div class="input-container">
+          <div class="input-content">
+            <div class="input-dist">
+              <div class="input-type">
+
+                <!-- Email -->
+                <div class="input-group">
+                  <span class="input-label">Email</span>
+                  <div class="input-row">
+                    <i class="bi bi-envelope field-icon"></i>
+                    <input class="input-is" type="email" name="email"
+                           placeholder="your@email.com" required autofocus />
+                  </div>
+                </div>
+
+                <!-- Password -->
+                <div class="input-group">
+                  <span class="input-label">Password</span>
+                  <div class="input-row">
+                    <i class="bi bi-lock field-icon"></i>
+                    <input class="input-is" type="password" name="password"
+                           id="passwordInput" placeholder="Enter password"
+                           required style="padding-right:1.5em" />
+                    <button type="button" class="eye-toggle" onclick="togglePassword()">
+                      <i class="bi bi-eye" id="eyeIcon"></i>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-button">
+          <i class="bi bi-box-arrow-in-right" style="font-style:normal"></i>
+          Sign In
+        </button>
+
+        <div class="footer-text">EPU &mdash; MIS Department &copy; 2025</div>
+      </form>
+
     </div>
 
-  <script>
-    function togglePassword() {
-      const input = document.getElementById('passwordInput');
-      const icon = document.getElementById('eyeIcon');
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'bi bi-eye-slash';
-      } else {
-        input.type = 'password';
-        icon.className = 'bi bi-eye';
+    <script>
+      function togglePassword() {
+        const input = document.getElementById('passwordInput');
+        const icon  = document.getElementById('eyeIcon');
+        if (input.type === 'password') {
+          input.type     = 'text';
+          icon.className = 'bi bi-eye-slash';
+        } else {
+          input.type     = 'password';
+          icon.className = 'bi bi-eye';
+        }
       }
-    }
-  </script>
+    </script>
   </body>
 </html>

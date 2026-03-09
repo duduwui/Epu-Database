@@ -189,7 +189,7 @@ content %}
 
       <form
         method="POST"
-        action="{{ url_for('teacher_add_grades', subject_id=subject.id, class_id=subject.class_id) }}"
+        action="{{ url_for('teacher_add_grades', subject_id=subject.id, class_id=(subject.class_id or 0)) }}"
         id="gradeForm"
       >
         <input type="hidden" name="student_id" id="studentIdInput" />

@@ -105,56 +105,19 @@
             </tr>
           </thead>
           <tbody>
-            {# Types where sub-components are SUMMED (not averaged) #}
-            {% set sum_types = ['midterm', 'final'] %}
+            {% for group in display_groups %}
 
-            {# Group grades by component type #}
-            {% set grouped_grades = {} %}
-            {% for grade in grades_data %}
-              {% set type_key = grade.component_type %}
-              {% if type_key not in grouped_grades %}
-                {% set _ = grouped_grades.update({type_key: []}) %}
-              {% endif %}
-              {% set _ = grouped_grades[type_key].append(grade) %}
-            {% endfor %}
-
-            {# Calculate overall totals #}
-            {% set overall_total_score = namespace(value=0) %}
-            {% set overall_total_max = namespace(value=0) %}
-
-            {# Display each group #}
-            {% for component_type, group_grades in grouped_grades.items() %}
-              {# Accumulate group totals #}
-              {% set group_total_score = namespace(value=0) %}
-              {% set group_total_max = namespace(value=0) %}
-              {% set group_weight = namespace(value=0) %}
-              {% set group_count = group_grades|length %}
-
-              {% for grade in group_grades %}
-                {% if grade.score is not none %}
-                  {% set group_total_score.value = group_total_score.value + grade.score %}
-                {% endif %}
-                {% set group_total_max.value = group_total_max.value + grade.max_score %}
-                {% if grade.weight_percentage %}
-                  {% set group_weight.value = group_weight.value + grade.weight_percentage %}
-                {% endif %}
-              {% endfor %}
-
-              {# SUM for midterm/final, AVERAGE for all others #}
-              {% if component_type in sum_types %}
-                {% set avg_score = group_total_score.value|float %}
-                {% set avg_max   = group_total_max.value|float %}
-              {% else %}
-                {% set avg_score = ((group_total_score.value|float) / group_count) if group_count > 0 else 0 %}
-                {% set avg_max   = ((group_total_max.value|float)   / group_count) if group_count > 0 else 0 %}
-              {% endif %}
-              {% set overall_total_score.value = overall_total_score.value + avg_score %}
-              {% set overall_total_max.value   = overall_total_max.value   + avg_max %}
-
-              {# Individual component rows #}
-              {% for grade in group_grades %}
+              {% for grade in group.rows %}
               <tr class="grade-item-row">
-                <td class="ps-4">{{ grade.component_name }}</td>
+                <td class="ps-4">
+                  {{ grade.component_name }}
+                  {% if grade.pair_group is not none %}
+                  <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;"
+                        title="Paired – averaged with partner">
+                    <i class="bi bi-link-45deg"></i> Paired
+                  </span>
+                  {% endif %}
+                </td>
                 <td class="text-center">
                   <span class="score-chip">
                     {% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %}
@@ -164,29 +127,33 @@
               </tr>
               {% endfor %}
 
-              {# ── Navy subtotal row ── #}
-              {% if component_type in sum_types %}
-                {% set sub_score = group_total_score.value|round(1) %}
-                {% set sub_max   = group_total_max.value|round(1) %}
-              {% else %}
-                {% set sub_score = ((group_total_score.value|float) / group_count)|round(1) if group_count > 0 else 0 %}
-                {% set sub_max   = ((group_total_max.value|float)   / group_count)|round(1) if group_count > 0 else 0 %}
-              {% endif %}
-              {% set sub_label = component_type | replace('_',' ') | title %}
-              <tr class="grade-subtotal-row">
-                <td class="fw-bold ps-4">{{ sub_label }}</td>
+              {% if group.is_paired %}
+              {# Paired Average row — replaces individual subtotals #}
+              <tr class="grade-subtotal-row" style="background:#2d1a8a !important;">
+                <td class="fw-bold ps-4">
+                  <i class="bi bi-link-45deg me-1"></i>Paired Average
+                </td>
                 <td class="text-center">
-                  <strong>{{ sub_score }} / {{ sub_max }}</strong>
+                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
                 </td>
               </tr>
+              {% elif group.rows|length > 1 %}
+              <tr class="grade-subtotal-row">
+                <td class="fw-bold ps-4">{{ group.label }}</td>
+                <td class="text-center">
+                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
+                </td>
+              </tr>
+              {% endif %}
+
             {% endfor %}
 
-            <!-- Overall Total -->
+            <!-- Total (Final exam excluded — shown on 60 marks) -->
             <tr class="grade-total-row">
-              <td class="fw-bold ps-4">Total Score</td>
+              <td class="fw-bold ps-4">Total Score <small class="fw-normal opacity-75">/ 60</small></td>
               <td class="text-center">
                 <span class="total-chip">
-                  {{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|int if overall_total_max.value == overall_total_max.value|int else overall_total_max.value|round(1) }}
+                  {{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}
                 </span>
               </td>
             </tr>
@@ -201,15 +168,15 @@
     <div class="col-md-4">
       <div class="card text-center shadow-sm border-primary h-100">
         <div class="card-body d-flex flex-column justify-content-center">
-          {% if subject_info and subject_info.credits and overall_total_max.value > 0 %}
+          {% if subject_info and subject_info.credits and total_max > 0 %}
             {% set credits = subject_info.credits %}
-            {% set w_score = (overall_total_score.value / overall_total_max.value * credits)|round(2) %}
+            {% set w_score = (total_score / total_max * credits)|round(2) %}
             <h6 class="text-muted mb-2">Weighted Score</h6>
             <h3 class="mb-0 text-primary">{{ w_score }} / {{ credits }}</h3>
             <small class="text-muted mt-1">({{ credits }}-credit subject)</small>
           {% else %}
             <h6 class="text-muted mb-2">Total Score</h6>
-            <h3 class="mb-0 text-primary">{{ overall_total_score.value|round(1) }} / {{ overall_total_max.value|int if overall_total_max.value == overall_total_max.value|int else overall_total_max.value|round(1) }}</h3>
+            <h3 class="mb-0 text-primary">{{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}</h3>
           {% endif %}
         </div>
       </div>
@@ -217,13 +184,9 @@
     <div class="col-md-4">
       <div class="card text-center shadow-sm border-success h-100">
         <div class="card-body d-flex flex-column justify-content-center">
-          <h6 class="text-muted mb-2">Percentage</h6>
+          <h6 class="text-muted mb-2">Total Marks</h6>
           <h3 class="mb-0 text-success">
-            {% if overall_total_max.value > 0 %}
-              {{ "%.1f"|format(((overall_total_score.value|float) / (overall_total_max.value|float)) * 100) }}%
-            {% else %}
-              0.0%
-            {% endif %}
+            {{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}
           </h3>
         </div>
       </div>
@@ -233,8 +196,8 @@
         <div class="card-body d-flex flex-column justify-content-center">
           <h6 class="text-muted mb-2">Grade Status</h6>
           <h3 class="mb-0 text-info">
-            {% if overall_total_max.value > 0 %}
-              {% set percentage = ((overall_total_score.value|float) / (overall_total_max.value|float)) * 100 %}
+            {% if total_max > 0 %}
+              {% set percentage = (total_score / total_max) * 100 %}
               {% if percentage >= 90 %}A+
               {% elif percentage >= 85 %}A
               {% elif percentage >= 80 %}A-
