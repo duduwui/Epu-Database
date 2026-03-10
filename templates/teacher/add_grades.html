@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Add Grades - {{ subject.name }}{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}Add Grades - {{ subject.name }}{% endblock %} {% block
 content %}
 <div class="container-fluid">
   <!-- Page Header -->
@@ -12,7 +12,7 @@ content %}
         <button onclick="publishGrades()" class="btn btn-success" id="publishBtn">
           <i class="bi bi-send-check me-1"></i>Publish Grades
         </button>
-        <a href="{{ url_for('teacher_grades') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('teacher.grades') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Back
         </a>
       </div>
@@ -36,7 +36,7 @@ content %}
         The admin has not set up the grade distribution for this subject yet.<br />Please contact
         the admin to define the grading structure.
       </p>
-      <a href="{{ url_for('teacher_grades') }}" class="btn btn-primary mt-3">
+      <a href="{{ url_for('teacher.grades') }}" class="btn btn-primary mt-3">
         <i class="bi bi-arrow-left me-1"></i>Back to Grades
       </a>
     </div>
@@ -189,7 +189,7 @@ content %}
 
       <form
         method="POST"
-        action="{{ url_for('teacher_add_grades', subject_id=subject.id, class_id=(subject.class_id or 0)) }}"
+        action="{{ url_for('teacher.add_grades', subject_id=subject.id, class_id=(subject.class_id or 0)) }}"
         id="gradeForm"
       >
         <input type="hidden" name="student_id" id="studentIdInput" />

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}Exam Periods - MIS System{% endblock %}
 {% block content %}
 <div class="container">
@@ -110,7 +110,7 @@
                   <td><small>{{ period.description or '-' }}</small></td>
                   <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                   <td class="text-center">
-                    <form method="POST" action="{{ url_for('admin_delete_exam_period', period_id=period.id) }}" style="display: inline;">
+                    <form method="POST" action="{{ url_for('admin.delete_exam_period'), period_id=period.id) }}" style="display: inline;">
                       <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Period">
                         <i class="bi bi-trash"></i>
                       </button>
@@ -155,7 +155,7 @@
 <div class="modal fade" id="addPeriodModal" tabindex="-1" aria-labelledby="addPeriodModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('admin_add_exam_period') }}" id="addPeriodForm">
+      <form method="POST" action="{{ url_for('admin.add_exam_period') }}" id="addPeriodForm">
         <div class="modal-header">
           <h5 class="modal-title" id="addPeriodModalLabel">
             <i class="bi bi-pencil-square me-2"></i>Create Exam Period

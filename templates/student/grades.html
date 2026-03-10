@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}My Grades - Student{% endblock %}
 {% block content %}
 <div class="container" style="max-width: 1200px;">
@@ -73,7 +73,7 @@
   <!-- No Subjects Message -->
   <div class="alert alert-warning text-center">
     <i class="bi bi-exclamation-triangle me-2"></i>
-    You haven't enrolled in any subjects yet. Visit <a href="{{ url_for('student_subjects') }}" class="alert-link">My Subjects</a> to enroll.
+    You haven't enrolled in any subjects yet. Visit <a href="{{ url_for('student.subjects') }}" class="alert-link">My Subjects</a> to enroll.
   </div>
   {% elif not selected_subject_id %}
   <!-- Select Subject Message -->

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}Edit Student - MIS System{% endblock %}
 
@@ -12,7 +12,7 @@
                 <p>Update student information</p>
             </div>
             <div class="col-auto">
-                <a href="{{ url_for('admin_students') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back to Students
                 </a>
             </div>
@@ -27,7 +27,7 @@
                     <i class="bi bi-person me-2"></i>Account Information
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="{{ url_for('admin_edit_student', student_id=student.id) }}">
+                    <form method="POST" action="{{ url_for('admin.edit_student', student_id=student.id) }}">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Username</label>
@@ -108,7 +108,7 @@
 
                         <hr class="my-4">
                         <div class="d-flex justify-content-end gap-2">
-                            <a href="{{ url_for('admin_students') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary">Cancel</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-lg me-1"></i>Update Student
                             </button>

@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Attendance Logs - {{ subject.name }}{% endblock %} {%
+﻿{% extends 'base.html' %} {% block title %}Attendance Logs - {{ subject.name }}{% endblock %} {%
 block content %}
 <style>
   .date-card {
@@ -106,12 +106,12 @@ block content %}
       </div>
       <div class="col-auto">
         <a
-          href="{{ url_for('teacher_take_attendance', subject_id=subject.id, class_id=subject.class_id) }}"
+          href="{{ url_for('teacher.take_attendance', subject_id=subject.id, class_id=subject.class_id) }}"
           class="btn btn-primary me-2"
         >
           <i class="bi bi-plus-circle me-1"></i>Take Attendance
         </a>
-        <a href="{{ url_for('teacher_attendance') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('teacher.attendance') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Back
         </a>
       </div>
@@ -201,7 +201,7 @@ block content %}
           <h5>No Attendance Records Yet</h5>
           <p class="mb-3">Start taking attendance to see records here.</p>
           <a
-            href="{{ url_for('teacher_take_attendance', subject_id=subject.id, class_id=subject.class_id) }}"
+            href="{{ url_for('teacher.take_attendance', subject_id=subject.id, class_id=subject.class_id) }}"
             class="btn btn-primary"
           >
             <i class="bi bi-plus-circle me-1"></i>Take Attendance

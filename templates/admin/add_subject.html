@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Add Subject - MIS System{% endblock %} {% block content
+﻿{% extends 'base.html' %} {% block title %}Add Subject - MIS System{% endblock %} {% block content
 %}
 <div class="container">
   <!-- Page Header -->
@@ -9,7 +9,7 @@
         <p>Create a new subject for a semester</p>
       </div>
       <div class="col-auto">
-        <a href="{{ url_for('admin_subjects') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('admin.subjects') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Back to Subjects
         </a>
       </div>
@@ -22,7 +22,7 @@
       <div class="card">
         <div class="card-header"><i class="bi bi-journal-bookmark me-2"></i>Subject Details</div>
         <div class="card-body p-4">
-          <form method="POST" action="{{ url_for('admin_add_subject') }}">
+          <form method="POST" action="{{ url_for('admin.add_subject') }}">
             <div class="mb-3">
               <label class="form-label">Subject Name <span class="text-danger">*</span></label>
               <input
@@ -69,7 +69,7 @@
             <div class="alert alert-info mb-3">
               <i class="bi bi-info-circle me-2"></i>
               Teacher assignments are managed in the
-              <a href="{{ url_for('admin_teachers') }}" class="alert-link">Teachers</a> tab after
+              <a href="{{ url_for('admin.teachers') }}" class="alert-link">Teachers</a> tab after
               creating the subject.
             </div>
 
@@ -85,7 +85,7 @@
 
             <hr class="my-4" />
             <div class="d-flex justify-content-end gap-2">
-              <a href="{{ url_for('admin_subjects') }}" class="btn btn-outline-secondary">Cancel</a>
+              <a href="{{ url_for('admin.subjects') }}" class="btn btn-outline-secondary">Cancel</a>
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-lg me-1"></i>Create Subject
               </button>

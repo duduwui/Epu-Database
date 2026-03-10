@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Manage Semesters - MIS System{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}Manage Semesters - MIS System{% endblock %} {% block
 content %}
 <div class="container">
   <!-- Page Header -->
@@ -30,21 +30,21 @@ content %}
               <div class="shift-label"><i class="bi bi-sun text-warning me-1"></i>Morning</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='morning', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='morning', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('1_morning_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='morning', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='morning', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('1_morning_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='morning', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='morning', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -56,21 +56,21 @@ content %}
               <div class="shift-label"><i class="bi bi-moon-stars text-dark me-1"></i>Night</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='night', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='night', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('1_night_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='night', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='night', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('1_night_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=1, shift='night', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=1, shift='night', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -79,7 +79,7 @@ content %}
               </div>
             </div>
             <div class="text-center mt-3 pt-2" style="border-top:1px solid #eee;">
-              <a href="{{ url_for('admin_upgrade_preview', semester=1) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
+              <a href="{{ url_for('admin.upgrade_preview', semester=1) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
                 <i class="bi bi-arrow-up-circle me-1"></i>Upgrade Semester 1
               </a>
             </div>
@@ -97,21 +97,21 @@ content %}
               <div class="shift-label"><i class="bi bi-sun text-warning me-1"></i>Morning</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='morning', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='morning', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('2_morning_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='morning', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='morning', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('2_morning_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='morning', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='morning', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -123,21 +123,21 @@ content %}
               <div class="shift-label"><i class="bi bi-moon-stars text-dark me-1"></i>Night</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='night', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='night', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('2_night_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='night', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='night', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('2_night_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=2, shift='night', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=2, shift='night', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -146,7 +146,7 @@ content %}
               </div>
             </div>
             <div class="text-center mt-3 pt-2" style="border-top:1px solid #eee;">
-              <a href="{{ url_for('admin_upgrade_preview', semester=2) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
+              <a href="{{ url_for('admin.upgrade_preview', semester=2) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
                 <i class="bi bi-arrow-up-circle me-1"></i>Upgrade Semester 2
               </a>
             </div>
@@ -175,21 +175,21 @@ content %}
               <div class="shift-label"><i class="bi bi-sun text-warning me-1"></i>Morning</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='morning', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='morning', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('3_morning_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='morning', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='morning', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('3_morning_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='morning', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='morning', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -201,21 +201,21 @@ content %}
               <div class="shift-label"><i class="bi bi-moon-stars text-dark me-1"></i>Night</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='night', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='night', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('3_night_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='night', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='night', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('3_night_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=3, shift='night', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=3, shift='night', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -224,7 +224,7 @@ content %}
               </div>
             </div>
             <div class="text-center mt-3 pt-2" style="border-top:1px solid #eee;">
-              <a href="{{ url_for('admin_upgrade_preview', semester=3) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
+              <a href="{{ url_for('admin.upgrade_preview', semester=3) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
                 <i class="bi bi-arrow-up-circle me-1"></i>Upgrade Semester 3
               </a>
             </div>
@@ -242,21 +242,21 @@ content %}
               <div class="shift-label"><i class="bi bi-sun text-warning me-1"></i>Morning</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='morning', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='morning', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('4_morning_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='morning', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='morning', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('4_morning_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='morning', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='morning', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -268,21 +268,21 @@ content %}
               <div class="shift-label"><i class="bi bi-moon-stars text-dark me-1"></i>Night</div>
               <div class="class-buttons">
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='night', section='A') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='night', section='A') }}"
                   class="class-link"
                 >
                   <span class="class-letter">A</span>
                   <span class="student-count">{{ class_counts.get('4_night_A', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='night', section='B') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='night', section='B') }}"
                   class="class-link"
                 >
                   <span class="class-letter">B</span>
                   <span class="student-count">{{ class_counts.get('4_night_B', 0) }}</span>
                 </a>
                 <a
-                  href="{{ url_for('admin_semester_students', semester=4, shift='night', section='C') }}"
+                  href="{{ url_for('admin.semester_students', semester=4, shift='night', section='C') }}"
                   class="class-link"
                 >
                   <span class="class-letter">C</span>
@@ -291,7 +291,7 @@ content %}
               </div>
             </div>
             <div class="text-center mt-3 pt-2" style="border-top:1px solid #eee;">
-              <a href="{{ url_for('admin_upgrade_preview', semester=4) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
+              <a href="{{ url_for('admin.upgrade_preview', semester=4) }}" class="btn btn-sm w-100" style="border:2px solid #1C0770; color:#1C0770; font-weight:600;" onmouseover="this.style.background='#1C0770';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#1C0770'">
                 <i class="bi bi-mortarboard me-1"></i>Graduate Semester 4
               </a>
             </div>

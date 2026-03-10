@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Manage Subjects - MIS System{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}Manage Subjects - MIS System{% endblock %} {% block
 content %}
 <div class="container">
   <!-- Page Header -->
@@ -85,7 +85,7 @@ content %}
             </div>
             <div>
               <a
-                href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
+                href="{{ url_for('admin.subject_grading', subject_id=subject.id) }}"
                 class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
@@ -105,7 +105,7 @@ content %}
                 <i class="bi bi-pencil"></i>
               </button>
               <form
-                action="{{ url_for('admin_delete_subject', subject_id=subject.id) }}"
+                action="{{ url_for('admin.delete_subject', subject_id=subject.id) }}"
                 method="POST"
                 class="d-inline"
                 onsubmit="return confirm('Delete?');"
@@ -152,7 +152,7 @@ content %}
             </div>
             <div>
               <a
-                href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
+                href="{{ url_for('admin.subject_grading', subject_id=subject.id) }}"
                 class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
@@ -172,7 +172,7 @@ content %}
                 <i class="bi bi-pencil"></i>
               </button>
               <form
-                action="{{ url_for('admin_delete_subject', subject_id=subject.id) }}"
+                action="{{ url_for('admin.delete_subject', subject_id=subject.id) }}"
                 method="POST"
                 class="d-inline"
                 onsubmit="return confirm('Delete?');"
@@ -227,7 +227,7 @@ content %}
             </div>
             <div>
               <a
-                href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
+                href="{{ url_for('admin.subject_grading', subject_id=subject.id) }}"
                 class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
@@ -247,7 +247,7 @@ content %}
                 <i class="bi bi-pencil"></i>
               </button>
               <form
-                action="{{ url_for('admin_delete_subject', subject_id=subject.id) }}"
+                action="{{ url_for('admin.delete_subject', subject_id=subject.id) }}"
                 method="POST"
                 class="d-inline"
                 onsubmit="return confirm('Delete?');"
@@ -294,7 +294,7 @@ content %}
             </div>
             <div>
               <a
-                href="{{ url_for('admin_subject_grading', subject_id=subject.id) }}"
+                href="{{ url_for('admin.subject_grading', subject_id=subject.id) }}"
                 class="btn btn-sm {% if subject.total_weight >= 100 %}btn-outline-success{% elif subject.total_weight > 0 %}btn-outline-warning{% else %}btn-outline-secondary{% endif %} py-0 px-2"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
@@ -314,7 +314,7 @@ content %}
                 <i class="bi bi-pencil"></i>
               </button>
               <form
-                action="{{ url_for('admin_delete_subject', subject_id=subject.id) }}"
+                action="{{ url_for('admin.delete_subject', subject_id=subject.id) }}"
                 method="POST"
                 class="d-inline"
                 onsubmit="return confirm('Delete?');"
@@ -337,7 +337,7 @@ content %}
     <i class="bi bi-info-circle me-2"></i>
     <strong>Note:</strong> Each subject belongs to a specific semester. To assign teachers to
     subjects for classes, go to the
-    <a href="{{ url_for('admin_teachers') }}" class="alert-link">Teachers</a> tab.
+    <a href="{{ url_for('admin.teachers') }}" class="alert-link">Teachers</a> tab.
   </div>
 </div>
 

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}Period Management - MIS System{% endblock %}
 {% block content %}
 <div class="container">
@@ -125,7 +125,7 @@
                       <td><small>{{ period.description or '-' }}</small></td>
                       <td><small class="text-muted">{{ period.creator_name }}</small></td>
                       <td class="text-center">
-                        <form method="POST" action="{{ url_for('admin_delete_enrollment_period', period_id=period.id) }}" class="enroll-delete-form" style="display:inline;">
+                        <form method="POST" action="{{ url_for('admin.delete_enrollment_period', period_id=period.id) }}" class="enroll-delete-form" style="display:inline;">
                           <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                         </form>
                       </td>
@@ -238,7 +238,7 @@
                       <td><small>{{ period.description or '-' }}</small></td>
                       <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                       <td class="text-center">
-                        <form method="POST" action="{{ url_for('admin_delete_exam_period', period_id=period.id) }}" class="exam-delete-form" style="display:inline;">
+                        <form method="POST" action="{{ url_for('admin.delete_exam_period'), period_id=period.id) }}" class="exam-delete-form" style="display:inline;">
                           <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                         </form>
                       </td>
@@ -282,7 +282,7 @@
 <div class="modal fade" id="addEnrollPeriodModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('admin_add_enrollment_period') }}" id="addEnrollPeriodForm">
+      <form method="POST" action="{{ url_for('admin.add_enrollment_period') }}" id="addEnrollPeriodForm">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Create Enrollment Period</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -331,7 +331,7 @@
 <div class="modal fade" id="addExamPeriodModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('admin_add_exam_period') }}" id="addExamPeriodForm">
+      <form method="POST" action="{{ url_for('admin.add_exam_period') }}" id="addExamPeriodForm">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Create Exam Period</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

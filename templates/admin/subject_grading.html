@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Grade Distribution - {{ subject.name }}{% endblock %} {%
+﻿{% extends 'base.html' %} {% block title %}Grade Distribution - {{ subject.name }}{% endblock %} {%
 block content %}
 <div class="container">
   <!-- Page Header -->
@@ -14,7 +14,7 @@ block content %}
         </p>
       </div>
       <div class="col-auto">
-        <a href="{{ url_for('admin_subjects') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('admin.subjects') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Back to Subjects
         </a>
       </div>
@@ -330,7 +330,7 @@ block content %}
                     </button>
                     <form
                       method="POST"
-                      action="{{ url_for('admin_delete_grade_category', subject_id=subject.id, component_type=type) }}"
+                      action="{{ url_for('admin.delete_grade_category', subject_id=subject.id, component_type=type) }}"
                       class="d-inline"
                       onsubmit="return confirm('Delete all {{ items|length }} {{ type|title }} component(s)?');"
                     >
@@ -389,7 +389,7 @@ block content %}
                           </button>
                           <form
                             method="POST"
-                            action="{{ url_for('admin_delete_grade_component', subject_id=subject.id, component_id=component.id) }}"
+                            action="{{ url_for('admin.delete_grade_component', subject_id=subject.id, component_id=component.id) }}"
                             class="d-inline"
                             onsubmit="return confirm('Delete {{ component.component_name }}?');"
                           >
@@ -564,7 +564,7 @@ block content %}
         </h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" action="{{ url_for('admin_reorder_grade_components', subject_id=subject.id) }}" id="reorderForm">
+      <form method="POST" action="{{ url_for('admin.reorder_grade_components', subject_id=subject.id) }}" id="reorderForm">
         <input type="hidden" name="category_order" id="categoryOrderInput" />
         <div class="modal-body py-2 px-3">
           <p class="text-muted mb-2 small">

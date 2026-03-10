@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Dashboard - Student{% endblock %} {% block content %}
+﻿{% extends 'base.html' %} {% block title %}Dashboard - Student{% endblock %} {% block content %}
 <div class="container" style="max-width: 100%; overflow-x: hidden">
   <!-- Welcome Header -->
   <div class="row mb-3">
@@ -122,7 +122,7 @@
                   {% if hw.filename %}
                   <small class="text-success">
                     <i class="bi bi-paperclip"></i>
-                    <a href="{{ url_for('download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
+                    <a href="{{ url_for('teacher.download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
                       {{ hw.filename }}
                     </a>
                   </small>

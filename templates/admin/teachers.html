@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Manage Teachers - MIS System{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}Manage Teachers - MIS System{% endblock %} {% block
 content %}
 <div class="container">
   <!-- Page Header -->
@@ -157,7 +157,7 @@ content %}
         <i class="bi bi-person-badge text-muted" style="font-size: 4rem"></i>
         <h5 class="mt-3">No Teachers Found</h5>
         <p class="text-muted">Add teachers by creating users with the "Teacher" role.</p>
-        <a href="{{ url_for('admin_add_user') }}" class="btn btn-primary">
+        <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
           <i class="bi bi-person-plus me-1"></i>Add Teacher
         </a>
       </div>

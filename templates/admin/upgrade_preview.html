@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}Upgrade Semester {{ semester }} - Admin{% endblock %}
 {% block content %}
 <div class="container" style="max-width:1200px;">
@@ -19,7 +19,7 @@
         Failed students remain in Semester {{ semester }}.
       </p>
     </div>
-    <a href="{{ url_for('admin_classes') }}" class="btn btn-outline-secondary">
+    <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary">
       <i class="bi bi-arrow-left me-1"></i>Back
     </a>
   </div>
@@ -69,7 +69,7 @@
           &mdash; <strong>{{ preview.failed|length }}</strong> will remain.
           <strong>Cannot be undone.</strong>
         </p>
-        <form method="POST" action="{{ url_for('admin_upgrade_execute', semester=semester) }}"
+        <form method="POST" action="{{ url_for('admin.upgrade_execute', semester=semester) }}"
               onsubmit="return confirm('Are you sure you want to upgrade Semester {{ semester }}? This action cannot be undone.');">
           <button type="submit" class="btn btn-lg {% if preview.passed|length == 0 %}disabled{% endif %}"
                   style="background:#1C0770; color:#fff; font-weight:600;{% if preview.passed|length == 0 %} opacity:0.5; pointer-events:none;{% endif %}"

@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% block title %}Teacher Dashboard - MIS System{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}Teacher Dashboard - MIS System{% endblock %} {% block
 content %}
 <div class="container">
   <!-- Page Header -->
@@ -15,7 +15,7 @@ content %}
   <h5 class="section-header"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
   <div class="row mb-4">
     <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher_attendance') }}" class="quick-action-card">
+      <a href="{{ url_for('teacher.attendance') }}" class="quick-action-card">
         <div class="quick-action-card-content">
           <i class="bi bi-calendar-check"></i>
           <h5>Take Attendance</h5>
@@ -24,7 +24,7 @@ content %}
       </a>
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher_grades') }}" class="quick-action-card">
+      <a href="{{ url_for('teacher.grades') }}" class="quick-action-card">
         <div class="quick-action-card-content">
           <i class="bi bi-clipboard-data"></i>
           <h5>Manage Grades</h5>
@@ -33,7 +33,7 @@ content %}
       </a>
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher_homework') }}" class="quick-action-card">
+      <a href="{{ url_for('teacher.homework') }}" class="quick-action-card">
         <div class="quick-action-card-content">
           <i class="bi bi-journal-text"></i>
           <h5>Assign Homework</h5>
@@ -42,7 +42,7 @@ content %}
       </a>
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher_topics') }}" class="quick-action-card">
+      <a href="{{ url_for('teacher.topics') }}" class="quick-action-card">
         <div class="quick-action-card-content">
           <i class="bi bi-journal-bookmark-fill"></i>
           <h5>Exam Notes</h5>
