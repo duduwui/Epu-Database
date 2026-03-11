@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Add Admin — {{ major.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:620px">
+
+  <!-- Current admins -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header py-2 fw-semibold" style="background:#f0ecff;color:#1C0770">
+      <i class="bi bi-people-fill me-2"></i>Current Admins for <strong>{{ major.name }}</strong>
+    </div>
+    <div class="card-body p-0">
+      {% if current_admins %}
+      <ul class="list-group list-group-flush">
+        {% for a in current_admins %}
+        <li class="list-group-item d-flex align-items-center gap-2 py-2">
+          <span class="badge rounded-pill bg-success"><i class="bi bi-person-check"></i></span>
+          <span class="fw-medium">{{ a.full_name }}</span>
+          <span class="text-muted small ms-auto">{{ a.email }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted text-center py-3 small">
+        <i class="bi bi-exclamation-circle me-1"></i>No admins assigned yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Add new admin form -->
+  <div class="card border-0 shadow">
+    <div class="card-header py-3 text-white" style="background:linear-gradient(135deg,#1C0770 0%,#150558 100%)">
+      <h5 class="mb-0">
+        <i class="bi bi-person-plus me-2"></i>Add New Admin
+      </h5>
+      <small class="text-white-50">{{ major.college_name }}</small>
+    </div>
+    <div class="card-body p-4">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+          <input type="text" name="full_name" class="form-control form-control-sm"
+                 placeholder="e.g. Ahmed Kareem" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+          <input type="email" name="email" class="form-control form-control-sm"
+                 placeholder="admin.{{ major.code }}@epu.edu.iq"
+                 value="admin.{{ major.code }}@epu.edu.iq" required>
+          <div class="form-text">Format: <code>name.{{ major.code }}@epu.edu.iq</code></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+          <input type="password" name="password" class="form-control form-control-sm"
+                 placeholder="Choose a strong password" required minlength="6">
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+          <input type="password" name="confirm_password" class="form-control form-control-sm"
+                 placeholder="Repeat the password" required minlength="6">
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-person-check me-1"></i>Create Admin
+          </button>
+          <a href="{{ url_for('admin.majors') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Majors
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

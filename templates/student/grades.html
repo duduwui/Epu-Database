@@ -1,7 +1,7 @@
 ﻿{% extends 'base.html' %}
 {% block title %}My Grades - Student{% endblock %}
 {% block content %}
-<div class="container" style="max-width: 1200px;">
+<div class="container" style="max-width: 680px;">
   <!-- Header -->
   <div class="row mb-4">
     <div class="col-12">
@@ -107,16 +107,16 @@
           <tbody>
             {% for group in display_groups %}
 
+              {% if group.is_paired %}
+              {# Paired group: each component row → per-component subtotal → combined avg #}
               {% for grade in group.rows %}
               <tr class="grade-item-row">
                 <td class="ps-4">
                   {{ grade.component_name }}
-                  {% if grade.pair_group is not none %}
                   <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;"
                         title="Paired – averaged with partner">
                     <i class="bi bi-link-45deg"></i> Paired
                   </span>
-                  {% endif %}
                 </td>
                 <td class="text-center">
                   <span class="score-chip">
@@ -125,25 +125,53 @@
                   </span>
                 </td>
               </tr>
+              <tr class="grade-subtotal-row grade-paired-item-sub">
+                <td class="ps-5">
+                  <i class="bi bi-arrow-return-right me-1"></i>{{ grade.component_name }} Total
+                </td>
+                <td class="text-center">
+                  <strong>{% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %} / {{ grade.max_score|int }}</strong>
+                </td>
+              </tr>
               {% endfor %}
-
-              {% if group.is_paired %}
-              {# Paired Average row — replaces individual subtotals #}
-              <tr class="grade-subtotal-row" style="background:#2d1a8a !important;">
-                <td class="fw-bold ps-4">
-                  <i class="bi bi-link-45deg me-1"></i>Paired Average
-                </td>
-                <td class="text-center">
-                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
-                </td>
-              </tr>
-              {% elif group.rows|length > 1 %}
+              {# Combined paired avg #}
               <tr class="grade-subtotal-row">
-                <td class="fw-bold ps-4">{{ group.label }}</td>
+                <td class="fw-bold ps-4">
+                  <i class="bi bi-calculator me-1"></i> Paired Avg
+                </td>
                 <td class="text-center">
                   <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
                 </td>
               </tr>
+
+              {% else %}
+              {# Non-paired group #}
+              {% for grade in group.rows %}
+              <tr class="grade-item-row">
+                <td class="ps-4">{{ grade.component_name }}</td>
+                <td class="text-center">
+                  <span class="score-chip">
+                    {% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %}
+                    / {{ grade.max_score|int }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+              <tr class="grade-subtotal-row">
+                <td class="fw-bold ps-4">
+                  {% if group.component_type == 'midterm' %}
+                    {{ group.label }} Total
+                  {% elif group.rows|length == 1 %}
+                    {{ group.label }} Total
+                  {% else %}
+                    {{ group.label }} Avg
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
+                </td>
+              </tr>
+
               {% endif %}
 
             {% endfor %}
@@ -223,7 +251,7 @@
 
 <style>
   /* Table base */
-  .grades-tbl { border-collapse: separate; border-spacing: 0; }
+  .grades-tbl { border-collapse: separate; border-spacing: 0; font-size: 0.82rem; }
   .grades-tbl td, .grades-tbl th { vertical-align: middle; }
 
   /* Main header */
@@ -232,10 +260,10 @@
     background: #1C0770;
     color: #fff;
     font-weight: 700;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     letter-spacing: .06em;
     text-transform: uppercase;
-    padding: 10px 16px;
+    padding: 6px 12px;
     border: none;
   }
 
@@ -244,9 +272,9 @@
     background: #f0f0f8;
     border-top: 2px solid #1C0770;
   }
-  .grade-section-header td { padding: 8px 16px; }
+  .grade-section-header td { padding: 4px 12px; }
   .grade-section-label {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     color: #1C0770;
     letter-spacing: .02em;
   }
@@ -256,14 +284,14 @@
     display: inline-block;
     background: #1C0770;
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    padding: 2px 10px;
+    padding: 1px 7px;
     border-radius: 20px;
   }
 
   /* Individual item rows */
-  .grade-item-row td { padding: 9px 16px; border-bottom: 1px solid #eee; }
+  .grade-item-row td { padding: 5px 12px; border-bottom: 1px solid #eee; }
   .grade-item-row:hover { background: #f8f7ff; }
 
   /* Score chip (0 / 10 display) */
@@ -272,34 +300,42 @@
     background: #eef0ff;
     color: #1C0770;
     font-weight: 600;
-    font-size: 0.88rem;
-    padding: 3px 12px;
+    font-size: 0.78rem;
+    padding: 2px 9px;
     border-radius: 20px;
-    min-width: 72px;
+    min-width: 58px;
     text-align: center;
   }
 
-  /* Navy subtotal row */
+  /* Navy subtotal row — semi-transparent */
   tr.grade-subtotal-row,
   tr.grade-subtotal-row td {
-    background-color: #1C0770 !important;
+    background-color: rgba(28, 7, 112, 0.58) !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     border: none !important;
-    padding: 10px 16px;
+    padding: 5px 12px;
+    font-size: 0.80rem;
   }
   tr.grade-subtotal-row strong {
     color: #ffffff !important;
     font-weight: 700 !important;
+  }
+  /* Per-component subtotal rows within a pair (lighter) */
+  tr.grade-subtotal-row.grade-paired-item-sub,
+  tr.grade-subtotal-row.grade-paired-item-sub td {
+    background-color: rgba(28, 7, 112, 0.36) !important;
+    font-weight: 600 !important;
+    font-size: 0.76rem;
   }
 
   /* Overall total row (slightly lighter navy) */
   .grade-total-row {
     background: #150555;
     color: #fff !important;
-    font-size: 1.05rem;
+    font-size: 0.88rem;
   }
-  .grade-total-row td { padding: 11px 16px; border: none; color: #fff !important; }
+  .grade-total-row td { padding: 7px 12px; border: none; color: #fff !important; }
 
   /* Total chip */
   .total-chip {
@@ -307,16 +343,16 @@
     background: rgba(255,255,255,0.18);
     color: #fff;
     font-weight: 700;
-    font-size: 0.95rem;
-    padding: 4px 16px;
+    font-size: 0.82rem;
+    padding: 3px 12px;
     border-radius: 20px;
-    min-width: 90px;
+    min-width: 72px;
     text-align: center;
   }
 </style>
 
 <script>
-  const BASE_URL = '{{ url_for("student_grades") }}';
+  const BASE_URL = '{{ url_for("student.grades") }}';
 
   function setLoading(on) {
     document.getElementById('filterSpinner').classList.toggle('d-none', !on);

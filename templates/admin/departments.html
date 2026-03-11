@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% block title %}Departments - MIS System{% endblock %}
+{% block content %}
+<div class="container">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2><i class="bi bi-diagram-3 me-2"></i>Department Management</h2>
+        <p class="text-muted mb-0">
+          Foundation for multi-major expansion &mdash; each department (MIS, IS, CS&hellip;)
+          scopes its own classes, subjects, and users.
+        </p>
+      </div>
+      <div class="col-auto">
+        <span class="badge bg-primary fs-6">{{ departments|length }} department{{ 's' if departments|length != 1 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="row g-3">
+
+    <!-- ─── Add Department Card ─── -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header text-white" style="background: #1C0770;">
+          <h6 class="mb-0"><i class="bi bi-plus-circle me-1"></i>Add Department</h6>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('admin.departments') }}">
+            <div class="mb-2">
+              <label class="form-label form-label-sm">Department Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" name="name"
+                     placeholder="e.g. Management Information Systems" required maxlength="100">
+            </div>
+            <div class="mb-2">
+              <label class="form-label form-label-sm">Short Code <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" name="code"
+                     placeholder="e.g. MIS" required maxlength="20"
+                     style="text-transform:uppercase">
+              <div class="form-text">Uppercase abbreviation shown on cards and badges.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label form-label-sm">Description</label>
+              <textarea class="form-control form-control-sm" name="description" rows="2"
+                        placeholder="Optional description"></textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary w-100">
+              <i class="bi bi-plus-lg me-1"></i>Create Department
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Info box -->
+      <div class="card shadow-sm mt-3 border-info">
+        <div class="card-body py-2">
+          <p class="mb-1 small fw-semibold text-info"><i class="bi bi-info-circle me-1"></i>How it works</p>
+          <ul class="mb-0 small text-muted ps-3">
+            <li>Create one department per major (MIS, IS, CS&hellip;)</li>
+            <li>Assign classes, subjects, and users to a department</li>
+            <li>When you're ready to expand, every query gets a<br>
+              <code>WHERE department_id = X</code> filter — same app, isolated data</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Departments Table ─── -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center" style="background: #1C0770; color: white;">
+          <h6 class="mb-0 flex-grow-1"><i class="bi bi-table me-1"></i>All Departments</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if departments %}
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th class="text-center">Classes</th>
+                  <th class="text-center">Subjects</th>
+                  <th class="text-center">Users</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for dept in departments %}
+                <tr>
+                  <td>
+                    <span class="badge" style="background:#1C0770; font-size:.85em; letter-spacing:.05em;">
+                      {{ dept.code }}
+                    </span>
+                  </td>
+                  <td class="fw-semibold">{{ dept.name }}</td>
+                  <td class="text-muted small">{{ dept.description or '—' }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-secondary">{{ dept.class_count }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-secondary">{{ dept.subject_count }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-secondary">{{ dept.user_count }}</span>
+                  </td>
+                  <td class="text-end">
+                    <!-- Edit button (triggers modal) -->
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editModal{{ dept.id }}"
+                            data-bs-toggle="tooltip" title="Edit">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <!-- Delete button (triggers modal) -->
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteModal{{ dept.id }}"
+                            title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Edit Modal -->
+                <div class="modal fade" id="editModal{{ dept.id }}" tabindex="-1">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <form method="POST" action="{{ url_for('admin.edit_department', dept_id=dept.id) }}">
+                        <div class="modal-header" style="background:#1C0770; color:white;">
+                          <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Department</h5>
+                          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                          <div class="mb-2">
+                            <label class="form-label form-label-sm">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="name"
+                                   value="{{ dept.name }}" required maxlength="100">
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label form-label-sm">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="code"
+                                   value="{{ dept.code }}" required maxlength="20"
+                                   style="text-transform:uppercase">
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label form-label-sm">Description</label>
+                            <textarea class="form-control form-control-sm" name="description" rows="2">{{ dept.description or '' }}</textarea>
+                          </div>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                          <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Delete Modal -->
+                <div class="modal fade" id="deleteModal{{ dept.id }}" tabindex="-1">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Delete Department</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                      </div>
+                      <div class="modal-body">
+                        <p>Are you sure you want to delete
+                          <strong>{{ dept.name }} ({{ dept.code }})</strong>?</p>
+                        {% if dept.class_count > 0 or dept.subject_count > 0 or dept.user_count > 0 %}
+                        <div class="alert alert-warning py-2 mb-0">
+                          <i class="bi bi-exclamation-triangle me-1"></i>
+                          This department has
+                          <strong>{{ dept.class_count }} class(es)</strong>,
+                          <strong>{{ dept.subject_count }} subject(s)</strong>, and
+                          <strong>{{ dept.user_count }} user(s)</strong> linked to it.
+                          They will be <em>unlinked</em> (not deleted).
+                        </div>
+                        {% endif %}
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form method="POST" action="{{ url_for('admin.delete_department', dept_id=dept.id) }}">
+                          <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="bi bi-trash me-1"></i>Delete
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-diagram-3 fs-1 d-block mb-2 opacity-25"></i>
+            No departments yet. Create your first one to get started.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div><!-- /col -->
+
+  </div><!-- /row -->
+</div><!-- /container -->
+{% endblock %}

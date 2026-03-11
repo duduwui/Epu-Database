@@ -61,8 +61,14 @@ def create_app():
                 'full_name': session.get('full_name'),
                 'role': session.get('role')
             }
+            context['current_major'] = {
+                'id': session.get('major_id'),
+                'code': session.get('major_code'),
+                'name': session.get('major_name')
+            } if session.get('major_id') else None
         else:
             context['current_user'] = None
+            context['current_major'] = None
         return context
 
     # ── Template filter ───────────────────────────────────────────────────────
@@ -100,12 +106,13 @@ def init_admin():
     admin = db.get_user_by_username('admin')
     if not admin:
         password_hash = generate_password_hash('admin123')
-        db.create_user('admin', password_hash, 'System Administrator', 'admin', 'admin@mis.edu', 'admin123')
-        print("Default admin created. Username: admin, Password: admin123")
+        db.create_user('admin', password_hash, 'System Administrator', 'admin', 'admin@epu.edu.iq', 'admin123')
+        print("Superadmin created. Email: admin@epu.edu.iq, Password: admin123")
     db.ensure_exam_notes_column()
 
 
 
 if __name__ == '__main__':
     init_admin()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)

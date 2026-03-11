@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Majors — EPU System{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Page header -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h4 class="mb-0 fw-bold" style="color:#1C0770;">
+        <i class="bi bi-diagram-3 me-2"></i>All Majors
+      </h4>
+      <small class="text-muted">
+        {{ all_majors | length }} majors across {{ colleges | length }} colleges
+      </small>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Filters bar -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-4">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search major name..." oninput="filterTable()">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select id="collegeFilter" class="form-select form-select-sm" onchange="filterTable()">
+            <option value="">All Colleges</option>
+            {% for college_name in colleges.keys() %}
+            <option value="{{ college_name }}">{{ college_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select id="statusFilter" class="form-select form-select-sm" onchange="filterTable()">
+            <option value="">All Statuses</option>
+            <option value="has-admin">Has Admin</option>
+            <option value="no-admin">No Admin</option>
+          </select>
+        </div>
+        <div class="col-md-2 text-end">
+          <span class="text-muted small" id="visibleCount"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flat table (all majors, JS filters) -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" id="majorsTable">
+          <thead style="background:linear-gradient(135deg,#1C0770 0%,#150558 100%);color:#fff">
+            <tr>
+              <th style="width:30%">College</th>
+              <th style="width:35%">Major Name</th>
+              <th class="text-center" style="width:15%">Status</th>
+              <th class="text-center" style="width:20%">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for college_name, majors_list in colleges.items() %}
+            <!-- College group header -->
+            <tr class="college-header" data-college="{{ college_name }}">
+              <td colspan="4" class="py-2 px-3 fw-bold small"
+                  style="background:#eee8ff;color:#1C0770;border-top:2px solid #1C0770;">
+                <i class="bi bi-building me-1"></i>{{ college_name }}
+                <span class="badge ms-2" style="background:#1C0770;font-weight:500">{{ majors_list | length }}</span>
+              </td>
+            </tr>
+            {% for m in majors_list %}
+            <tr data-college="{{ college_name }}" data-status="{{ 'has-admin' if m.admin_count and m.admin_count > 0 else 'no-admin' }}">
+              <td class="text-muted small align-middle">{{ college_name }}</td>
+              <td class="fw-medium align-middle">{{ m.name }}</td>
+              <td class="text-center align-middle">
+                {% if m.admin_count and m.admin_count > 0 %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-check-circle me-1"></i>{{ m.admin_count }} admin{{ 's' if m.admin_count > 1 else '' }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-danger">
+                    <i class="bi bi-exclamation-circle me-1"></i>No admin
+                  </span>
+                {% endif %}
+              </td>
+              <td class="text-center align-middle">
+                <a href="{{ url_for('admin.add_major_admin', major_id=m.id) }}"
+                   class="btn btn-sm btn-outline-primary"
+                   data-bs-toggle="tooltip" data-bs-placement="top" title="Add admin for this major">
+                  <i class="bi bi-person-plus"></i> Add Admin
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const college = document.getElementById('collegeFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  const rows = document.querySelectorAll('#majorsTable tbody tr');
+
+  // Track visible count per college for hiding divider rows
+  const collegeVisible = {};
+  let visible = 0;
+
+  rows.forEach(function(row) {
+    if (row.classList.contains('college-header')) return; // handle after data rows
+    const majorName = row.cells[1] ? row.cells[1].textContent.toLowerCase() : '';
+    const rowCollege = row.dataset.college || '';
+    const rowStatus = row.dataset.status || '';
+    const matchSearch = !search || majorName.includes(search);
+    const matchCollege = !college || rowCollege === college;
+    const matchStatus = !status || rowStatus === status;
+    const show = matchSearch && matchCollege && matchStatus;
+    row.style.display = show ? '' : 'none';
+    if (show) {
+      visible++;
+      collegeVisible[rowCollege] = (collegeVisible[rowCollege] || 0) + 1;
+    }
+  });
+
+  // Show/hide college header rows based on whether any of their majors are visible
+  rows.forEach(function(row) {
+    if (!row.classList.contains('college-header')) return;
+    const rowCollege = row.dataset.college || '';
+    row.style.display = collegeVisible[rowCollege] ? '' : 'none';
+  });
+
+  document.getElementById('visibleCount').textContent = visible + ' result' + (visible !== 1 ? 's' : '');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  filterTable();
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+});
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+</script>
+{% endblock %}

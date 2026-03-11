@@ -188,7 +188,7 @@
     window.location.href = url.endsWith('&')
       ? url.slice(0, -1)
       : url === '?'
-        ? '{{ url_for("admin_attendance_summary") }}'
+        ? '{{ url_for("admin.attendance_summary") }}'
         : url;
   }
 

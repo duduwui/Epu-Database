@@ -41,7 +41,7 @@
                style="margin-right:8px;vertical-align:middle;"
                onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
           <i class="bi bi-mortarboard-fill" style="display:none;margin-right:6px"></i>
-          <span>EPU - MIS</span>
+          <span>{{ current_major.name if current_major else 'Erbil Polytechnic University' }}</span>
         </a>
         <button
           class="navbar-toggler"
@@ -58,6 +58,8 @@
           <ul class="navbar-nav me-auto">
             {% if current_user.role == 'admin' %}
             <!-- Admin Navigation -->
+            {% if session.get('major_id') %}
+            <!-- Major admin: full feature set -->
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
                 <i class="bi bi-grid-1x2"></i>
@@ -100,6 +102,15 @@
                 <span>Periods</span>
               </a>
             </li>
+            {% else %}
+            <!-- Superadmin: only Majors management -->
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('admin.majors') }}">
+                <i class="bi bi-diagram-3"></i>
+                <span>Majors</span>
+              </a>
+            </li>
+            {% endif %}
 
             {% elif current_user.role == 'teacher' %}
             <!-- Teacher Navigation -->
@@ -183,7 +194,6 @@
                  role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-person-circle"></i>
                 <span>{{ current_user.full_name }}</span>
-                <span class="badge bg-light text-dark ms-1">{{ current_user.role|title }}</span>
               </a>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0">
                 <li>

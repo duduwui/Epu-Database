@@ -497,7 +497,7 @@ function applyFilters() {
             const el = form.elements[name];
             if (el && el.value) params.set(name, el.value);
         });
-        const url = '{{ url_for("admin_students") }}' + (params.toString() ? '?' + params.toString() : '');
+        const url = '{{ url_for("admin.students") }}' + (params.toString() ? '?' + params.toString() : '');
 
         const card = document.getElementById('studentsContentArea');
         card.style.opacity = '0.45';

@@ -44,7 +44,7 @@
                 <label class="form-label">Full Name <span class="text-danger">*</span></label>
                 <div class="input-group-custom">
                   <i class="bi bi-person"></i>
-                  <input type="text" name="full_name" id="full_name" class="form-control" required placeholder="Enter student's full name" autofocus />
+                  <input type="text" name="full_name" id="full_name" class="form-control" required placeholder="Enter student's full name" autofocus dir="auto" />
                 </div>
               </div>
               <div class="col-md-6">
@@ -55,10 +55,10 @@
                 </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Email</label>
+                <label class="form-label">Email <span class="badge bg-secondary" style="font-size:0.65rem;vertical-align:middle">Auto-generated</span></label>
                 <div class="input-group-custom">
                   <i class="bi bi-envelope"></i>
-                  <input type="email" name="email" id="email" class="form-control" placeholder="student@email.com" />
+                  <input type="text" id="email_preview" class="form-control" readonly placeholder="Type name above to preview..." style="background:#f8f9ff;color:#1C0770;font-size:0.82rem;" />
                 </div>
               </div>
               <div class="col-md-6">
@@ -481,9 +481,28 @@ document.addEventListener('DOMContentLoaded', function() {
   const addedCount = document.getElementById('addedCount');
   let count = 0;
 
+  // Auto-preview email from name
+  const nameInput = document.getElementById('full_name');
+  const majorAbbrev = {{ major_abbrev | tojson }};
+  nameInput.addEventListener('input', function() {
+    const preview = document.getElementById('email_preview');
+    const name = this.value.trim();
+    if (!name) { preview.value = ''; preview.placeholder = 'Type name above to preview...'; return; }
+    const parts = name.toLowerCase().split(/\s+/).filter(Boolean);
+    // Strip non-ASCII to match backend behaviour (Arabic/Kurdish → 'student' fallback)
+    const cleanParts = parts.map(p => p.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+    let namePart;
+    if (cleanParts.length >= 2) namePart = cleanParts[0] + '_' + cleanParts[cleanParts.length - 1];
+    else if (cleanParts.length === 1) namePart = cleanParts[0];
+    else namePart = 'student'; // non-Latin name — backend uses this prefix too
+    preview.value = namePart + majorAbbrev + '######@epu.edu.iq';
+  });
+
   // Clear form
   clearBtn.addEventListener('click', function() {
     form.reset();
+    document.getElementById('email_preview').value = '';
+    document.getElementById('email_preview').placeholder = 'Type name above to preview...';
     document.getElementById('full_name').focus();
   });
 
@@ -551,7 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     const initials = student.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
-    const shiftLabel = student.shift === 'morning' ? 'â˜€ï¸ Morning' : 'ðŸŒ™ Night';
+    const shiftLabel = student.shift === 'morning' ? '&#9728; Morning' : '&#9790; Night';
     
     const item = document.createElement('div');
     item.className = 'student-item';
@@ -560,6 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="student-info">
         <div class="student-name">${student.name}</div>
         <div class="student-id">${student.student_number}</div>
+        ${student.email ? `<div class="student-id" style="color:#3565a8">${student.email}</div>` : ''}
       </div>
       <span class="student-badge">Sem ${student.semester} &bull; ${shiftLabel}</span>
     `;

@@ -42,7 +42,8 @@ def dashboard():
         schedule_data = db.get_class_schedule_data(
             student['semester'],
             student['shift'],
-            student['section']
+            student['section'],
+            major_id=session.get('major_id')
         )
 
     attendance = db.get_attendance_by_student(student['id'], semester=current_semester) or []

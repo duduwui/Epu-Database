@@ -255,9 +255,6 @@ def add_grades(subject_id, class_id):
 
     if request.method == 'POST':
         try:
-            print("=== GRADE SUBMISSION DEBUG ===")
-            print(f"Form data: {dict(request.form)}")
-
             student_id = request.form.get('student_id', '')
             grade_date_str = request.form.get('date', '').strip()
 
@@ -266,22 +263,16 @@ def add_grades(subject_id, class_id):
             else:
                 grade_date = grade_date_str
 
-            print(f"Student ID: {student_id}, Date: {grade_date}")
-            print(f"\n=== PROCESSING GRADES FOR STUDENT {student_id} ===")
-
             if not student_id:
                 return jsonify({'success': False, 'message': 'Student ID is required'}), 400
 
             grades_saved = 0
             errors = []
-            saved_details = []
 
             for key in request.form.keys():
                 if key.startswith('component_'):
                     component_id = int(key.replace('component_', ''))
                     score_str = request.form.get(key, '').strip()
-
-                    print(f"\n[{key}] Processing component_id={component_id}, score='{score_str}'")
 
                     if score_str != '':
                         try:
@@ -289,8 +280,6 @@ def add_grades(subject_id, class_id):
 
                             component = next((c for c in components if c['id'] == component_id), None)
                             if component:
-                                print(f"[{key}] Component found: {component['component_name']}")
-
                                 result = db.upsert_grade(
                                     int(student_id),
                                     subject_id,
@@ -306,31 +295,15 @@ def add_grades(subject_id, class_id):
                                 )
 
                                 if result:
-                                    print(f"[{key}] \u2713 SUCCESS! Grade ID: {result}")
                                     grades_saved += 1
-                                    saved_details.append(f"{component['component_name']}={score}")
                                 else:
-                                    error_msg = f"Failed to save {component['component_name']}"
-                                    print(f"[{key}] \u2717 FAILED!")
-                                    errors.append(error_msg)
+                                    errors.append(f"Failed to save {component['component_name']}")
                             else:
-                                error_msg = f"Component {component_id} not found"
-                                errors.append(error_msg)
-                                print(f"[{key}] \u2717 ERROR: {error_msg}")
+                                errors.append(f"Component {component_id} not found")
                         except ValueError as e:
                             errors.append(f"Invalid score value for component {component_id}: {e}")
-                            print(f"[{key}] \u2717 VALUE ERROR: {e}")
                         except Exception as e:
                             errors.append(f"Exception for component {component_id}: {e}")
-                            print(f"[{key}] \u2717 EXCEPTION: {e}")
-                            import traceback
-                            traceback.print_exc()
-                    else:
-                        print(f"[{key}] Skipped (empty)")
-
-            print(f"\n=== SUMMARY ===")
-            print(f"Total grades saved: {grades_saved}, Errors: {errors}")
-            print(f"==================\n")
 
             if grades_saved > 0:
                 message = f'{grades_saved} grade(s) saved successfully'
@@ -384,8 +357,6 @@ def publish_grades(subject_id, class_id):
 def get_student_grades(student_id, subject_id):
     """Get existing grades for a specific student and subject (for pre-filling the modal)."""
     try:
-        print(f"\n=== FETCHING GRADES: student_id={student_id}, subject_id={subject_id} ===")
-
         query = """
             SELECT g.*, gc.component_name, gc.component_type, gc.max_score as component_max_score, gc.weight_percentage
             FROM grades g
@@ -394,8 +365,6 @@ def get_student_grades(student_id, subject_id):
             ORDER BY g.date DESC, g.id DESC
         """
         grades_list = db.execute_query(query, (student_id, subject_id), fetch_all=True) or []
-
-        print(f"Raw query returned {len(grades_list)} grade records")
 
         latest_grades = {}
         for grade in grades_list:
@@ -411,19 +380,7 @@ def get_student_grades(student_id, subject_id):
                         'date': grade['date'].isoformat() if hasattr(grade['date'], 'isoformat') else str(grade['date'])
                     }
 
-        result = {
-            'success': True,
-            'grades': list(latest_grades.values()),
-            'debug': {
-                'total_records': len(grades_list),
-                'unique_components': len(latest_grades)
-            }
-        }
-
-        print(f"Returning {len(latest_grades)} unique grades")
-        print("=== END FETCH ===\n")
-
-        return jsonify(result)
+        return jsonify({'success': True, 'grades': list(latest_grades.values())})
 
     except Exception as e:
         print(f"Error fetching student grades: {e}")
@@ -736,7 +693,8 @@ def schedule():
 def api_get_schedule(semester, shift, section):
     """API: Get schedule for a semester/shift/section (teacher read-only)."""
     import json
-    sched = db.get_schedule(semester, shift, section)
+    major_id = session.get('major_id')
+    sched = db.get_schedule(semester, shift, section, major_id=major_id)
     if sched and sched.get('schedule_data'):
         data = sched['schedule_data']
         if isinstance(data, (list, dict)):

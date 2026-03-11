@@ -36,6 +36,68 @@ _pool = ConnectionPool(
 )
 
 
+# =============================================
+# REDIS CACHE
+# Reduces DB hits for read-heavy, rarely-changing data.
+# Degrades gracefully: if Redis is not running, all queries
+# go straight to PostgreSQL — nothing breaks.
+#
+# TTLs:
+#   CACHE_TTL_LONG  (10 min) — departments, class list
+#   CACHE_TTL       (5 min)  — grade components
+# =============================================
+import redis as _redis_lib
+import json as _json
+
+_redis = None
+try:
+    _redis = _redis_lib.Redis(
+        host='localhost', port=6379, db=0,
+        decode_responses=True,
+        socket_connect_timeout=1,
+        socket_timeout=1,
+    )
+    _redis.ping()
+    print("Redis cache: connected")
+except Exception:
+    _redis = None
+    print("Redis cache: not available — running without cache")
+
+CACHE_TTL = 300        # 5 minutes
+CACHE_TTL_LONG = 600   # 10 minutes
+
+
+def _cache_get(key):
+    """Return cached value (Python object) or None on miss / Redis unavailable."""
+    if _redis is None:
+        return None
+    try:
+        val = _redis.get(key)
+        return _json.loads(val) if val else None
+    except Exception:
+        return None
+
+
+def _cache_set(key, value, ttl=CACHE_TTL):
+    """Store a Python object in Redis. Silently skips if Redis unavailable."""
+    if _redis is None or value is None:
+        return
+    try:
+        _redis.setex(key, ttl, _json.dumps(value, default=str))
+    except Exception:
+        pass
+
+
+def _cache_delete(*keys):
+    """Invalidate one or more cache keys."""
+    if _redis is None:
+        return
+    try:
+        _redis.delete(*keys)
+    except Exception:
+        pass
+
+
 def get_db_connection():
     """
     Get a connection from the pool.
@@ -245,16 +307,27 @@ def create_student_with_semester(user_id, year, semester, shift, section, studen
     return execute_insert_returning(query, (user_id, year, semester, shift, section, student_number, phone, class_id))
 
 
-def get_student_counts_by_semester():
+def get_student_counts_by_semester(major_id=None):
     """Get student counts grouped by semester, shift"""
-    query = """
-        SELECT semester, shift, section, COUNT(*) as count
-        FROM students
-        WHERE semester IS NOT NULL
-        GROUP BY semester, shift, section
-        ORDER BY semester, shift, section
-    """
-    results = execute_query(query, fetch_all=True) or []
+    if major_id:
+        query = """
+            SELECT s.semester, s.shift, s.section, COUNT(*) as count
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.semester IS NOT NULL AND u.major_id = %s
+            GROUP BY s.semester, s.shift, s.section
+            ORDER BY s.semester, s.shift, s.section
+        """
+        results = execute_query(query, (major_id,), fetch_all=True) or []
+    else:
+        query = """
+            SELECT semester, shift, section, COUNT(*) as count
+            FROM students
+            WHERE semester IS NOT NULL
+            GROUP BY semester, shift, section
+            ORDER BY semester, shift, section
+        """
+        results = execute_query(query, fetch_all=True) or []
     
     # Organize into a structured format
     stats = {1: {'morning': 0, 'night': 0, 'total': 0},
@@ -295,18 +368,21 @@ def get_user_by_id(user_id):
     return execute_query(query, (user_id,), fetch_one=True)
 
 
-def create_user(username, password_hash, full_name, role, email=None, plain_password=None):
+def create_user(username, password_hash, full_name, role, email=None, plain_password=None, major_id=None):
     """Create a new user"""
     query = """
-        INSERT INTO users (username, password_hash, full_name, role, email, plain_password)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO users (username, password_hash, full_name, role, email, plain_password, major_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (username, password_hash, full_name, role, email, plain_password))
+    return execute_insert_returning(query, (username, password_hash, full_name, role, email, plain_password, major_id))
 
 
-def get_all_users():
+def get_all_users(major_id=None):
     """Get all users with password hash and plain password"""
+    if major_id:
+        query = "SELECT id, username, full_name, role, email, created_at, password_hash, plain_password FROM users WHERE major_id = %s ORDER BY id"
+        return execute_query(query, (major_id,), fetch_all=True)
     query = "SELECT id, username, full_name, role, email, created_at, password_hash, plain_password FROM users ORDER BY id"
     return execute_query(query, fetch_all=True)
 
@@ -339,13 +415,21 @@ def update_user_password(user_id, password_hash, plain_password=None):
 # CLASS QUERIES
 # =============================================
 
-def get_all_classes():
+def get_all_classes(major_id=None):
     """Get all classes ordered by year, semester, section, shift"""
+    if major_id:
+        query = "SELECT * FROM classes WHERE major_id = %s ORDER BY year, semester, section, shift"
+        return execute_query(query, (major_id,), fetch_all=True)
+    cached = _cache_get('classes:all')
+    if cached is not None:
+        return cached
     query = """
         SELECT * FROM classes 
         ORDER BY year, semester, section, shift
     """
-    return execute_query(query, fetch_all=True)
+    result = execute_query(query, fetch_all=True)
+    _cache_set('classes:all', result, CACHE_TTL_LONG)
+    return result
 
 
 def get_distinct_student_groups():
@@ -361,39 +445,61 @@ def get_distinct_student_groups():
     return execute_query(query, fetch_all=True)
 
 
-def find_or_create_class(year, semester, section, shift):
+def find_or_create_class(year, semester, section, shift, major_id=None):
     """Find existing class or create a new one. Returns the class id."""
-    existing = execute_query(
-        "SELECT id FROM classes WHERE year = %s AND semester = %s AND section = %s AND shift = %s",
-        (year, semester, section, shift), fetch_one=True
-    )
+    if major_id:
+        existing = execute_query(
+            "SELECT id FROM classes WHERE year = %s AND semester = %s AND section = %s AND shift = %s AND major_id = %s",
+            (year, semester, section, shift, major_id), fetch_one=True
+        )
+    else:
+        existing = execute_query(
+            "SELECT id FROM classes WHERE year = %s AND semester = %s AND section = %s AND shift = %s",
+            (year, semester, section, shift), fetch_one=True
+        )
     if existing:
         return existing['id']
     name = f"Year {year} Sem {semester} {section} {shift.capitalize()}"
     return execute_insert_returning(
-        "INSERT INTO classes (name, year, semester, section, shift) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (name, year, semester, section, shift)
+        "INSERT INTO classes (name, year, semester, section, shift, major_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (name, year, semester, section, shift, major_id)
     )
 
 
-def get_class_student_counts():
+def get_class_student_counts(major_id=None):
     """Get student counts for each class (semester, shift, section) and semester totals"""
-    # Count students by their semester/shift/section columns (not class_id)
-    # This matches how get_students_by_semester retrieves students
-    query = """
-        SELECT 
-            s.semester,
-            s.shift,
-            s.section,
-            COUNT(s.id) as student_count
-        FROM students s
-        WHERE s.semester IS NOT NULL 
-          AND s.shift IS NOT NULL 
-          AND s.section IS NOT NULL
-        GROUP BY s.semester, s.shift, s.section
-        ORDER BY s.semester, s.shift, s.section
-    """
-    results = execute_query(query, fetch_all=True)
+    if major_id:
+        query = """
+            SELECT 
+                s.semester,
+                s.shift,
+                s.section,
+                COUNT(s.id) as student_count
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.semester IS NOT NULL 
+              AND s.shift IS NOT NULL 
+              AND s.section IS NOT NULL
+              AND u.major_id = %s
+            GROUP BY s.semester, s.shift, s.section
+            ORDER BY s.semester, s.shift, s.section
+        """
+        results = execute_query(query, (major_id,), fetch_all=True)
+    else:
+        query = """
+            SELECT 
+                s.semester,
+                s.shift,
+                s.section,
+                COUNT(s.id) as student_count
+            FROM students s
+            WHERE s.semester IS NOT NULL 
+              AND s.shift IS NOT NULL 
+              AND s.section IS NOT NULL
+            GROUP BY s.semester, s.shift, s.section
+            ORDER BY s.semester, s.shift, s.section
+        """
+        results = execute_query(query, fetch_all=True)
     
     # Create dictionaries for easy lookup
     counts = {}
@@ -433,14 +539,16 @@ def get_classes_by_year_semester(year, semester):
     return execute_query(query, (year, semester), fetch_all=True)
 
 
-def create_class(name, year, semester, section, shift, description=None):
+def create_class(name, year, semester, section, shift, description=None, major_id=None):
     """Create a new class with all required fields"""
     query = """
-        INSERT INTO classes (name, year, semester, section, shift, description)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO classes (name, year, semester, section, shift, description, major_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (name, year, semester, section, shift, description))
+    result = execute_insert_returning(query, (name, year, semester, section, shift, description, major_id))
+    _cache_delete('classes:all')
+    return result
 
 
 def update_class(class_id, name, year, semester, section, shift, description=None, is_active=True):
@@ -490,8 +598,17 @@ def get_teacher_by_user_id(user_id):
     return execute_query(query, (user_id,), fetch_one=True)
 
 
-def get_all_teachers():
+def get_all_teachers(major_id=None):
     """Get all teachers with user info"""
+    if major_id:
+        query = """
+            SELECT t.*, u.full_name, u.username, u.email
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            WHERE u.major_id = %s
+            ORDER BY u.full_name
+        """
+        return execute_query(query, (major_id,), fetch_all=True)
     query = """
         SELECT t.*, u.full_name, u.username, u.email
         FROM teachers t
@@ -501,8 +618,20 @@ def get_all_teachers():
     return execute_query(query, fetch_all=True)
 
 
-def get_all_teachers_with_subjects():
+def get_all_teachers_with_subjects(major_id=None):
     """Get all teachers with their assigned subjects"""
+    if major_id:
+        query = """
+            SELECT t.id as teacher_id, t.user_id, t.department, t.phone, u.full_name, u.username, u.email,
+                   COALESCE(
+                       (SELECT COUNT(*) FROM subjects WHERE teacher_id = t.id), 0
+                   ) as subject_count
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            WHERE u.major_id = %s
+            ORDER BY u.full_name
+        """
+        return execute_query(query, (major_id,), fetch_all=True)
     query = """
         SELECT t.id as teacher_id, t.user_id, t.department, t.phone, u.full_name, u.username, u.email,
                COALESCE(
@@ -703,26 +832,55 @@ def get_available_subjects_for_student(student_id, semester=None):
     if semester is None:
         return []
 
-    query = """
-        SELECT s.*,
-               CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled,
-               (SELECT STRING_AGG(
-                    u.full_name || ' (' ||
-                    INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
-                    ' / '
-                    ORDER BY COALESCE(ta.teacher_type, 'theoretical')
-                )
-                FROM teacher_assignments ta
-                JOIN teachers t ON ta.teacher_id = t.id
-                JOIN users u ON t.user_id = u.id
-                WHERE ta.subject_id = s.id
-               ) as teacher_names
-        FROM subjects s
-        LEFT JOIN student_enrollments se ON se.student_id = %s AND se.subject_id = s.id
-        WHERE s.semester = %s
-        ORDER BY s.name
-    """
-    return execute_query(query, (student_id, semester), fetch_all=True)
+    # Get student's major_id via users table
+    major_row = execute_query(
+        "SELECT u.major_id FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = %s",
+        (student_id,), fetch_one=True
+    )
+    major_id = major_row['major_id'] if major_row else None
+
+    if major_id:
+        query = """
+            SELECT s.*,
+                   CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled,
+                   (SELECT STRING_AGG(
+                        u.full_name || ' (' ||
+                        INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                        ' / '
+                        ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                    )
+                    FROM teacher_assignments ta
+                    JOIN teachers t ON ta.teacher_id = t.id
+                    JOIN users u ON t.user_id = u.id
+                    WHERE ta.subject_id = s.id
+                   ) as teacher_names
+            FROM subjects s
+            LEFT JOIN student_enrollments se ON se.student_id = %s AND se.subject_id = s.id
+            WHERE s.semester = %s AND s.major_id = %s
+            ORDER BY s.name
+        """
+        return execute_query(query, (student_id, semester, major_id), fetch_all=True)
+    else:
+        query = """
+            SELECT s.*,
+                   CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled,
+                   (SELECT STRING_AGG(
+                        u.full_name || ' (' ||
+                        INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                        ' / '
+                        ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                    )
+                    FROM teacher_assignments ta
+                    JOIN teachers t ON ta.teacher_id = t.id
+                    JOIN users u ON t.user_id = u.id
+                    WHERE ta.subject_id = s.id
+                   ) as teacher_names
+            FROM subjects s
+            LEFT JOIN student_enrollments se ON se.student_id = %s AND se.subject_id = s.id
+            WHERE s.semester = %s
+            ORDER BY s.name
+        """
+        return execute_query(query, (student_id, semester), fetch_all=True)
 
 
 def get_enrolled_subjects_for_student(student_id):
@@ -1035,23 +1193,30 @@ def get_subject_count_by_class(class_id):
     return result['count'] if result else 0
 
 
-def create_subject(name, semester, description=None, credits=6):
+def create_subject(name, semester, description=None, credits=6, major_id=None):
     """Create a new subject for a specific semester or return existing subject ID"""
     # Check if subject with this name already exists in this semester
-    existing = execute_query(
-        "SELECT id FROM subjects WHERE LOWER(name) = LOWER(%s) AND semester = %s",
-        (name, semester),
-        fetch_one=True
-    )
+    if major_id:
+        existing = execute_query(
+            "SELECT id FROM subjects WHERE LOWER(name) = LOWER(%s) AND semester = %s AND major_id = %s",
+            (name, semester, major_id),
+            fetch_one=True
+        )
+    else:
+        existing = execute_query(
+            "SELECT id FROM subjects WHERE LOWER(name) = LOWER(%s) AND semester = %s",
+            (name, semester),
+            fetch_one=True
+        )
     if existing:
         return existing['id']
     
     query = """
-        INSERT INTO subjects (name, semester, description, credits)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO subjects (name, semester, description, credits, major_id)
+        VALUES (%s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (name, semester, description, credits))
+    return execute_insert_returning(query, (name, semester, description, credits, major_id))
 
 
 def get_subject_by_name_and_class(name, class_id):
@@ -1110,8 +1275,24 @@ def get_subjects_by_teacher(teacher_id):
     return execute_query(fallback_query, (teacher_id,), fetch_all=True)
 
 
-def get_all_subjects():
+def get_all_subjects(major_id=None):
     """Get all subjects with their teacher assignments"""
+    if major_id:
+        query = """
+            SELECT DISTINCT s.*, 
+                   c.name as class_name, c.year, c.semester, c.section, c.shift,
+                   ta.id as assignment_id,
+                   t.id as teacher_id,
+                   u.full_name as teacher_name
+            FROM subjects s
+            LEFT JOIN teacher_assignments ta ON s.id = ta.subject_id
+            LEFT JOIN classes c ON ta.class_id = c.id
+            LEFT JOIN teachers t ON ta.teacher_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE s.major_id = %s
+            ORDER BY s.name, c.year, c.semester, c.section
+        """
+        return execute_query(query, (major_id,), fetch_all=True)
     query = """
         SELECT DISTINCT s.*, 
                c.name as class_name, c.year, c.semester, c.section, c.shift,
@@ -1128,22 +1309,34 @@ def get_all_subjects():
     return execute_query(query, fetch_all=True)
 
 
-def get_unique_subjects_by_semester():
+def get_unique_subjects_by_semester(major_id=None):
     """Get unique subjects grouped by year/semester (for dropdown selection)"""
-    query = """
-        SELECT DISTINCT s.name,
-               CASE WHEN s.semester IN (1,2) THEN 1 ELSE 2 END AS year,
-               s.semester
-        FROM subjects s
-        WHERE s.semester IS NOT NULL
-        ORDER BY s.semester, s.name
-    """
-    return execute_query(query, fetch_all=True)
+    if major_id:
+        query = """
+            SELECT DISTINCT s.name,
+                   CASE WHEN s.semester IN (1,2) THEN 1 ELSE 2 END AS year,
+                   s.semester
+            FROM subjects s
+            WHERE s.semester IS NOT NULL AND s.major_id = %s
+            ORDER BY s.semester, s.name
+        """
+        return execute_query(query, (major_id,), fetch_all=True)
+    else:
+        query = """
+            SELECT DISTINCT s.name,
+                   CASE WHEN s.semester IN (1,2) THEN 1 ELSE 2 END AS year,
+                   s.semester
+            FROM subjects s
+            WHERE s.semester IS NOT NULL
+            ORDER BY s.semester, s.name
+        """
+        return execute_query(query, fetch_all=True)
 
 
-def get_subjects_grouped_by_semester():
+def get_subjects_grouped_by_semester(major_id=None):
     """Get all subjects grouped by semester with their assignment info and grade weight summary"""
-    query = """
+    major_filter = "AND s.major_id = %s" if major_id else ""
+    query = f"""
         SELECT s.id, s.name, s.semester, s.description, s.credits, s.results_published,
                c.year, c.section,
                ta.id as assignment_id,
@@ -1162,10 +1355,11 @@ def get_subjects_grouped_by_semester():
             FROM grade_components
             GROUP BY subject_id
         ) gw ON s.id = gw.subject_id
-        WHERE s.semester IS NOT NULL
+        WHERE s.semester IS NOT NULL {major_filter}
         ORDER BY c.year, s.semester, c.section, s.name
     """
-    return execute_query(query, fetch_all=True)
+    params = (major_id,) if major_id else None
+    return execute_query(query, params, fetch_all=True)
 
 
 def get_semesters():
@@ -1354,51 +1548,30 @@ def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_
 
 def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, component_id, notes=None, published=False):
     """Update existing grade or insert new one for a student/component combination (default unpublished/draft)"""
-    print(f"\n>>> UPSERT_GRADE CALLED <<<")
-    print(f"  student_id: {student_id}")
-    print(f"  subject_id: {subject_id}")
-    print(f"  teacher_id: {teacher_id}")
-    print(f"  component_id: {component_id}")
-    print(f"  score: {score}")
-    print(f"  max_score: {max_score}")
-    print(f"  date: {date}")
-    print(f"  grade_type: {grade_type}")
-    print(f"  title: {title}")
-    print(f"  published: {published}")
-    
-    # First, check if a grade exists for this student and component
+    # Check if a grade already exists for this student and component
     check_query = """
         SELECT id FROM grades 
         WHERE student_id = %s AND component_id = %s
         ORDER BY date DESC, id DESC
         LIMIT 1
     """
-    print(f"  Checking for existing grade...")
     existing = execute_query(check_query, (student_id, component_id), fetch_one=True)
-    
+
     if existing:
-        print(f"  Found existing grade ID: {existing['id']} - UPDATING")
-        # Update existing grade
         update_query = """
             UPDATE grades 
             SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s, published = %s
             WHERE id = %s
             RETURNING id
         """
-        result = execute_insert_returning(update_query, (score, max_score, date, notes, grade_type, title, published, existing['id']))
-        print(f"  Update result: {result}")
-        return result
+        return execute_insert_returning(update_query, (score, max_score, date, notes, grade_type, title, published, existing['id']))
     else:
-        print(f"  No existing grade - INSERTING")
-        # Insert new grade
         insert_query = """
             INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """
-        result = execute_insert_returning(insert_query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
-        print(f"  Insert result: {result}")
-        return result
+        return execute_insert_returning(insert_query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
 
 
 def get_grades_by_student(student_id):
@@ -1632,7 +1805,9 @@ def add_grade_component(subject_id, component_type, component_name, max_score, w
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (subject_id, component_type, component_name, max_score, weight_percentage, display_order, pair_group))
+    result = execute_insert_returning(query, (subject_id, component_type, component_name, max_score, weight_percentage, display_order, pair_group))
+    _cache_delete(f'gc:{subject_id}')
+    return result
 
 
 def add_paired_components(subject_id, report_name, seminar_name, weight, display_order=0):
@@ -1646,12 +1821,18 @@ def add_paired_components(subject_id, report_name, seminar_name, weight, display
 
 def get_grade_components_by_subject(subject_id):
     """Get all grade components for a subject, ordered by display_order"""
+    key = f'gc:{subject_id}'
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
     query = """
         SELECT * FROM grade_components
         WHERE subject_id = %s
         ORDER BY display_order, component_type, id
     """
-    return execute_query(query, (subject_id,), fetch_all=True)
+    result = execute_query(query, (subject_id,), fetch_all=True)
+    _cache_set(key, result, CACHE_TTL)
+    return result
 
 
 def get_component_count_by_type(subject_id, component_type):
@@ -1667,6 +1848,7 @@ def get_component_count_by_type(subject_id, component_type):
 
 def update_grade_component(component_id, component_type, component_name, max_score, weight_percentage, display_order):
     """Update an existing grade component"""
+    comp = execute_query("SELECT subject_id FROM grade_components WHERE id = %s", (component_id,), fetch_one=True)
     query = """
         UPDATE grade_components
         SET component_type = %s,
@@ -1677,13 +1859,20 @@ def update_grade_component(component_id, component_type, component_name, max_sco
         WHERE id = %s
         RETURNING id
     """
-    return execute_insert_returning(query, (component_type, component_name, max_score, weight_percentage, display_order, component_id))
+    result = execute_insert_returning(query, (component_type, component_name, max_score, weight_percentage, display_order, component_id))
+    if comp:
+        _cache_delete(f'gc:{comp["subject_id"]}')
+    return result
 
 
 def delete_grade_component(component_id):
     """Delete a grade component"""
+    comp = execute_query("SELECT subject_id FROM grade_components WHERE id = %s", (component_id,), fetch_one=True)
     query = "DELETE FROM grade_components WHERE id = %s RETURNING id"
-    return execute_insert_returning(query, (component_id,))
+    result = execute_insert_returning(query, (component_id,))
+    if comp:
+        _cache_delete(f'gc:{comp["subject_id"]}')
+    return result
 
 
 def delete_grade_components_by_type(subject_id, component_type):
@@ -2208,27 +2397,17 @@ def assign_student_section(student_id, section):
     return execute_query(query, (section, student_id))
 
 
-def update_student_v2(student_id, full_name, email, year, semester, shift, section, student_number, phone):
-    """Update student with new year/semester/shift/section structure"""
-    # Update student record
-    query = """
-        UPDATE students 
-        SET year = %s, semester = %s, shift = %s, section = %s, student_number = %s, phone = %s
-        WHERE id = %s
-    """
-    result = execute_query(query, (year, semester, shift, section, student_number, phone, student_id))
-    
-    # Also update user info
-    student = get_student_by_id(student_id)
-    if student:
-        query2 = "UPDATE users SET full_name = %s, email = %s WHERE id = %s"
-        execute_query(query2, (full_name, email, student['user_id']))
-    
-    return result
-
-
-def get_all_students_v2():
+def get_all_students_v2(major_id=None):
     """Get all students with new structure fields"""
+    if major_id:
+        query = """
+            SELECT s.*, u.full_name, u.username, u.email
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            WHERE u.major_id = %s
+            ORDER BY s.year, s.shift, s.section, u.full_name
+        """
+        return execute_query(query, (major_id,), fetch_all=True)
     query = """
         SELECT s.*, u.full_name, u.username, u.email
         FROM students s
@@ -2250,6 +2429,96 @@ def get_student_by_id_v2(student_id):
 
 
 # =============================================
+# MAJOR QUERIES
+# Majors are the operational units (e.g. MIS, AI, IS).
+# Departments/colleges are grouping only — used for display.
+# Each user/class/subject belongs to exactly one major.
+# =============================================
+
+def get_all_departments():
+    """Get all colleges/departments (grouping layer, read-only)."""
+    cached = _cache_get('departments:all')
+    if cached is not None:
+        return cached
+    query = "SELECT * FROM departments ORDER BY name"
+    result = execute_query(query, fetch_all=True)
+    _cache_set('departments:all', result, CACHE_TTL_LONG)
+    return result
+
+
+def get_all_majors(department_id=None):
+    """Get all majors, optionally filtered by college/department."""
+    cached_key = f'majors:all:{department_id}'
+    cached = _cache_get(cached_key)
+    if cached is not None:
+        return cached
+    if department_id:
+        query = """
+            SELECT m.*, d.name AS college_name, d.code AS college_code,
+                   (SELECT COUNT(*) FROM users u WHERE u.major_id = m.id) AS user_count
+            FROM majors m
+            LEFT JOIN departments d ON m.department_id = d.id
+            WHERE m.department_id = %s
+            ORDER BY m.name
+        """
+        result = execute_query(query, (department_id,), fetch_all=True)
+    else:
+        query = """
+            SELECT m.*, d.name AS college_name, d.code AS college_code,
+                   (SELECT COUNT(*) FROM users u WHERE u.major_id = m.id) AS user_count
+            FROM majors m
+            LEFT JOIN departments d ON m.department_id = d.id
+            ORDER BY d.name, m.name
+        """
+        result = execute_query(query, fetch_all=True)
+    _cache_set(cached_key, result, CACHE_TTL_LONG)
+    return result
+
+
+def get_major_by_id(major_id):
+    """Get a single major by ID."""
+    query = """
+        SELECT m.*, d.name AS college_name, d.code AS college_code
+        FROM majors m
+        LEFT JOIN departments d ON m.department_id = d.id
+        WHERE m.id = %s
+    """
+    return execute_query(query, (major_id,), fetch_one=True)
+
+
+def get_major_by_code(code):
+    """Get a major by its 6-digit numeric code."""
+    query = """
+        SELECT m.*, d.name AS college_name, d.code AS college_code
+        FROM majors m
+        LEFT JOIN departments d ON m.department_id = d.id
+        WHERE m.code = %s
+    """
+    return execute_query(query, (str(code),), fetch_one=True)
+
+
+def get_majors_with_admin_status():
+    """Get all majors with count of admin users and their names (for superadmin UI)."""
+    query = """
+        SELECT m.*, d.name AS college_name, d.code AS college_code,
+               COUNT(u.id) FILTER (WHERE u.role = 'admin') AS admin_count,
+               STRING_AGG(u.full_name, ', ') FILTER (WHERE u.role = 'admin') AS admin_names
+        FROM majors m
+        LEFT JOIN departments d ON m.department_id = d.id
+        LEFT JOIN users u ON u.major_id = m.id AND u.role = 'admin'
+        GROUP BY m.id, d.name, d.code
+        ORDER BY d.name, m.name
+    """
+    return execute_query(query, fetch_all=True)
+
+
+def assign_major_to_user(user_id, major_id):
+    """Assign a user to a major."""
+    result = execute_query(
+        "UPDATE users SET major_id = %s WHERE id = %s", (major_id, user_id)
+    )
+    return result
+
 # TEACHER VIEW HELPERS
 # =============================================
 
@@ -2284,41 +2553,49 @@ def get_teacher_current_context(teacher_id):
 # CLASS SCHEDULE QUERIES
 # =============================================
 
-def get_schedule(semester, shift, section):
-    """Get schedule for a specific semester/shift/section"""
+def get_schedule(semester, shift, section, major_id=None):
+    """Get schedule for a specific major/semester/shift/section"""
     query = """
         SELECT * FROM class_schedules
-        WHERE semester = %s AND shift = %s AND section = %s
+        WHERE semester = %s AND shift = %s AND section = %s AND major_id = %s
     """
-    return execute_query(query, (semester, shift, section), fetch_one=True)
+    return execute_query(query, (semester, shift, section, major_id), fetch_one=True)
 
 
-def get_class_schedule_data(semester, shift, section):
+def get_class_schedule_data(semester, shift, section, major_id=None):
     """Get parsed schedule data for a specific class (for student view)"""
     import json
-    
-    schedule = get_schedule(semester, shift, section)
+
+    schedule = get_schedule(semester, shift, section, major_id=major_id)
     if not schedule or not schedule.get('schedule_data'):
         return None
-    
+
     data = schedule['schedule_data']
     if isinstance(data, str):
         data = json.loads(data)
-    
+
     return data
 
 
-def get_teacher_schedule_from_builder(teacher_name):
+def get_teacher_schedule_from_builder(teacher_name, major_id=None):
     """Get a teacher's schedule entries from the class_schedules builder data.
-    Searches all saved schedules for entries matching this teacher name."""
+    Searches schedules for this major (or all if major_id is None) for entries matching teacher name."""
     import json
-    
-    query = """
-        SELECT semester, shift, section, schedule_data 
-        FROM class_schedules 
-        WHERE schedule_data IS NOT NULL
-    """
-    rows = execute_query(query, fetch_all=True)
+
+    if major_id is not None:
+        query = """
+            SELECT semester, shift, section, schedule_data
+            FROM class_schedules
+            WHERE schedule_data IS NOT NULL AND major_id = %s
+        """
+        rows = execute_query(query, (major_id,), fetch_all=True)
+    else:
+        query = """
+            SELECT semester, shift, section, schedule_data
+            FROM class_schedules
+            WHERE schedule_data IS NOT NULL
+        """
+        rows = execute_query(query, fetch_all=True)
     if not rows:
         return []
     
@@ -2374,30 +2651,30 @@ def get_teacher_schedule_from_builder(teacher_name):
     return teacher_entries
 
 
-def save_schedule(semester, shift, section, schedule_data):
-    """Save or update schedule for a semester/shift/section"""
+def save_schedule(semester, shift, section, schedule_data, major_id=None):
+    """Save or update schedule for a major/semester/shift/section"""
     import json
     # Convert to JSON string if needed
     if isinstance(schedule_data, (list, dict)):
         schedule_data = json.dumps(schedule_data)
-    
+
     query = """
-        INSERT INTO class_schedules (semester, shift, section, schedule_data, updated_at)
-        VALUES (%s, %s, %s, %s::jsonb, CURRENT_TIMESTAMP)
-        ON CONFLICT (semester, shift, section)
+        INSERT INTO class_schedules (major_id, semester, shift, section, schedule_data, updated_at)
+        VALUES (%s, %s, %s, %s, %s::jsonb, CURRENT_TIMESTAMP)
+        ON CONFLICT (major_id, semester, shift, section)
         DO UPDATE SET schedule_data = EXCLUDED.schedule_data, updated_at = CURRENT_TIMESTAMP
         RETURNING id
     """
-    return execute_insert_returning(query, (semester, shift, section, schedule_data))
+    return execute_insert_returning(query, (major_id, semester, shift, section, schedule_data))
 
 
-def delete_schedule(semester, shift, section):
+def delete_schedule(semester, shift, section, major_id=None):
     """Delete a schedule"""
     query = """
         DELETE FROM class_schedules
-        WHERE semester = %s AND shift = %s AND section = %s
+        WHERE semester = %s AND shift = %s AND section = %s AND major_id = %s
     """
-    return execute_query(query, (semester, shift, section))
+    return execute_query(query, (semester, shift, section, major_id))
 
 
 def get_all_schedules():

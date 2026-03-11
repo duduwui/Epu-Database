@@ -500,7 +500,7 @@
         class="modal-header"
         style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
-        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i><span id="modalTitle">Add New User</span></h5>
+        <h5 class="modal-title" style="color: white"><i class="bi bi-person-plus me-2"></i><span id="modalTitle">Add New User</span></h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <form id="addUserForm">
@@ -543,6 +543,7 @@
                 class="form-control form-control-sm"
                 required
                 placeholder="John Doe"
+                dir="auto"
               />
             </div>
             <div class="col-12">
@@ -552,8 +553,9 @@
                 name="email"
                 id="addEmail"
                 class="form-control form-control-sm"
-                placeholder="user@example.com"
+                placeholder="auto-filled from name"
               />
+              <small class="text-muted" style="font-size: 0.7rem"><i class="bi bi-magic me-1"></i>Auto-filled from full name — edit to override</small>
             </div>
             <div class="col-md-6">
               <label class="form-label" style="font-size: 0.85rem; margin-bottom: 4px"
@@ -600,7 +602,7 @@
         class="modal-header"
         style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white"
       >
-        <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit User</h5>
+        <h5 class="modal-title" style="color: white"><i class="bi bi-pencil-square me-2"></i>Edit User</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <form id="editUserForm">
@@ -639,6 +641,7 @@
                 id="editFullName"
                 class="form-control form-control-sm"
                 required
+                dir="auto"
               />
             </div>
             <div class="col-md-6">
@@ -829,6 +832,37 @@
         roleSelect.value = '';
         modalTitle.textContent = 'Add New User';
       }
+    });
+
+    // Auto-generate email from Full Name (no dots — underscore separator)
+    let emailManuallyEdited = false;
+    const addEmailInput = document.getElementById('addEmail');
+    const addFullNameInput = document.getElementById('addFullName');
+
+    addEmailInput.addEventListener('input', function () {
+      // Mark as manually edited only if user typed (not auto-fill)
+      if (!this.dataset.autoFilled) {
+        emailManuallyEdited = true;
+      }
+      delete this.dataset.autoFilled;
+    });
+
+    addFullNameInput.addEventListener('input', function () {
+      if (emailManuallyEdited) return;
+      const parts = this.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) {
+        addEmailInput.value = '';
+        return;
+      }
+      const emailLocal = parts.join('_');
+      addEmailInput.dataset.autoFilled = '1';
+      addEmailInput.value = emailLocal + '@epu.edu.iq';
+      emailManuallyEdited = false;
+    });
+
+    // Reset flag when modal opens
+    addUserModalElement.addEventListener('show.bs.modal', function () {
+      emailManuallyEdited = false;
     });
 
     // Edit User Button Click

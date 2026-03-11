@@ -540,7 +540,7 @@ extra_css %}
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
 
     // Send AJAX request
-    fetch('{{ url_for("teacher_take_attendance", subject_id=subject.id, class_id=subject.class_id) }}', {
+    fetch('{{ url_for("teacher.take_attendance", subject_id=subject.id, class_id=subject.class_id) }}', {
       method: 'POST',
       body: formData,
     })

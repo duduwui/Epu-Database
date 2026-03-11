@@ -57,8 +57,8 @@
                 />
               </div>
               <div class="col-md-6 mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" name="email" class="form-control" placeholder="Enter email" />
+                <label class="form-label">Email <span class="badge bg-secondary ms-1" style="font-size:0.65rem">Auto-generated</span></label>
+                <input type="text" id="email_preview" class="form-control" readonly placeholder="Type name to preview..." style="background:#f8f9ff;color:#1C0770;font-size:0.85rem;" />
               </div>
             </div>
 
@@ -182,9 +182,25 @@
     studentFields.style.display = role === 'student' ? 'block' : 'none';
   }
 
+  function previewEmail() {
+    const nameInput = document.querySelector('input[name="full_name"]');
+    const preview = document.getElementById('email_preview');
+    if (!nameInput || !preview) return;
+    const name = nameInput.value.trim();
+    if (!name) { preview.value = ''; preview.placeholder = 'Type name to preview...'; return; }
+    const parts = name.toLowerCase().split(/\s+/).map(p => p.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+    let namePart;
+    if (parts.length >= 2) namePart = parts[0] + '.' + parts[parts.length - 1];
+    else if (parts.length === 1) namePart = parts[0];
+    else namePart = 'user';
+    preview.value = namePart + '.######@epu.edu.iq';
+  }
+
   // Show fields if default role is set
   document.addEventListener('DOMContentLoaded', function () {
     toggleRoleFields();
+    const nameInput = document.querySelector('input[name="full_name"]');
+    if (nameInput) nameInput.addEventListener('input', previewEmail);
   });
 </script>
 {% endblock %}

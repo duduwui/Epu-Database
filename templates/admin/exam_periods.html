@@ -110,7 +110,7 @@
                   <td><small>{{ period.description or '-' }}</small></td>
                   <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                   <td class="text-center">
-                    <form method="POST" action="{{ url_for('admin.delete_exam_period'), period_id=period.id) }}" style="display: inline;">
+                    <form method="POST" action="{{ url_for('admin.delete_exam_period', period_id=period.id) }}" style="display: inline;">
                       <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Period">
                         <i class="bi bi-trash"></i>
                       </button>

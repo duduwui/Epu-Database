@@ -7,10 +7,63 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 import os
+import re as _re
+import random as _random
 import db
-from blueprints.auth import admin_required, login_required
+from blueprints.auth import admin_required, superadmin_required, login_required
 
 admin_bp = Blueprint('admin', __name__)
+
+
+def _major_abbrev(major_id) -> str:
+    """Return lowercase initials abbreviation for a major, e.g. 'mis', 'fa', 'ce'."""
+    if not major_id:
+        return 'epu'
+    row = db.execute_query("SELECT name FROM majors WHERE id = %s", (major_id,), fetch_one=True)
+    if not row or not row['name']:
+        return 'epu'
+    words = row['name'].split()
+    return ''.join(w[0].lower() for w in words if w)
+
+
+def _generate_epu_email(full_name: str, major_id) -> str:
+    """Auto-generate EPU email: firstname_lastnameMIS######@epu.edu.iq
+    Format: <name_part><major_abbrev><random6digits>@epu.edu.iq
+    Random 6-digit number, collision-checked for uniqueness.
+    """
+    parts = full_name.lower().split()
+    clean = [_re.sub(r'[^a-z0-9]', '', p) for p in parts]
+    clean = [p for p in clean if p]
+    if len(clean) >= 2:
+        name_part = f"{clean[0]}_{clean[-1]}"
+    elif clean:
+        name_part = clean[0]
+    else:
+        name_part = "student"
+    abbrev = _major_abbrev(major_id)
+    # Find all existing emails with same name+abbrev prefix to avoid collision
+    like_name = name_part.replace('_', '!_')
+    like_pattern = f"{like_name}{abbrev}______@epu.edu.iq"
+    rows = db.execute_query(
+        "SELECT email FROM users WHERE email LIKE %s ESCAPE '!'",
+        (like_pattern,), fetch_all=True
+    ) or []
+    used_numbers = set()
+    for row in rows:
+        m = _re.search(r'(\d{6})@epu\.edu\.iq$', row['email'])
+        if m:
+            used_numbers.add(m.group(1))
+    # Generate a random 6-digit number not already in use
+    for _ in range(100):
+        num = f"{_random.randint(0, 999999):06d}"
+        if num not in used_numbers:
+            return f"{name_part}{abbrev}{num}@epu.edu.iq"
+    # Fallback: sequential scan
+    for n in range(1000000):
+        num = f"{n:06d}"
+        if num not in used_numbers:
+            return f"{name_part}{abbrev}{num}@epu.edu.iq"
+    return f"{name_part}{abbrev}000000@epu.edu.iq"
 
 
 # =============================================
@@ -21,22 +74,29 @@ admin_bp = Blueprint('admin', __name__)
 @admin_required
 def dashboard():
     """Admin dashboard with semester statistics."""
-    users = db.get_all_users() or []
-    teachers = db.get_all_teachers() or []
+    dept_id = session.get('major_id')
+    users = db.get_all_users(dept_id) or []
+    teachers = db.get_all_teachers(dept_id) or []
 
     conn = db.get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM students")
+    if dept_id:
+        cur.execute("SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.major_id = %s", (dept_id,))
+    else:
+        cur.execute("SELECT COUNT(*) FROM students")
     row = cur.fetchone()
     total_students = row[0] if row else 0
 
-    cur.execute("SELECT COUNT(DISTINCT name) FROM subjects")
+    if dept_id:
+        cur.execute("SELECT COUNT(DISTINCT s.name) FROM subjects s WHERE s.major_id = %s", (dept_id,))
+    else:
+        cur.execute("SELECT COUNT(DISTINCT name) FROM subjects")
     row = cur.fetchone()
     total_subjects = row[0] if row else 0
     cur.close()
     conn.close()
 
-    semester_stats = db.get_student_counts_by_semester()
+    semester_stats = db.get_student_counts_by_semester(dept_id)
 
     stats = {
         'total_users': len(users),
@@ -298,9 +358,9 @@ def api_student_attendance(student_id, subject_id):
 @admin_required
 def users():
     """Manage users."""
-    all_users = db.get_all_users() or []
-    teachers_raw = db.get_all_teachers_with_subjects() or []
-    students_data = db.get_all_students_v2() or []
+    all_users = db.get_all_users(session.get('major_id')) or []
+    teachers_raw = db.get_all_teachers_with_subjects(session.get('major_id')) or []
+    students_data = db.get_all_students_v2(session.get('major_id')) or []
 
     teachers_data = []
     for teacher in teachers_raw:
@@ -320,7 +380,7 @@ def users():
 @admin_required
 def add_user():
     """Add new user."""
-    classes = db.get_all_classes() or []
+    classes = db.get_all_classes(session.get('major_id')) or []
     default_role = request.args.get('role', '')
 
     if request.method == 'POST':
@@ -328,18 +388,19 @@ def add_user():
         password = request.form.get('password', '')
         full_name = request.form.get('full_name', '').strip()
         role = request.form.get('role', '')
-        email = request.form.get('email', '').strip()
 
         if not all([username, password, full_name, role]):
             flash('Please fill in all required fields.', 'warning')
             return render_template('admin/add_user.html', classes=classes)
+
+        email = _generate_epu_email(full_name, session.get('major_id'))
 
         if db.get_user_by_username(username):
             flash('Username already exists.', 'danger')
             return render_template('admin/add_user.html', classes=classes)
 
         password_hash = generate_password_hash(password)
-        user_id = db.create_user(username, password_hash, full_name, role, email, password)
+        user_id = db.create_user(username, password_hash, full_name, role, email, password, session.get('major_id'))
 
         if user_id:
             if role == 'teacher':
@@ -406,9 +467,9 @@ def edit_user(user_id):
 @admin_required
 def teachers():
     """View all teachers with their subjects."""
-    all_teachers = db.get_all_teachers_with_subjects() or []
+    all_teachers = db.get_all_teachers_with_subjects(session.get('major_id')) or []
     classes = db.get_distinct_student_groups() or []
-    unique_subjects = db.get_unique_subjects_by_semester() or []
+    unique_subjects = db.get_unique_subjects_by_semester(session.get('major_id')) or []
     for teacher in all_teachers:
         teacher['subjects'] = db.get_subjects_by_teacher_id(teacher['teacher_id']) or []
     return render_template('admin/teachers.html',
@@ -461,7 +522,7 @@ def assign_subject_to_teacher(teacher_id):
     teacher_type = request.form.get('teacher_type', 'theoretical')
     success_count = 0
     for class_id in class_ids:
-        subject_id = db.create_subject(subject_name, semester)
+        subject_id = db.create_subject(subject_name, semester, major_id=session.get('major_id'))
         if subject_id:
             db.assign_teacher_to_subject(teacher_id, subject_id, class_id, teacher_type)
             success_count += 1
@@ -532,7 +593,7 @@ def assign_subject_ajax(teacher_id):
         except (ValueError, IndexError):
             continue
 
-        class_id = db.find_or_create_class(year, semester, section, shift)
+        class_id = db.find_or_create_class(year, semester, section, shift, session.get('major_id'))
         if not class_id:
             continue
 
@@ -543,7 +604,7 @@ def assign_subject_ajax(teacher_id):
             (class_id, year, section, shift, semester, class_id)
         )
 
-        subject_id = db.create_subject(subject_name, semester)
+        subject_id = db.create_subject(subject_name, semester, major_id=session.get('major_id'))
         if not subject_id:
             continue
 
@@ -569,8 +630,8 @@ def assign_subject_ajax(teacher_id):
 @admin_required
 def classes():
     """Manage classes — shows all 4 semesters."""
-    all_classes = db.get_all_classes() or []
-    class_counts, semester_totals = db.get_class_student_counts()
+    all_classes = db.get_all_classes(session.get('major_id')) or []
+    class_counts, semester_totals = db.get_class_student_counts(session.get('major_id'))
     return render_template('admin/classes.html',
                            classes=all_classes, class_counts=class_counts,
                            semester_totals=semester_totals)
@@ -609,7 +670,7 @@ def add_class():
             flash('Year 2 can only have Semester 3 or 4.', 'danger')
             return render_template('admin/add_class.html')
 
-        class_id = db.create_class(name, year, semester, section, shift, description)
+        class_id = db.create_class(name, year, semester, section, shift, description, session.get('major_id'))
 
         if class_id:
             flash(f'Class "{name}" created successfully!', 'success')
@@ -646,7 +707,7 @@ def students():
     shift = request.args.get('shift')
     section = request.args.get('section')
 
-    all_students = db.get_all_students_v2() or []
+    all_students = db.get_all_students_v2(session.get('major_id')) or []
 
     if year:
         all_students = [s for s in all_students if s.get('year') == int(year)]
@@ -691,7 +752,6 @@ def add_student():
     if request.method == 'POST':
         password = request.form.get('password', '')
         full_name = request.form.get('full_name', '').strip()
-        email = request.form.get('email', '').strip() or None
         semester = request.form.get('semester', type=int)
         shift = request.form.get('shift')
         section = request.form.get('section') or None
@@ -699,8 +759,9 @@ def add_student():
 
         if not all([password, full_name, semester, shift]):
             flash('Please fill in all required fields.', 'warning')
-            return render_template('admin/add_student.html')
+            return render_template('admin/add_student.html', major_abbrev=_major_abbrev(session.get('major_id')))
 
+        email = _generate_epu_email(full_name, session.get('major_id'))
         year = 1 if semester <= 2 else 2
 
         import datetime as _dt
@@ -722,10 +783,10 @@ def add_student():
 
         if db.get_user_by_username(username):
             flash('Error generating unique student ID. Please try again.', 'danger')
-            return render_template('admin/add_student.html')
+            return render_template('admin/add_student.html', major_abbrev=_major_abbrev(session.get('major_id')))
 
         password_hash = generate_password_hash(password)
-        user_id = db.create_user(username, password_hash, full_name, 'student', email, password)
+        user_id = db.create_user(username, password_hash, full_name, 'student', email, password, session.get('major_id'))
 
         if user_id:
             db.create_student_with_semester(user_id, year, semester, shift, section, student_number, phone)
@@ -734,7 +795,7 @@ def add_student():
         else:
             flash('Error creating student.', 'danger')
 
-    return render_template('admin/add_student.html')
+    return render_template('admin/add_student.html', major_abbrev=_major_abbrev(session.get('major_id')))
 
 
 @admin_bp.route('/admin/students/add-ajax', methods=['POST'])
@@ -744,7 +805,6 @@ def add_student_ajax():
     try:
         password = request.form.get('password', '')
         full_name = request.form.get('full_name', '').strip()
-        email = request.form.get('email', '').strip() or None
         semester = request.form.get('semester', type=int)
         shift = request.form.get('shift')
         section = request.form.get('section') or None
@@ -754,6 +814,8 @@ def add_student_ajax():
 
         if not all([password, full_name, semester, shift]):
             return jsonify({'success': False, 'message': 'Please fill in all required fields.'})
+
+        email = _generate_epu_email(full_name, session.get('major_id'))
 
         import datetime as _dt
         current_year = _dt.datetime.now().year
@@ -776,7 +838,7 @@ def add_student_ajax():
             return jsonify({'success': False, 'message': 'Error generating unique student ID. Please try again.'})
 
         password_hash = generate_password_hash(password)
-        user_id = db.create_user(username, password_hash, full_name, 'student', email, password)
+        user_id = db.create_user(username, password_hash, full_name, 'student', email, password, session.get('major_id'))
 
         if user_id:
             db.create_student_with_semester(user_id, year, semester, shift, section, student_number, phone)
@@ -785,7 +847,7 @@ def add_student_ajax():
                 'message': f'Student "{full_name}" added with ID: {student_number}',
                 'student': {
                     'name': full_name, 'student_number': student_number,
-                    'semester': semester, 'shift': shift, 'section': section
+                    'email': email, 'semester': semester, 'shift': shift, 'section': section
                 }
             })
         return jsonify({'success': False, 'message': 'Error creating student user account.'})
@@ -888,7 +950,7 @@ def delete_student(student_id):
 @admin_required
 def subjects():
     """Manage subjects."""
-    all_subjects = db.get_subjects_grouped_by_semester() or []
+    all_subjects = db.get_subjects_grouped_by_semester(session.get('major_id')) or []
     return render_template('admin/subjects.html', subjects=all_subjects)
 
 
@@ -910,7 +972,7 @@ def add_subject():
             flash('Credits must be between 1 and 30.', 'warning')
             return render_template('admin/add_subject.html')
 
-        subject_id = db.create_subject(name, semester, description, credits)
+        subject_id = db.create_subject(name, semester, description, credits, session.get('major_id'))
         if subject_id:
             flash(f'Subject "{name}" created for Semester {semester} with {credits} credits!', 'success')
             return redirect(url_for('.subjects'))
@@ -1408,7 +1470,8 @@ def delete_exam_period(period_id):
 def api_get_schedule(semester, shift, section):
     """API: Get schedule for a semester/shift/section."""
     import json
-    schedule = db.get_schedule(semester, shift, section)
+    major_id = session.get('major_id')
+    schedule = db.get_schedule(semester, shift, section, major_id=major_id)
     if schedule and schedule.get('schedule_data'):
         data = schedule['schedule_data']
         if isinstance(data, (list, dict)):
@@ -1422,12 +1485,81 @@ def api_get_schedule(semester, shift, section):
 def api_save_schedule(semester, shift, section):
     """API: Save schedule."""
     import json
+    major_id = session.get('major_id')
     data = request.get_json()
     schedule_data = data.get('schedule_data', [])
-    result = db.save_schedule(semester, shift, section, json.dumps(schedule_data))
+    result = db.save_schedule(semester, shift, section, json.dumps(schedule_data), major_id=major_id)
     if result:
         return {'success': True, 'message': 'Schedule saved successfully!'}
     return {'success': False, 'message': 'Error saving schedule'}, 500
+
+
+# =============================================
+# SUPERADMIN - MAJORS MANAGEMENT
+# Only the superadmin (admin@epu.edu.iq, no major) can view
+# and create admin accounts for each of the 72 majors.
+# =============================================
+
+@admin_bp.route('/admin/majors')
+@superadmin_required
+def majors():
+    """List all 72 majors with admin status (superadmin only)."""
+    all_majors = db.get_majors_with_admin_status() or []
+    # Group by college for display
+    colleges = {}
+    for m in all_majors:
+        college = m.get('college_name') or 'Unassigned'
+        colleges.setdefault(college, []).append(m)
+    return render_template('admin/majors.html', colleges=colleges, all_majors=all_majors)
+
+
+@admin_bp.route('/admin/majors/<int:major_id>/add-admin', methods=['GET', 'POST'])
+@superadmin_required
+def add_major_admin(major_id):
+    """Create an admin user for the given major (superadmin only)."""
+    major = db.get_major_by_id(major_id)
+    if not major:
+        flash('Major not found.', 'danger')
+        return redirect(url_for('.majors'))
+
+    if request.method == 'POST':
+        full_name = request.form.get('full_name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+
+        current_admins = db.execute_query(
+            "SELECT full_name, email FROM users WHERE major_id = %s AND role = 'admin' ORDER BY full_name",
+            (major_id,), fetch_all=True) or []
+
+        if not all([full_name, email, password]):
+            flash('All fields are required.', 'warning')
+            return render_template('admin/add_major_admin.html', major=major, current_admins=current_admins)
+
+        if password != confirm:
+            flash('Passwords do not match.', 'danger')
+            return render_template('admin/add_major_admin.html', major=major, current_admins=current_admins)
+
+        if db.get_user_by_email(email):
+            flash(f'An account with email "{email}" already exists.', 'danger')
+            return render_template('admin/add_major_admin.html', major=major, current_admins=current_admins)
+
+        username = email.split('@')[0]
+        if db.get_user_by_username(username):
+            username = f"admin.{major['code']}"
+
+        password_hash = generate_password_hash(password)
+        user_id = db.create_user(username, password_hash, full_name, 'admin', email, password, major_id)
+        if user_id:
+            flash(f'Admin "{full_name}" created for {major["name"]} successfully!', 'success')
+            return redirect(url_for('.majors'))
+        else:
+            flash('Error creating admin account.', 'danger')
+
+    current_admins = db.execute_query(
+        "SELECT full_name, email FROM users WHERE major_id = %s AND role = 'admin' ORDER BY full_name",
+        (major_id,), fetch_all=True) or []
+    return render_template('admin/add_major_admin.html', major=major, current_admins=current_admins)
 
 
 @admin_bp.route('/admin/api/schedule/<int:semester>/<shift>/<section>/auto-generate', methods=['POST'])
@@ -1495,7 +1627,7 @@ def api_auto_generate_schedule(semester, shift, section):
             })
             count += 1
 
-    db.save_schedule(semester, shift, section, json.dumps(schedule))
+    db.save_schedule(semester, shift, section, json.dumps(schedule), major_id=session.get('major_id'))
     return jsonify({'success': True, 'data': schedule})
 
 
@@ -1509,7 +1641,11 @@ def api_get_teachers_subjects_by_semester(semester):
 
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, name, description FROM subjects WHERE semester = %s ORDER BY name", (semester,))
+        major_id = session.get('major_id')
+        cur.execute(
+            "SELECT id, name, description FROM subjects WHERE semester = %s AND major_id = %s ORDER BY name",
+            (semester, major_id)
+        )
         sem_subjects = cur.fetchall()
 
         subject_list = [{'id': r[0], 'name': r[1], 'description': r[2] or ''} for r in sem_subjects]
@@ -1548,8 +1684,8 @@ def api_get_teachers_subjects_by_semester(semester):
 @admin_required
 def api_get_teachers_subjects():
     """API: all teachers and subjects for schedule dropdown."""
-    teachers = db.get_all_teachers() or []
-    all_subjects = db.get_all_subjects() or []
+    teachers = db.get_all_teachers(session.get('major_id')) or []
+    all_subjects = db.get_all_subjects(session.get('major_id')) or []
     return {
         'teachers': [{'id': t['id'], 'name': t['full_name']} for t in teachers],
         'subjects': [{
@@ -1623,7 +1759,7 @@ def add_user_ajax():
     if db.get_user_by_username(username):
         return jsonify({'success': False, 'message': 'Username already exists.'})
 
-    user_id = db.create_user(username, generate_password_hash(password), full_name, role, email, password)
+    user_id = db.create_user(username, generate_password_hash(password), full_name, role, email, password, session.get('major_id'))
 
     if user_id:
         if role == 'teacher':
@@ -1697,7 +1833,7 @@ def add_subject_ajax():
         if credits < 1 or credits > 30:
             return jsonify({'success': False, 'message': 'Credits must be between 1 and 30.'})
 
-        result = db.create_subject(name, semester, description, credits)
+        result = db.create_subject(name, semester, description, credits, session.get('major_id'))
         if result:
             return jsonify({'success': True, 'message': 'Subject created successfully!'})
         return jsonify({'success': False, 'message': 'Subject already exists or error creating subject.'})

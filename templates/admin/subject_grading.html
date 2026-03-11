@@ -61,7 +61,7 @@ block content %}
         <div class="card-body">
           <form
             method="POST"
-            action="{{ url_for('admin_add_grade_component', subject_id=subject.id) }}"
+            action="{{ url_for('admin.add_grade_component', subject_id=subject.id) }}"
             id="addComponentForm"
           >
             <div class="mb-3">
