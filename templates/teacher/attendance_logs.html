@@ -72,22 +72,34 @@ block content %}
     background: #f8fafc;
   }
   .student-num {
-    width: 40px;
+    width: 36px;
     color: #64748b;
     font-size: 0.85rem;
+    flex-shrink: 0;
   }
   .student-id {
-    width: 80px;
+    width: 140px;
+    min-width: 140px;
     color: #1C0770;
     font-weight: 500;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .student-name {
     flex: 1;
     min-width: 0;
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
   }
   .student-status {
-    width: 70px;
+    width: 80px;
+    flex-shrink: 0;
     text-align: center;
   }
   .filter-card {

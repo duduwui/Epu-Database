@@ -458,8 +458,6 @@
 
 <script>
 // ── Exam actions ──────────────────────────────────────────────
-const examToast = new bootstrap.Toast(document.getElementById('toast'));
-
 function examAction(action, subjectId, examType, btn) {
   if (action === 'cancel' && !confirm('Cancel this exam signup?')) return;
   const origHtml = btn.innerHTML;
@@ -472,9 +470,21 @@ function examAction(action, subjectId, examType, btn) {
   .then(r => r.json())
   .then(data => {
     if (data.success) {
-      document.getElementById('toastMessage').textContent = data.message;
-      examToast.show();
-      setTimeout(() => location.reload(), 600);
+      const row = btn.closest('tr');
+      const statusCell = row.cells[2];
+      const actionCell = row.cells[3];
+      const btnClass = examType === 'final' ? 'final-btn' : 'second-btn';
+      if (action === 'signup') {
+        statusCell.innerHTML = '<span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>';
+        actionCell.innerHTML = `<button class="btn btn-sm btn-outline-danger ${btnClass}" onclick="examAction('cancel', ${subjectId}, '${examType}', this)"><i class="bi bi-x-lg me-1"></i>Cancel</button>`;
+      } else {
+        statusCell.innerHTML = '<span class="badge bg-primary">Eligible</span>';
+        actionCell.innerHTML = `<button class="btn btn-sm btn-primary ${btnClass}" onclick="examAction('signup', ${subjectId}, '${examType}', this)"><i class="bi bi-check-lg me-1"></i>Sign Up</button>`;
+      }
+      try {
+        document.getElementById('toastMessage').textContent = data.message;
+        new bootstrap.Toast(document.getElementById('toast')).show();
+      } catch(e) {}
     } else {
       alert('Error: ' + (data.error || 'Operation failed'));
       btn.disabled = false;
@@ -496,10 +506,12 @@ function enrollSubject(subjectId, button) {
   fetch(`/student/subjects/enroll/${subjectId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
     .then(r => r.json())
     .then(data => {
-      if (data.success) { moveToEnrolled(row, subjectId); }
-      else { alert('Error: ' + (data.error || 'Failed to enroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; }
+      if (data.success) {
+        moveToEnrolled(row, subjectId);
+        try { document.getElementById('toastMessage').textContent = data.message || 'Enrolled successfully!'; new bootstrap.Toast(document.getElementById('toast')).show(); } catch(e) {}
+      } else { alert('Error: ' + (data.error || 'Failed to enroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; }
     })
-    .catch(() => { alert('An error occurred.'); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; });
+    .catch(() => { alert('An error occurred. Please try again.'); button.disabled = false; button.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Enroll'; });
 }
 
 function unenrollSubject(subjectId, button) {
@@ -510,10 +522,12 @@ function unenrollSubject(subjectId, button) {
   fetch(`/student/subjects/unenroll/${subjectId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
     .then(r => r.json())
     .then(data => {
-      if (data.success) { moveToAvailable(row, subjectId); }
-      else { alert('Error: ' + (data.error || 'Failed to unenroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; }
+      if (data.success) {
+        moveToAvailable(row, subjectId);
+        try { document.getElementById('toastMessage').textContent = data.message || 'Unenrolled successfully!'; new bootstrap.Toast(document.getElementById('toast')).show(); } catch(e) {}
+      } else { alert('Error: ' + (data.error || 'Failed to unenroll')); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; }
     })
-    .catch(() => { alert('An error occurred.'); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; });
+    .catch(() => { alert('An error occurred. Please try again.'); button.disabled = false; button.innerHTML = '<i class="bi bi-x-circle me-1"></i>Unenroll'; });
 }
 
 function moveToEnrolled(row, subjectId) {

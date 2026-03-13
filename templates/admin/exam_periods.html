@@ -185,13 +185,31 @@
           </div>
 
           <div class="mb-3">
-            <label for="start_date" class="form-label">Start Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
+            <label class="form-label"><i class="bi bi-calendar-event me-1"></i>Start Date &amp; Time *</label>
+            <div class="input-group">
+              <input type="text" class="form-control epu-cal-display-input" id="start_date_display"
+                     placeholder="Click to select start date &amp; time" readonly
+                     onclick="openEpuCalendar('start_date','start_date_display')">
+              <button type="button" class="epu-cal-trigger"
+                      onclick="openEpuCalendar('start_date','start_date_display')">
+                <i class="bi bi-calendar3"></i>
+              </button>
+            </div>
+            <input type="hidden" id="start_date" name="start_date">
           </div>
 
           <div class="mb-3">
-            <label for="end_date" class="form-label">End Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
+            <label class="form-label"><i class="bi bi-calendar-event me-1"></i>End Date &amp; Time *</label>
+            <div class="input-group">
+              <input type="text" class="form-control epu-cal-display-input" id="end_date_display"
+                     placeholder="Click to select end date &amp; time" readonly
+                     onclick="openEpuCalendar('end_date','end_date_display')">
+              <button type="button" class="epu-cal-trigger"
+                      onclick="openEpuCalendar('end_date','end_date_display')">
+                <i class="bi bi-calendar3"></i>
+              </button>
+            </div>
+            <input type="hidden" id="end_date" name="end_date">
           </div>
 
           <div class="mb-3">
@@ -238,9 +256,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('addPeriodForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
-    const startDate = new Date(document.getElementById('start_date').value);
-    const endDate = new Date(document.getElementById('end_date').value);
-    if (endDate <= startDate) {
+    const startVal = document.getElementById('start_date').value;
+    const endVal   = document.getElementById('end_date').value;
+    if (!startVal) { alert('Please select a start date & time.'); return; }
+    if (!endVal)   { alert('Please select an end date & time.');   return; }
+    if (new Date(endVal) <= new Date(startVal)) {
       alert('End date must be after start date!');
       return;
     }
@@ -256,6 +276,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.success) {
           addModal.hide();
           this.reset();
+          document.getElementById('start_date_display').value = '';
+          document.getElementById('end_date_display').value = '';
           document.getElementById('toastMessage').textContent = data.message;
           toast.show();
           setTimeout(() => location.reload(), 800);

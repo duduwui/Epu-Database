@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -322,5 +322,617 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         EPU SMART DATE-TIME PICKER  — fixed overlay (works inside modals)
+         API:  openEpuCalendar('hiddenInputId', 'displayInputId')
+         ═══════════════════════════════════════════════════════════════════ -->
+    <style>
+      /* ── Backdrop ── */
+      #epuCalBackdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.45);
+        z-index: 10050;
+        animation: epuFadeIn .18s ease;
+      }
+      /* ── Panel ── */
+      #epuCalPanel {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+        z-index: 10055;
+        width: 320px;
+        max-width: calc(100vw - 24px);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(28,7,112,.35), 0 4px 16px rgba(0,0,0,.2);
+        animation: epuSlideIn .2s ease;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      @keyframes epuFadeIn  { from { opacity:0 } to { opacity:1 } }
+      @keyframes epuSlideIn { from { opacity:0; transform:translate(-50%,-46%) } to { opacity:1; transform:translate(-50%,-50%) } }
+
+      /* ── Header ── */
+      #epuCalPanel .ecp-header {
+        background: linear-gradient(135deg, #1C0770 0%, #150558 100%);
+        padding: 14px 14px 10px;
+        color: #fff;
+      }
+      #epuCalPanel .ecp-brand {
+        font-size: .7rem;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        opacity: .65;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      #epuCalPanel .ecp-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      #epuCalPanel .ecp-nav-btn {
+        background: rgba(255,255,255,.18);
+        border: none;
+        color: #fff;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1;
+        transition: background .15s;
+        flex-shrink: 0;
+      }
+      #epuCalPanel .ecp-nav-btn:hover { background: rgba(255,255,255,.32); }
+      #epuCalPanel .ecp-month-label {
+        flex: 1;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 800;
+        letter-spacing: .2px;
+      }
+      #epuCalPanel .ecp-close {
+        background: rgba(255,255,255,.18);
+        border: none;
+        color: #fff;
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: .9rem;
+        line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        transition: background .15s;
+        flex-shrink: 0;
+      }
+      #epuCalPanel .ecp-close:hover { background: rgba(255,255,255,.32); }
+
+      /* ── Quick shortcuts ── */
+      #epuCalPanel .ecp-shortcuts {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 0 0 8px;
+      }
+      #epuCalPanel .ecp-shortcut {
+        background: rgba(255,255,255,.15);
+        border: 1px solid rgba(255,255,255,.3);
+        color: #fff;
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: .74rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s;
+        white-space: nowrap;
+      }
+      #epuCalPanel .ecp-shortcut:hover { background: rgba(255,255,255,.3); }
+
+      /* ── Grid ── */
+      #epuCalPanel .ecp-grid { padding: 10px 12px 4px; background: #fff; }
+      #epuCalPanel .ecp-row  { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+      #epuCalPanel .ecp-day-hdr {
+        text-align: center;
+        padding: 3px 0 7px;
+        font-size: .7rem;
+        font-weight: 800;
+        color: #1C0770;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+      }
+      #epuCalPanel .ecp-cell {
+        text-align: center;
+        padding: 7px 2px;
+        font-size: .85rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background .12s, color .12s, transform .1s;
+        user-select: none;
+        line-height: 1;
+      }
+      #epuCalPanel .ecp-cell:not(.empty):not(.disabled):hover {
+        background: #ede9ff;
+        color: #1C0770;
+        transform: scale(1.08);
+      }
+      #epuCalPanel .ecp-cell.today {
+        outline: 2px solid #1C0770;
+        outline-offset: -2px;
+        color: #1C0770;
+        font-weight: 800;
+      }
+      #epuCalPanel .ecp-cell.selected {
+        background: #1C0770 !important;
+        color: #fff !important;
+        font-weight: 700;
+        transform: scale(1.1);
+        box-shadow: 0 3px 10px rgba(28,7,112,.4);
+      }
+      #epuCalPanel .ecp-cell.today.selected { outline: 2px solid rgba(255,255,255,.6); }
+      #epuCalPanel .ecp-cell.disabled { color: #d1d5db; cursor: not-allowed; pointer-events: none; font-weight: 400; }
+      #epuCalPanel .ecp-cell.empty    { cursor: default; pointer-events: none; }
+
+      /* ── Selected display bar ── */
+      #epuCalPanel .ecp-sel-bar {
+        background: #f0edff;
+        border-top: 1px solid #e0daff;
+        padding: 7px 14px;
+        font-size: .82rem;
+        font-weight: 700;
+        color: #1C0770;
+        text-align: center;
+        min-height: 32px;
+        letter-spacing: .2px;
+      }
+
+      /* ── Time picker ── */
+      #epuCalPanel .ecp-time-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 8px 14px 10px;
+        background: #fff;
+        border-top: 1px solid #eeebff;
+      }
+      #epuCalPanel .ecp-time-label { font-size: .78rem; color: #555; margin: 0; font-weight: 600; }
+      #epuCalPanel .ecp-time-input {
+        width: 52px;
+        text-align: center;
+        font-size: .95rem;
+        font-weight: 700;
+        color: #1C0770;
+        border: 2px solid #d1d5e0;
+        border-radius: 8px;
+        padding: 5px 4px;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+      }
+      #epuCalPanel .ecp-time-input:focus {
+        border-color: #1C0770;
+        box-shadow: 0 0 0 3px rgba(28,7,112,.15);
+      }
+      #epuCalPanel .ecp-time-sep {
+        font-size: 1.2rem;
+        font-weight: 900;
+        color: #1C0770;
+        line-height: 1;
+      }
+
+      /* ── Footer ── */
+      #epuCalPanel .ecp-footer {
+        display: flex;
+        gap: 8px;
+        padding: 10px 14px 12px;
+        background: #fff;
+        border-top: 1px solid #eeebff;
+      }
+      #epuCalPanel .ecp-btn-clear {
+        background: #fff;
+        border: 1.5px solid #dee2e6;
+        color: #6c757d;
+        border-radius: 8px;
+        padding: 6px 14px;
+        font-size: .82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
+      }
+      #epuCalPanel .ecp-btn-clear:hover { background: #f8f9fa; border-color: #adb5bd; }
+      #epuCalPanel .ecp-btn-confirm {
+        flex: 1;
+        background: linear-gradient(135deg, #1C0770, #150558);
+        border: none;
+        color: #fff;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: .88rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity .15s, transform .1s;
+        letter-spacing: .3px;
+      }
+      #epuCalPanel .ecp-btn-confirm:hover { opacity: .88; transform: translateY(-1px); }
+      #epuCalPanel .ecp-btn-confirm:active { transform: translateY(0); }
+
+      /* ── Shake animation ── */
+      @keyframes epuShake {
+        0%,100% { transform:translate(-50%,-50%); }
+        20%,60%  { transform:translate(calc(-50% - 8px),-50%); }
+        40%,80%  { transform:translate(calc(-50% + 8px),-50%); }
+      }
+      .epu-shake-panel { animation: epuShake .4s !important; }
+
+      /* ── Trigger button / display input ── */
+      .epu-cal-trigger {
+        background: #fff;
+        border: 1.5px solid #ced4da;
+        border-left: none;
+        border-radius: 0 6px 6px 0;
+        padding: 0 11px;
+        cursor: pointer;
+        color: #1C0770;
+        font-size: 1rem;
+        transition: background .15s;
+      }
+      .epu-cal-trigger:hover { background: #ede9ff; }
+      .epu-cal-display-input { background: #fff !important; cursor: pointer; }
+      .ecp-ampm-btn {
+        padding: 0 10px;
+        font-size: .82rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        background: #1C0770;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background .15s;
+        min-width: 44px;
+      }
+      .ecp-ampm-btn:hover { background: #150558; }
+    </style>
+
+    <!-- Calendar backdrop & panel (fixed, above all Bootstrap modals) -->
+    <div id="epuCalBackdrop"></div>
+    <div id="epuCalPanel">
+
+      <!-- Header -->
+      <div class="ecp-header">
+        <div class="ecp-brand"><i class="bi bi-mortarboard-fill me-1"></i>EPU Date Picker</div>
+        <div class="ecp-nav">
+          <button class="ecp-nav-btn" id="epuCalPrev" type="button">&#8249;</button>
+          <div class="ecp-month-label" id="epuCalMonthYear"></div>
+          <button class="ecp-nav-btn" id="epuCalNext" type="button">&#8250;</button>
+          <button class="ecp-close" id="epuCalClose" type="button">&#x2715;</button>
+        </div>
+        <!-- Quick shortcuts -->
+        <div class="ecp-shortcuts">
+          <button class="ecp-shortcut" type="button" data-offset="0" id="ecpToday">&#9733; Today</button>
+          <button class="ecp-shortcut" type="button" data-offset="1">Tomorrow</button>
+          <button class="ecp-shortcut" type="button" data-offset="7">+1 Week</button>
+          <button class="ecp-shortcut" type="button" data-offset="14">+2 Weeks</button>
+          <button class="ecp-shortcut" type="button" data-offset="30">+1 Month</button>
+        </div>
+      </div>
+
+      <!-- Grid -->
+      <div class="ecp-grid" id="epuCalGrid"></div>
+
+      <!-- Selected display -->
+      <div class="ecp-sel-bar" id="epuSelDisplay">&#8212; Pick a date above &#8212;</div>
+
+      <!-- Time picker -->
+      <div class="ecp-time-row">
+        <span class="ecp-time-label"><i class="bi bi-clock me-1"></i>Time</span>
+        <input class="ecp-time-input" type="number" id="epuCalHour" min="1" max="12" placeholder="HH">
+        <span class="ecp-time-sep">:</span>
+        <input class="ecp-time-input" type="number" id="epuCalMin"  min="0" max="59" placeholder="MM">
+        <button class="ecp-ampm-btn" type="button" id="epuCalAmPm">AM</button>
+      </div>
+
+      <!-- Footer -->
+      <div class="ecp-footer">
+        <button class="ecp-btn-clear" type="button" id="epuCalClear">
+          <i class="bi bi-x-lg me-1"></i>Clear
+        </button>
+        <button class="ecp-btn-confirm" type="button" id="epuCalConfirm">
+          <i class="bi bi-check-lg me-1"></i>Confirm Date
+        </button>
+      </div>
+
+    </div>
+
+    <script>
+    (function () {
+      'use strict';
+      var _targetId  = null;
+      var _displayId = null;
+      var _minDate   = null;
+      var _calYear   = new Date().getFullYear();
+      var _calMonth  = new Date().getMonth();
+      var _selDate   = null;
+      var _selHour   = 8;
+      var _selMin    = 0;
+      var _selAmPm   = 'AM';
+
+      var MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+      var DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+      var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+
+      function getPanel()   { return document.getElementById('epuCalPanel'); }
+      function getBackdrop(){ return document.getElementById('epuCalBackdrop'); }
+
+      function updateSelDisplay() {
+        var el = document.getElementById('epuSelDisplay');
+        if (!_selDate) {
+          el.innerHTML = '&#8212; Pick a date above &#8212;';
+          return;
+        }
+        var h12 = _selHour % 12 || 12;
+        el.textContent = DAYS[_selDate.getDay()] + ', ' + _selDate.getDate() + ' ' +
+          MONTHS_SHORT[_selDate.getMonth()] + ' ' + _selDate.getFullYear() +
+          '   \u2022   ' + pad(h12) + ':' + pad(_selMin) + ' ' + _selAmPm;
+      }
+
+      function renderCalendar() {
+        document.getElementById('epuCalMonthYear').textContent =
+          MONTHS[_calMonth] + ' ' + _calYear;
+
+        var grid = document.getElementById('epuCalGrid');
+        grid.innerHTML = '';
+
+        var hrow = document.createElement('div');
+        hrow.className = 'ecp-row';
+        DAYS.forEach(function(d) {
+          var dh = document.createElement('div');
+          dh.className = 'ecp-day-hdr';
+          dh.textContent = d;
+          hrow.appendChild(dh);
+        });
+        grid.appendChild(hrow);
+
+        var firstDay    = new Date(_calYear, _calMonth, 1).getDay();
+        var daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+        var today       = new Date();
+        today.setHours(0,0,0,0);
+
+        var minDay = null;
+        if (_minDate) {
+          minDay = new Date(_minDate);
+          minDay.setHours(0,0,0,0);
+        }
+
+        var row = document.createElement('div');
+        row.className = 'ecp-row';
+
+        for (var i = 0; i < firstDay; i++) {
+          var e = document.createElement('div');
+          e.className = 'ecp-cell empty';
+          row.appendChild(e);
+        }
+
+        for (var d = 1; d <= daysInMonth; d++) {
+          var colIndex = (firstDay + d - 1) % 7;
+          if (colIndex === 0 && d !== 1) {
+            grid.appendChild(row);
+            row = document.createElement('div');
+            row.className = 'ecp-row';
+          }
+
+          var cell = document.createElement('div');
+          cell.className = 'ecp-cell';
+          cell.textContent = d;
+
+          var cd = new Date(_calYear, _calMonth, d);
+          cd.setHours(0,0,0,0);
+
+          if (minDay && cd < minDay) {
+            cell.classList.add('disabled');
+            row.appendChild(cell);
+            continue;
+          }
+          if (cd.getTime() === today.getTime()) cell.classList.add('today');
+          if (_selDate) {
+            var sd = new Date(_selDate); sd.setHours(0,0,0,0);
+            if (cd.getTime() === sd.getTime()) cell.classList.add('selected');
+          }
+
+          (function(day) {
+            cell.addEventListener('click', function() {
+              _selDate = new Date(_calYear, _calMonth, day);
+              renderCalendar();
+              updateSelDisplay();
+            });
+          })(d);
+
+          row.appendChild(cell);
+        }
+
+        // Trailing empties
+        var lastCol = (firstDay + daysInMonth - 1) % 7;
+        for (var j = lastCol + 1; j <= 6; j++) {
+          var emp = document.createElement('div');
+          emp.className = 'ecp-cell empty';
+          row.appendChild(emp);
+        }
+        grid.appendChild(row);
+
+        var h12 = _selHour % 12 || 12;
+        document.getElementById('epuCalHour').value = pad(h12);
+        document.getElementById('epuCalMin').value  = pad(_selMin);
+        document.getElementById('epuCalAmPm').textContent = _selAmPm;
+        updateSelDisplay();
+      }
+
+      function openPanel() {
+        getBackdrop().style.display = 'block';
+        getPanel().style.display    = 'block';
+        getPanel().classList.remove('epu-shake-panel');
+        // Fix: remove Bootstrap's modal focus trap interference
+        document.body.style.overflow = '';
+      }
+
+      function closePanel() {
+        getBackdrop().style.display = 'none';
+        getPanel().style.display    = 'none';
+      }
+
+      function setQuickDate(offsetDays) {
+        var d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        _selDate  = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        _calYear  = _selDate.getFullYear();
+        _calMonth = _selDate.getMonth();
+        renderCalendar();
+        updateSelDisplay();
+      }
+
+      /* ── Public API ── */
+      window.openEpuCalendar = function(targetId, displayId, minDateISO) {
+        _targetId  = targetId;
+        _displayId = displayId || null;
+        _minDate   = minDateISO || null;
+
+        var tgt      = document.getElementById(targetId);
+        var existing = tgt ? tgt.value : '';
+
+        if (existing) {
+          var parts = existing.split('T');
+          var dp    = parts[0].split('-');
+          var tp    = parts.length > 1 ? parts[1].split(':') : ['08','00'];
+          _selDate  = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]));
+          _selHour  = parseInt(tp[0]) || 0;
+          _selMin   = parseInt(tp[1]) || 0;
+          _selAmPm  = _selHour >= 12 ? 'PM' : 'AM';
+          _calYear  = _selDate.getFullYear();
+          _calMonth = _selDate.getMonth();
+        } else {
+          var now  = new Date();
+          _selDate = null;
+          _selHour = now.getHours();
+          _selMin  = now.getMinutes();
+          _selAmPm  = _selHour >= 12 ? 'PM' : 'AM';
+          _calYear  = now.getFullYear();
+          _calMonth = now.getMonth();
+        }
+
+        renderCalendar();
+        openPanel();
+      };
+
+      document.addEventListener('DOMContentLoaded', function() {
+
+        /* Navigation */
+        document.getElementById('epuCalPrev').addEventListener('click', function() {
+          _calMonth--;
+          if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+          renderCalendar();
+        });
+        document.getElementById('epuCalNext').addEventListener('click', function() {
+          _calMonth++;
+          if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+          renderCalendar();
+        });
+
+        /* Close */
+        document.getElementById('epuCalClose').addEventListener('click', closePanel);
+        document.getElementById('epuCalBackdrop').addEventListener('click', closePanel);
+
+        /* Quick shortcuts */
+        document.querySelectorAll('#epuCalPanel .ecp-shortcut').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            setQuickDate(parseInt(this.dataset.offset, 10) || 0);
+          });
+        });
+
+        /* Time inputs */
+        document.getElementById('epuCalHour').addEventListener('input', function() {
+          var v = parseInt(this.value);
+          var h12 = isNaN(v) ? 12 : Math.min(12, Math.max(1, v));
+          _selHour = (_selAmPm === 'AM') ? (h12 === 12 ? 0 : h12) : (h12 === 12 ? 12 : h12 + 12);
+          updateSelDisplay();
+        });
+        document.getElementById('epuCalHour').addEventListener('blur', function() {
+          this.value = pad(_selHour % 12 || 12);
+        });
+        document.getElementById('epuCalMin').addEventListener('input', function() {
+          var v = parseInt(this.value);
+          _selMin = isNaN(v) ? 0 : Math.min(59, Math.max(0, v));
+          updateSelDisplay();
+        });
+        document.getElementById('epuCalMin').addEventListener('blur', function() {
+          this.value = pad(_selMin);
+        });
+        document.getElementById('epuCalAmPm').addEventListener('click', function() {
+          _selAmPm = _selAmPm === 'AM' ? 'PM' : 'AM';
+          if (_selAmPm === 'PM' && _selHour < 12) _selHour += 12;
+          else if (_selAmPm === 'AM' && _selHour >= 12) _selHour -= 12;
+          this.textContent = _selAmPm;
+          updateSelDisplay();
+        });
+
+        /* Confirm */
+        document.getElementById('epuCalConfirm').addEventListener('click', function() {
+          if (!_selDate) {
+            var panel = getPanel();
+            panel.classList.add('epu-shake-panel');
+            setTimeout(function() { panel.classList.remove('epu-shake-panel'); }, 450);
+            return;
+          }
+          // Always re-read time directly from the visible inputs at confirm time
+          // (guards against any missed input events or browser number-field quirks)
+          var hRaw  = parseInt(document.getElementById('epuCalHour').value, 10);
+          var mRaw  = parseInt(document.getElementById('epuCalMin').value,  10);
+          var ampm  = _selAmPm;
+          if (!isNaN(hRaw)) {
+            hRaw = Math.min(12, Math.max(1, hRaw));
+            _selHour = (ampm === 'AM') ? (hRaw === 12 ? 0 : hRaw) : (hRaw === 12 ? 12 : hRaw + 12);
+          }
+          if (!isNaN(mRaw)) _selMin = Math.min(59, Math.max(0, mRaw));
+          var y    = _selDate.getFullYear();
+          var mo   = pad(_selDate.getMonth() + 1);
+          var d    = pad(_selDate.getDate());
+          var h    = pad(_selHour);
+          var mi   = pad(_selMin);
+          var h12  = _selHour % 12 || 12;
+          var isoVal = y + '-' + mo + '-' + d + 'T' + h + ':' + mi;
+
+          var tgt = _targetId ? document.getElementById(_targetId) : null;
+          if (tgt) tgt.value = isoVal;
+
+          var disp = _displayId ? document.getElementById(_displayId) : null;
+          if (disp) disp.value = d + ' ' + MONTHS_SHORT[_selDate.getMonth()] + ' ' + y + ', ' + pad(h12) + ':' + mi + ' ' + ampm;
+
+          closePanel();
+        });
+
+        /* Clear */
+        document.getElementById('epuCalClear').addEventListener('click', function() {
+          var tgt  = _targetId  ? document.getElementById(_targetId)  : null;
+          var disp = _displayId ? document.getElementById(_displayId) : null;
+          if (tgt)  tgt.value  = '';
+          if (disp) disp.value = '';
+          _selDate = null;
+          renderCalendar();
+          closePanel();
+        });
+
+        /* Keyboard close */
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && getPanel().style.display === 'block') closePanel();
+        });
+      });
+    })();
+    </script>
   </body>
 </html>

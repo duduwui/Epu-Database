@@ -123,7 +123,7 @@
                       <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
                       <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d %H:%M') }}</td>
                       <td><small>{{ period.description or '-' }}</small></td>
-                      <td><small class="text-muted">{{ period.creator_name }}</small></td>
+                      <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                       <td class="text-center">
                         <form method="POST" action="{{ url_for('admin.delete_enrollment_period', period_id=period.id) }}" class="enroll-delete-form" style="display:inline;">
                           <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
@@ -280,17 +280,20 @@
 
 <!-- Enrollment Period Modal -->
 <div class="modal fade" id="addEnrollPeriodModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content border-0 shadow-lg">
       <form method="POST" action="{{ url_for('admin.add_enrollment_period') }}" id="addEnrollPeriodForm">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Create Enrollment Period</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-header text-white border-0 px-4 pt-4 pb-3" style="background:linear-gradient(135deg,#1C0770 0%,#150558 100%);border-radius:.5rem .5rem 0 0">
+          <div>
+            <div class="fw-bold fs-6"><i class="bi bi-calendar-plus me-2"></i>Create Enrollment Period</div>
+            <div class="opacity-75" style="font-size:.78rem">Define when students can enroll in subjects</div>
+          </div>
+          <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Semester *</label>
-            <select class="form-select" id="enroll_semester" name="semester" required>
+        <div class="modal-body px-4 py-3">
+          <div class="mb-2">
+            <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Semester *</label>
+            <select class="form-select form-select-sm" id="enroll_semester" name="semester" required>
               <option value="">Select Semester</option>
               <option value="1">Semester 1</option>
               <option value="2">Semester 2</option>
@@ -298,27 +301,45 @@
               <option value="4">Semester 4</option>
             </select>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Start Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="enroll_start_date" name="start_date" required>
-            <small class="text-muted">When students can start enrolling</small>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="enroll_start_display"
+                       placeholder="Pick date &amp; time" readonly
+                       onclick="openEpuCalendar('enroll_start_date','enroll_start_display')">
+                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
+                        onclick="openEpuCalendar('enroll_start_date','enroll_start_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
+              <input type="hidden" id="enroll_start_date" name="start_date">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="enroll_end_display"
+                       placeholder="Pick date &amp; time" readonly
+                       onclick="openEpuCalendar('enroll_end_date','enroll_end_display')">
+                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
+                        onclick="openEpuCalendar('enroll_end_date','enroll_end_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
+              <input type="hidden" id="enroll_end_date" name="end_date">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">End Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="enroll_end_date" name="end_date" required>
-            <small class="text-muted">When enrollment window closes</small>
+          <div class="mb-2">
+            <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Description <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea class="form-control form-control-sm" name="description" rows="2" placeholder="e.g. Spring 2025 enrollment window"></textarea>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Description (Optional)</label>
-            <textarea class="form-control" name="description" rows="2" placeholder="e.g., Regular enrollment period for Spring 2024"></textarea>
-          </div>
-          <div class="alert alert-info mb-0">
-            <i class="bi bi-info-circle me-2"></i>Students can only enroll/unenroll during this window.
+          <div class="rounded p-2 d-flex align-items-center gap-2" style="background:#f0f8ff;font-size:.78rem;color:#0056b3">
+            <i class="bi bi-info-circle-fill"></i>Students can only enroll/unenroll during this window.
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="createEnrollPeriodBtn">
+        <div class="modal-footer border-0 px-4 pb-4 pt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary px-4" id="createEnrollPeriodBtn">
             <i class="bi bi-check-lg me-1"></i>Create Period
           </button>
         </div>
@@ -329,54 +350,78 @@
 
 <!-- Exam Period Modal -->
 <div class="modal fade" id="addExamPeriodModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content border-0 shadow-lg">
       <form method="POST" action="{{ url_for('admin.add_exam_period') }}" id="addExamPeriodForm">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Create Exam Period</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-header text-white border-0 px-4 pt-4 pb-3" style="background:linear-gradient(135deg,#4a0e8f 0%,#1C0770 100%);border-radius:.5rem .5rem 0 0">
+          <div>
+            <div class="fw-bold fs-6"><i class="bi bi-pencil-square me-2"></i>Create Exam Period</div>
+            <div class="opacity-75" style="font-size:.78rem">Set the signup window for exams</div>
+          </div>
+          <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Semester *</label>
-            <select class="form-select" id="exam_semester" name="semester" required>
-              <option value="">Select Semester</option>
-              <option value="1">Semester 1</option>
-              <option value="2">Semester 2</option>
-              <option value="3">Semester 3</option>
-              <option value="4">Semester 4</option>
-            </select>
+        <div class="modal-body px-4 py-3">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Semester *</label>
+              <select class="form-select form-select-sm" id="exam_semester" name="semester" required>
+                <option value="">Select</option>
+                <option value="1">Semester 1</option>
+                <option value="2">Semester 2</option>
+                <option value="3">Semester 3</option>
+                <option value="4">Semester 4</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Period Type *</label>
+              <select class="form-select form-select-sm" id="exam_period_type" name="period_type" required>
+                <option value="">Select</option>
+                <option value="final">Final Exam</option>
+                <option value="second_round">2nd Round</option>
+              </select>
+              <div class="text-muted mt-1" id="typeHint" style="font-size:.75rem"></div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Period Type *</label>
-            <select class="form-select" id="exam_period_type" name="period_type" required>
-              <option value="">Select Type</option>
-              <option value="final">Final Exam Signup</option>
-              <option value="second_round">Second Round Signup</option>
-            </select>
-            <small class="text-muted" id="typeHint"></small>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="exam_start_display"
+                       placeholder="Pick date &amp; time" readonly
+                       onclick="openEpuCalendar('exam_start_date','exam_start_display')">
+                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
+                        onclick="openEpuCalendar('exam_start_date','exam_start_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
+              <input type="hidden" id="exam_start_date" name="start_date">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="exam_end_display"
+                       placeholder="Pick date &amp; time" readonly
+                       onclick="openEpuCalendar('exam_end_date','exam_end_display')">
+                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
+                        onclick="openEpuCalendar('exam_end_date','exam_end_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
+              <input type="hidden" id="exam_end_date" name="end_date">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Start Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="exam_start_date" name="start_date" required>
+          <div class="mb-2">
+            <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Description <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea class="form-control form-control-sm" name="description" rows="2" placeholder="e.g. Final exam signup Spring 2025"></textarea>
           </div>
-          <div class="mb-3">
-            <label class="form-label">End Date & Time *</label>
-            <input type="datetime-local" class="form-control" id="exam_end_date" name="end_date" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Description (Optional)</label>
-            <textarea class="form-control" name="description" rows="2" placeholder="e.g., Final exam signup for Spring 2024"></textarea>
-          </div>
-          <div class="alert alert-info mb-0">
-            <i class="bi bi-info-circle me-2"></i>
-            <strong>Final:</strong> Students with midterm &ge; 20/60 can sign up.<br>
-            <strong>2nd Round:</strong> Students who failed (&lt; 60%) can sign up.
+          <div class="rounded p-2 d-flex gap-2" style="background:#f5f0ff;font-size:.75rem;color:#4a0e8f">
+            <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+            <span><strong>Final:</strong> midterm &ge; 20/60 eligible &nbsp;&middot;&nbsp; <strong>2nd Round:</strong> failed (&lt;60%) only</span>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="createExamPeriodBtn">
+        <div class="modal-footer border-0 px-4 pb-4 pt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary px-4" id="createExamPeriodBtn">
             <i class="bi bi-check-lg me-1"></i>Create Period
           </button>
         </div>
@@ -388,19 +433,17 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const toast = new bootstrap.Toast(document.getElementById('toast'));
-  const now = new Date().toISOString().slice(0, 16);
 
   // ---- Enrollment Period ----
   const enrollModal = new bootstrap.Modal(document.getElementById('addEnrollPeriodModal'));
-  document.getElementById('enroll_start_date').min = now;
-  document.getElementById('enroll_end_date').min = now;
-  document.getElementById('enroll_start_date').addEventListener('change', function() {
-    document.getElementById('enroll_end_date').min = this.value;
-  });
 
   document.getElementById('addEnrollPeriodForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    if (new Date(document.getElementById('enroll_end_date').value) <= new Date(document.getElementById('enroll_start_date').value)) {
+    const startVal = document.getElementById('enroll_start_date').value;
+    const endVal   = document.getElementById('enroll_end_date').value;
+    if (!startVal) { alert('Please select a start date & time.'); return; }
+    if (!endVal)   { alert('Please select an end date & time.');   return; }
+    if (new Date(endVal) <= new Date(startVal)) {
       alert('End date must be after start date!'); return;
     }
     const btn = document.getElementById('createEnrollPeriodBtn');
@@ -411,6 +454,8 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           enrollModal.hide(); this.reset();
+          document.getElementById('enroll_start_display').value = '';
+          document.getElementById('enroll_end_display').value = '';
           document.getElementById('toastMessage').textContent = data.message;
           toast.show();
           setTimeout(() => location.reload(), 800);
@@ -422,11 +467,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ---- Exam Period ----
   const examModal = new bootstrap.Modal(document.getElementById('addExamPeriodModal'));
-  document.getElementById('exam_start_date').min = now;
-  document.getElementById('exam_end_date').min = now;
-  document.getElementById('exam_start_date').addEventListener('change', function() {
-    document.getElementById('exam_end_date').min = this.value;
-  });
 
   document.getElementById('exam_period_type').addEventListener('change', function() {
     const hint = document.getElementById('typeHint');
@@ -437,7 +477,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('addExamPeriodForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    if (new Date(document.getElementById('exam_end_date').value) <= new Date(document.getElementById('exam_start_date').value)) {
+    const startVal = document.getElementById('exam_start_date').value;
+    const endVal   = document.getElementById('exam_end_date').value;
+    if (!startVal) { alert('Please select a start date & time.'); return; }
+    if (!endVal)   { alert('Please select an end date & time.');   return; }
+    if (new Date(endVal) <= new Date(startVal)) {
       alert('End date must be after start date!'); return;
     }
     const btn = document.getElementById('createExamPeriodBtn');
@@ -448,6 +492,8 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           examModal.hide(); this.reset();
+          document.getElementById('exam_start_display').value = '';
+          document.getElementById('exam_end_display').value = '';
           document.getElementById('toastMessage').textContent = data.message;
           toast.show();
           setTimeout(() => location.reload(), 800);

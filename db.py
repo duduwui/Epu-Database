@@ -12,6 +12,7 @@ if os.path.isdir(_pg_bin) and _pg_bin not in os.environ.get("PATH", ""):
 import psycopg
 from psycopg_pool import ConnectionPool
 from config import config
+from datetime import datetime
 
 # =============================================
 # CONNECTION POOL (reuses connections instead of open/close per query)
@@ -56,6 +57,8 @@ try:
         decode_responses=True,
         socket_connect_timeout=1,
         socket_timeout=1,
+        retry_on_timeout=False,
+        retry_on_error=[],
     )
     _redis.ping()
     print("Redis cache: connected")
@@ -961,11 +964,11 @@ def get_active_enrollment_period(semester):
     query = """
         SELECT * FROM enrollment_periods
         WHERE semester = %s
-        AND CURRENT_TIMESTAMP BETWEEN start_date AND end_date
+        AND %s BETWEEN start_date AND end_date
         ORDER BY created_at DESC
         LIMIT 1
     """
-    return execute_query(query, (semester,), fetch_one=True)
+    return execute_query(query, (semester, datetime.now()), fetch_one=True)
 
 
 def get_all_enrollment_periods(semester=None):
@@ -1031,11 +1034,11 @@ def get_active_exam_period(semester, period_type):
     query = """
         SELECT * FROM exam_periods
         WHERE semester = %s AND period_type = %s
-        AND CURRENT_TIMESTAMP BETWEEN start_date AND end_date
+        AND %s BETWEEN start_date AND end_date
         ORDER BY created_at DESC
         LIMIT 1
     """
-    return execute_query(query, (semester, period_type), fetch_one=True)
+    return execute_query(query, (semester, period_type, datetime.now()), fetch_one=True)
 
 
 def delete_exam_period(period_id):
