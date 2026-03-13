@@ -1,0 +1,36 @@
+table Subjects
+	lineageTag: 2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e
+
+	column id
+		dataType: int64
+		isHidden
+		lineageTag: 3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f
+		sourceColumn: id
+		summarizeBy: none
+
+	column name
+		dataType: string
+		lineageTag: 4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a
+		sourceColumn: name
+
+	column class_id
+		dataType: int64
+		lineageTag: 5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b
+		sourceColumn: class_id
+		summarizeBy: none
+
+	column teacher_id
+		dataType: int64
+		lineageTag: 6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c
+		sourceColumn: teacher_id
+		summarizeBy: none
+
+	partition Subjects-2b3c4d5e = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL_MIS,
+				    public_subjects = Source{[Schema="public",Item="subjects"]}[Data]
+				in
+				    public_subjects
+

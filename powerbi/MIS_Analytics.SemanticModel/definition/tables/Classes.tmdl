@@ -1,0 +1,51 @@
+table Classes
+	lineageTag: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+
+	column id
+		dataType: int64
+		isHidden
+		lineageTag: 2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e
+		sourceColumn: id
+		summarizeBy: none
+
+	column name
+		dataType: string
+		lineageTag: 3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f
+		sourceColumn: name
+
+	column year
+		dataType: int64
+		lineageTag: 4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a
+		sourceColumn: year
+		summarizeBy: none
+
+	column semester
+		dataType: int64
+		lineageTag: 5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b
+		sourceColumn: semester
+		summarizeBy: none
+
+	column section
+		dataType: string
+		lineageTag: 6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c
+		sourceColumn: section
+
+	column shift
+		dataType: string
+		lineageTag: 7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d
+		sourceColumn: shift
+
+	column is_active
+		dataType: boolean
+		lineageTag: 8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e
+		sourceColumn: is_active
+
+	partition Classes-1a2b3c4d = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL_MIS,
+				    public_classes = Source{[Schema="public",Item="classes"]}[Data]
+				in
+				    public_classes
+

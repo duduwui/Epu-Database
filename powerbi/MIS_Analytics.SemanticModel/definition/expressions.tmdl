@@ -1,0 +1,6 @@
+expression ServerName = "localhost:5432" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+expression DatabaseName = "mis_system" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+expression PostgreSQL_MIS = PostgreSql.Database(ServerName, DatabaseName) meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+

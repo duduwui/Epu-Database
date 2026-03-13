@@ -1,0 +1,24 @@
+relationship 'Grades -> Students'
+	fromColumn: Grades.student_id
+	toColumn: Students.id
+
+relationship 'Grades -> Subjects'
+	fromColumn: Grades.subject_id
+	toColumn: Subjects.id
+
+relationship 'Attendance -> Students'
+	fromColumn: Attendance.student_id
+	toColumn: Students.id
+
+relationship 'Attendance -> Subjects'
+	fromColumn: Attendance.subject_id
+	toColumn: Subjects.id
+
+relationship 'Students -> Classes'
+	fromColumn: Students.class_id
+	toColumn: Classes.id
+
+relationship 'Subjects -> Classes'
+	fromColumn: Subjects.class_id
+	toColumn: Classes.id
+
