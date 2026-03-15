@@ -91,9 +91,9 @@ content %}
               <div class="d-flex justify-content-between align-items-center">
                 <strong>TOTAL</strong>
                 <span
-                  class="badge {{ 'bg-success' if ns.total_weight == 100 else 'bg-warning text-dark' }} fs-6"
+                  class="badge {{ 'bg-success' if effective_total_weight == 100 else 'bg-warning text-dark' }} fs-6"
                 >
-                  {{ ns.total_weight|round(1) }}%
+                  {{ effective_total_weight|round(1) }}%
                 </span>
               </div>
             </div>
@@ -246,7 +246,7 @@ content %}
                         data-student-id=""
                       >
                         <i class="bi bi-calculator me-1"></i>
-                        Avg: <span class="current-total">-</span>/<span class="max-total">-</span>
+                        <span class="current-total">-</span>/<span class="max-total">-</span>
                       </span>
                     </div>
                   </td>
@@ -584,7 +584,7 @@ content %}
           showToastMessage(data.message || 'Grades saved successfully!', 'success');
 
           // Update the student's progress bar WITHOUT closing modal
-          const totalComponents = {{ components|length }};
+          const totalComponents = {{ effective_component_count }};
           updateStudentProgress(studentId, totalComponents);
 
           // Optional: Flash the save button to show success
@@ -610,7 +610,7 @@ content %}
 
   // Check graded status for all students on page load
   document.addEventListener('DOMContentLoaded', function() {
-    const totalComponents = {{ components|length }};
+    const totalComponents = {{ effective_component_count }};
     const studentItems = document.querySelectorAll('.list-group-item[data-student-id]');
 
     console.log('Checking graded status for', studentItems.length, 'students');
@@ -626,24 +626,44 @@ content %}
     fetch(`/teacher/grades/student/${studentId}/subject/{{ subject.id }}`)
       .then(response => response.json())
       .then(data => {
-        const gradedCount = data.success && data.grades ? data.grades.length : 0;
+        const grades = data.success && data.grades ? data.grades : [];
+
+        // --- Pair-aware calculation mirroring Python _calc_grade_totals ---
+        const pairedGroups = {};
+        const singles = [];
+        grades.forEach(g => {
+          const pg = g.pair_group;
+          if (pg !== null && pg !== undefined) {
+            if (!pairedGroups[pg]) pairedGroups[pg] = [];
+            pairedGroups[pg].push(g);
+          } else {
+            singles.push(g);
+          }
+        });
+
+        let totalScore = 0, totalMax = 0;
+        singles.forEach(g => {
+          totalScore += parseFloat(g.score) || 0;
+          totalMax  += parseFloat(g.max_score) || 0;
+        });
+        Object.values(pairedGroups).forEach(group => {
+          const cnt = group.length;
+          totalScore += group.reduce((s, g) => s + (parseFloat(g.score) || 0), 0) / cnt;
+          totalMax   += group.reduce((s, g) => s + (parseFloat(g.max_score) || 0), 0) / cnt;
+        });
+
+        // weightedScore is the percentage 0-100
+        const weightedScore = totalMax > 0 ? Math.round((totalScore / totalMax) * 10000) / 100 : 0;
+
+        // Effective graded count: each pair-group counts as 1 unit
+        const gradedPairGroupKeys = new Set(
+          grades.filter(g => g.pair_group !== null && g.pair_group !== undefined)
+                .map(g => g.pair_group)
+        );
+        const gradedSinglesCount = grades.filter(g => g.pair_group === null || g.pair_group === undefined).length;
+        const gradedCount = gradedPairGroupKeys.size + gradedSinglesCount;
+
         const percentage = totalComponents > 0 ? Math.round((gradedCount / totalComponents) * 100) : 0;
-
-        // Calculate weighted score (based on percentages, total = 100)
-        let weightedScore = 0;
-        if (data.success && data.grades) {
-          data.grades.forEach(grade => {
-            const score = parseFloat(grade.score) || 0;
-            const maxScore = parseFloat(grade.max_score) || 1;
-            const weight = parseFloat(grade.weight_percentage) || 0;
-            // Calculate contribution: (score/max_score) * weight_percentage
-            const contribution = (score / maxScore) * weight;
-            weightedScore += contribution;
-          });
-        }
-
-        // Round to 2 decimal places
-        weightedScore = Math.round(weightedScore * 100) / 100;
 
         console.log(`Student ${studentId}: ${gradedCount}/${totalComponents} components (${percentage}%) - Score: ${weightedScore}/100`);
 
@@ -729,19 +749,13 @@ content %}
       }
     });
 
-    // Update badges with averages
+    // Update badges with totals
     Object.keys(categories).forEach(category => {
       const badge = document.querySelector(`.category-total[data-category="${category}"]`);
       if (badge) {
         const data = categories[category];
-
-        // Calculate averages
-        const avgCurrent = data.gradedCount > 0 ? (data.currentSum / data.gradedCount) : 0;
-        const avgMax = data.count > 0 ? (data.maxSum / data.count) : 0;
-
-        badge.querySelector('.current-total').textContent = avgCurrent.toFixed(1);
-        badge.querySelector('.max-total').textContent = avgMax.toFixed(1);
-        console.log(`Category ${category}: Avg ${avgCurrent.toFixed(1)}/${avgMax.toFixed(1)} (${data.gradedCount}/${data.count} graded)`);
+        badge.querySelector('.current-total').textContent = data.currentSum.toFixed(1);
+        badge.querySelector('.max-total').textContent = data.maxSum.toFixed(1);
       }
     });
   }

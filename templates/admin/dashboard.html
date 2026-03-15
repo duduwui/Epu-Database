@@ -1,17 +1,17 @@
-﻿{% extends 'base.html' %} {% block title %}Admin Dashboard - MIS System{% endblock %} {% block
+﻿{% extends 'base.html' %} {% block title %}{{ t('Admin Dashboard') }} - MIS System{% endblock %} {% block
 content %}
 <div class="container-fluid">
   <!-- Welcome Header -->
   <div class="welcome-banner mb-4">
     <div class="row align-items-center">
       <div class="col">
-        <h2 class="mb-1"><i class="bi bi-grid-1x2 me-2"></i>Admin Dashboard</h2>
-        <p class="mb-0 opacity-75">MIS Institute Management System Overview</p>
+        <h2 class="mb-1"><i class="bi bi-grid-1x2 me-2"></i>{{ t('Admin Dashboard') }}</h2>
+        <p class="mb-0 opacity-75">{{ t('MIS Institute Management System Overview') }}</p>
       </div>
       <div class="col-auto">
         {% set current_year = now().year %}
         <span class="badge bg-light text-dark fs-6">
-          <i class="bi bi-calendar3 me-1"></i>Academic Year {{ current_year }}-{{ current_year + 1
+          <i class="bi bi-calendar3 me-1"></i>{{ t('Academic Year') }} {{ current_year }}-{{ current_year + 1
           }}
         </span>
       </div>
@@ -25,7 +25,7 @@ content %}
         <div class="stat-icon"><i class="bi bi-mortarboard-fill"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.total_students }}</div>
-          <div class="stat-label">Total Students</div>
+          <div class="stat-label">{{ t('Total Students') }}</div>
         </div>
       </div>
     </div>
@@ -61,7 +61,7 @@ content %}
   <!-- Semester Overview -->
   <div class="card mb-4">
     <div class="card-header bg-navy text-white">
-      <h5 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Semester Overview</h5>
+      <h5 class="mb-0"><i class="bi bi-calendar3 me-2"></i>{{ t('Semester Overview') }}</h5>
     </div>
     <div class="card-body">
       <div class="row">
@@ -74,11 +74,11 @@ content %}
                 <div class="semester-header">Semester 1</div>
                 <div class="semester-body">
                   <div class="d-flex justify-content-between mb-2">
-                    <span><i class="bi bi-sun me-1"></i>Morning</span>
+                    <span><i class="bi bi-sun me-1"></i>{{ t('Morning') }}</span>
                     <strong>{{ stats.semesters[1].morning }}</strong>
                   </div>
                   <div class="d-flex justify-content-between">
-                    <span><i class="bi bi-moon-stars me-1"></i>Night</span>
+                    <span><i class="bi bi-moon-stars me-1"></i>{{ t('Night') }}</span>
                     <strong>{{ stats.semesters[1].night }}</strong>
                   </div>
                   <hr />
@@ -94,11 +94,11 @@ content %}
                 <div class="semester-header">Semester 2</div>
                 <div class="semester-body">
                   <div class="d-flex justify-content-between mb-2">
-                    <span><i class="bi bi-sun me-1"></i>Morning</span>
+                    <span><i class="bi bi-sun me-1"></i>{{ t('Morning') }}</span>
                     <strong>{{ stats.semesters[2].morning }}</strong>
                   </div>
                   <div class="d-flex justify-content-between">
-                    <span><i class="bi bi-moon-stars me-1"></i>Night</span>
+                    <span><i class="bi bi-moon-stars me-1"></i>{{ t('Night') }}</span>
                     <strong>{{ stats.semesters[2].night }}</strong>
                   </div>
                   <hr />
@@ -120,11 +120,11 @@ content %}
                 <div class="semester-header">Semester 3</div>
                 <div class="semester-body">
                   <div class="d-flex justify-content-between mb-2">
-                    <span><i class="bi bi-sun me-1"></i>Morning</span>
+                    <span><i class="bi bi-sun me-1"></i>{{ t('Morning') }}</span>
                     <strong>{{ stats.semesters[3].morning }}</strong>
                   </div>
                   <div class="d-flex justify-content-between">
-                    <span><i class="bi bi-moon-stars me-1"></i>Night</span>
+                    <span><i class="bi bi-moon-stars me-1"></i>{{ t('Night') }}</span>
                     <strong>{{ stats.semesters[3].night }}</strong>
                   </div>
                   <hr />
@@ -140,11 +140,11 @@ content %}
                 <div class="semester-header">Semester 4</div>
                 <div class="semester-body">
                   <div class="d-flex justify-content-between mb-2">
-                    <span><i class="bi bi-sun me-1"></i>Morning</span>
+                    <span><i class="bi bi-sun me-1"></i>{{ t('Morning') }}</span>
                     <strong>{{ stats.semesters[4].morning }}</strong>
                   </div>
                   <div class="d-flex justify-content-between">
-                    <span><i class="bi bi-moon-stars me-1"></i>Night</span>
+                    <span><i class="bi bi-moon-stars me-1"></i>{{ t('Night') }}</span>
                     <strong>{{ stats.semesters[4].night }}</strong>
                   </div>
                   <hr />
@@ -253,9 +253,9 @@ content %}
           <span class="filter-label">Shift</span>
           <div class="chip-row" id="shiftToggle">
             <button class="chip active" data-value="morning">
-              <i class="bi bi-sun"></i> Morning
+              <i class="bi bi-sun"></i> {{ t('Morning') }}
             </button>
-            <button class="chip" data-value="night"><i class="bi bi-moon"></i> Evening</button>
+            <button class="chip" data-value="night"><i class="bi bi-moon"></i> {{ t('Evening') }}</button>
           </div>
         </div>
         <div class="filter-chip-group">
@@ -270,7 +270,7 @@ content %}
       <div class="current-view">
         <i class="bi bi-eye"></i>
         <span
-          ><strong id="displaySem">Sem 1</strong> &middot; <strong id="displayShift">Morning</strong> &middot;
+          ><strong id="displaySem">{{ t('Semester') }} 1</strong> &middot; <strong id="displayShift">{{ t('Morning') }}</strong> &middot;
           Class <strong id="displaySection">A</strong></span
         >
       </div>
@@ -1343,9 +1343,9 @@ content %}
 
     // Update current view display
     function updateDisplayBar() {
-      document.getElementById('displaySem').textContent = 'Sem ' + currentSemester;
+      document.getElementById('displaySem').textContent = '{{ t('"'"'Semester'"'"') }} ' + currentSemester;
       document.getElementById('displayShift').textContent =
-        currentShift === 'morning' ? 'Morning' : 'Evening';
+        currentShift === 'morning' ? '{{ t('"'"'Morning'"'"') }}' : '{{ t('"'"'Evening'"'"') }}';
       document.getElementById('displaySection').textContent = currentSection;
     }
 
@@ -1401,7 +1401,7 @@ content %}
     function populateDropdowns() {
       const subjectSelect = document.getElementById('editSubject');
 
-      subjectSelect.innerHTML = '<option value="">Choose a subject...</option>';
+      subjectSelect.innerHTML = '<option value="">{{ t('"'"'Choose a subject...'"'"') }}</option>';
       subjects.forEach((s) => {
         subjectSelect.innerHTML += `<option value="${s.name}">${s.name}</option>`;
       });
@@ -1929,7 +1929,7 @@ content %}
 
     // Save schedule to server
     async function saveSchedule() {
-      updateSaveStatus('saving', 'Saving...');
+      updateSaveStatus('saving', '{{ t('"'"'Saving...'"'"') }}');
 
       try {
         await fetch(`/admin/api/schedule/${currentSemester}/${currentShift}/${currentSection}`, {
@@ -1937,9 +1937,9 @@ content %}
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_data: scheduleData }),
         });
-        updateSaveStatus('', 'Saved');
+        updateSaveStatus('', '{{ t('"'"'Saved'"'"') }}');
       } catch (e) {
-        updateSaveStatus('error', 'Error');
+        updateSaveStatus('error', '{{ t('"'"'Error'"'"') }}');
       }
     }
 
@@ -1957,7 +1957,7 @@ content %}
         if (result.success) {
           scheduleData = result.data || [];
           renderGrid();
-          updateSaveStatus('', 'Generated');
+          updateSaveStatus('', '{{ t('"'"'Generated'"'"') }}');
         } else {
           alert('Could not generate schedule: ' + (result.error || 'Unknown error'));
         }
@@ -1971,7 +1971,7 @@ content %}
 
     // Clear schedule
     document.getElementById('clearScheduleBtn').addEventListener('click', async function () {
-      if (confirm('Clear all entries from this timetable?')) {
+      if (confirm('{{ t('"'"'Clear all entries from this timetable?'"'"') }}')) {
         scheduleData = [];
         renderGrid();
         await saveSchedule();

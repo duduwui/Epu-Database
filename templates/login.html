@@ -1,9 +1,9 @@
 ﻿<!doctype html>
-<html lang="en">
+<html lang="{{ current_lang }}" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - EPU MIS</title>
+    <title>{{ t('Login') }} - EPU MIS</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
@@ -401,6 +401,13 @@
   <body>
 
     <div class="page-wrapper">
+      <div style="width:100%;max-width:340px;display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
+          <a class="btn btn-light {% if current_lang == 'en' %}active{% endif %}" href="{{ url_for('auth.set_language', lang='en', next=request.full_path) }}">EN</a>
+          <a class="btn btn-light {% if current_lang == 'ku' %}active{% endif %}" href="{{ url_for('auth.set_language', lang='ku', next=request.full_path) }}">KU</a>
+          <a class="btn btn-light {% if current_lang == 'ar' %}active{% endif %}" href="{{ url_for('auth.set_language', lang='ar', next=request.full_path) }}">AR</a>
+        </div>
+      </div>
 
       <!-- Flash Messages (outside form, centered) -->
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -427,8 +434,8 @@
           <img src="{{ url_for('static', filename='images/epu-logo.png') }}?v=5"
                alt="EPU"
                onerror="this.style.display='none'">
-          <div class="site-title">Erbil Polytechnic University</div>
-          <div class="site-sub">Management Information System</div>
+          <div class="site-title">{{ t('Erbil Polytechnic University') }}</div>
+          <div class="site-sub">{{ t('Management Information System') }}</div>
         </div>
         <div class="input-container">
           <div class="input-content">
@@ -437,7 +444,7 @@
 
                 <!-- Email -->
                 <div class="input-group">
-                  <span class="input-label">Email</span>
+                  <span class="input-label">{{ t('Email') }}</span>
                   <div class="input-row">
                     <i class="bi bi-envelope field-icon"></i>
                     <input class="input-is" type="email" name="email"
@@ -447,11 +454,11 @@
 
                 <!-- Password -->
                 <div class="input-group">
-                  <span class="input-label">Password</span>
+                  <span class="input-label">{{ t('Password') }}</span>
                   <div class="input-row">
                     <i class="bi bi-lock field-icon"></i>
                     <input class="input-is" type="password" name="password"
-                           id="passwordInput" placeholder="Enter password"
+                           id="passwordInput" placeholder="{{ t('Enter password') }}"
                            required style="padding-right:1.5em" />
                     <button type="button" class="eye-toggle" onclick="togglePassword()">
                       <i class="bi bi-eye" id="eyeIcon"></i>
@@ -466,15 +473,77 @@
 
         <button type="submit" class="submit-button">
           <i class="bi bi-box-arrow-in-right" style="font-style:normal"></i>
-          Sign In
+          {{ t('Sign In') }}
         </button>
 
-        <div class="footer-text">EPU &mdash; MIS Department &copy; 2025</div>
+        <div class="footer-text">EPU &mdash; {{ t('MIS Department') }} &copy; 2025</div>
       </form>
 
     </div>
 
     <script>
+      window.MIS_I18N = {
+        lang: {{ current_lang|tojson }},
+        dict: {{ client_translations|tojson }}
+      };
+
+      function _misTranslateText(raw, dict) {
+        if (!raw) return raw;
+        const leftTrim = raw.match(/^\s*/)[0];
+        const rightTrim = raw.match(/\s*$/)[0];
+        const core = raw.trim();
+        if (!core) return raw;
+        const exact = dict[core];
+        if (exact) return `${leftTrim}${exact}${rightTrim}`;
+
+        const parts = core.split(/(\s+)/);
+        let changed = false;
+        const translatedParts = parts.map((part) => {
+          if (!part || /^\s+$/.test(part)) return part;
+          const stripped = part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+          if (!stripped) return part;
+          const token = dict[stripped];
+          if (!token) return part;
+          changed = true;
+          return part.replace(stripped, token);
+        });
+
+        if (changed) {
+          return `${leftTrim}${translatedParts.join('')}${rightTrim}`;
+        }
+        return raw;
+      }
+
+      function applyMisTranslations(root = document.body) {
+        if (!window.MIS_I18N || window.MIS_I18N.lang === 'en') return;
+        const dict = window.MIS_I18N.dict || {};
+        const tree = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            if (!node.parentElement) return NodeFilter.FILTER_REJECT;
+            const tag = node.parentElement.tagName;
+            if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA'].includes(tag)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return node.nodeValue && node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          }
+        });
+        const textNodes = [];
+        while (tree.nextNode()) textNodes.push(tree.currentNode);
+        textNodes.forEach((node) => {
+          node.nodeValue = _misTranslateText(node.nodeValue, dict);
+        });
+
+        ['placeholder', 'title', 'aria-label'].forEach((attr) => {
+          document.querySelectorAll(`[${attr}]`).forEach((el) => {
+            el.setAttribute(attr, _misTranslateText(el.getAttribute(attr), dict));
+          });
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        applyMisTranslations(document.body);
+      });
+
       function togglePassword() {
         const input = document.getElementById('passwordInput');
         const icon  = document.getElementById('eyeIcon');

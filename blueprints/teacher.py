@@ -322,10 +322,25 @@ def add_grades(subject_id, class_id):
             traceback.print_exc()
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    pair_groups_seen = set()
+    effective_component_count = 0
+    effective_total_weight = 0.0
+    for c in components:
+        pg = c.get('pair_group')
+        if pg is None:
+            effective_component_count += 1
+            effective_total_weight += float(c.get('weight_percentage') or 0)
+        elif pg not in pair_groups_seen:
+            effective_component_count += 1
+            effective_total_weight += float(c.get('weight_percentage') or 0)
+            pair_groups_seen.add(pg)
+
     return render_template('teacher/add_grades.html',
                            subject=subject,
                            students=students,
                            components=components,
+                           effective_component_count=effective_component_count,
+                           effective_total_weight=effective_total_weight,
                            today=date.today().isoformat())
 
 
@@ -358,7 +373,8 @@ def get_student_grades(student_id, subject_id):
     """Get existing grades for a specific student and subject (for pre-filling the modal)."""
     try:
         query = """
-            SELECT g.*, gc.component_name, gc.component_type, gc.max_score as component_max_score, gc.weight_percentage
+            SELECT g.*, gc.component_name, gc.component_type, gc.max_score as component_max_score,
+                   gc.weight_percentage, gc.pair_group
             FROM grades g
             LEFT JOIN grade_components gc ON g.component_id = gc.id
             WHERE g.student_id = %s AND g.subject_id = %s
@@ -377,6 +393,7 @@ def get_student_grades(student_id, subject_id):
                         'max_score': grade['max_score'],
                         'weight_percentage': grade.get('weight_percentage', 0),
                         'component_name': grade.get('component_name', ''),
+                        'pair_group': grade.get('pair_group'),
                         'date': grade['date'].isoformat() if hasattr(grade['date'], 'isoformat') else str(grade['date'])
                     }
 

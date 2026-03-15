@@ -2,12 +2,19 @@
 MIS Institute Management System — Application Entry Point
 All routes live in blueprints/; this file is the thin app factory.
 """
-from flask import Flask, request
+from flask import Flask, request, session
 from datetime import datetime
 import os
 import gzip as _gzip
 import db
 from config import config
+from i18n import (
+    SUPPORTED_LANGUAGES,
+    normalize_lang,
+    is_rtl,
+    translate,
+    get_client_dictionary,
+)
 
 # ── File-upload constants (shared with teacher blueprint via app.config) ──────
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -27,10 +34,40 @@ def create_app():
     app.config['ALLOWED_EXTENSIONS'] = ALLOWED_EXTENSIONS
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+    def _translate_json_payload(node, lang):
+        """Translate common UI-facing JSON fields without touching data values."""
+        if isinstance(node, dict):
+            out = {}
+            for k, v in node.items():
+                if isinstance(v, str) and k in {
+                    'message', 'error', 'title', 'label', 'hint', 'status_text',
+                    'toast', 'description', 'detail'
+                }:
+                    out[k] = translate(v, lang)
+                else:
+                    out[k] = _translate_json_payload(v, lang)
+            return out
+        if isinstance(node, list):
+            return [_translate_json_payload(item, lang) for item in node]
+        return node
+
     # ── Gzip compression ──────────────────────────────────────────────────────
     @app.after_request
     def compress_response(response):
         """Gzip responses >1KB for text/HTML/JSON content types."""
+        lang = normalize_lang(session.get('lang', 'en'))
+
+        # Translate common JSON message fields for API responses.
+        if lang != 'en' and response.is_json:
+            try:
+                payload = response.get_json(silent=True)
+                if payload is not None:
+                    translated = _translate_json_payload(payload, lang)
+                    response.set_data(app.json.dumps(translated))
+                    response.mimetype = 'application/json'
+            except Exception:
+                pass
+
         if (response.status_code < 200 or response.status_code >= 300
                 or response.direct_passthrough
                 or 'gzip' not in request.accept_encodings):
@@ -52,7 +89,8 @@ def create_app():
     @app.context_processor
     def inject_user():
         """Make user info available to all templates."""
-        from flask import session
+        lang = normalize_lang(session.get('lang', 'en'))
+        session['lang'] = lang
         context = {'now': datetime.now}
         if 'user_id' in session:
             context['current_user'] = {
@@ -69,6 +107,12 @@ def create_app():
         else:
             context['current_user'] = None
             context['current_major'] = None
+
+        context['current_lang'] = lang
+        context['is_rtl'] = is_rtl(lang)
+        context['available_languages'] = SUPPORTED_LANGUAGES
+        context['client_translations'] = get_client_dictionary(lang)
+        context['t'] = lambda text: translate(text, lang)
         return context
 
     # ── Template filter ───────────────────────────────────────────────────────

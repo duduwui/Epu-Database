@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import check_password_hash
 from functools import wraps
 import db
+from i18n import normalize_lang
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -138,9 +139,23 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     """Logout user."""
+    lang = normalize_lang(session.get('lang', 'en'))
     session.clear()
+    session['lang'] = lang
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/set-language/<lang>')
+def set_language(lang):
+    """Switch UI language for current session."""
+    session['lang'] = normalize_lang(lang)
+    next_url = request.args.get('next') or request.referrer
+    if not next_url:
+        if 'user_id' in session:
+            return redirect(url_for('auth.dashboard'))
+        return redirect(url_for('auth.login'))
+    return redirect(next_url)
 
 
 @auth_bp.route('/dashboard')

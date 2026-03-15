@@ -1563,7 +1563,8 @@ def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, m
     if existing:
         update_query = """
             UPDATE grades 
-            SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s, published = %s
+            SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s,
+                published = CASE WHEN published = TRUE THEN TRUE ELSE %s END
             WHERE id = %s
             RETURNING id
         """
