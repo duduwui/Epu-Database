@@ -693,7 +693,7 @@ def create_student(user_id, class_id=None, student_number=None, phone=None):
 def get_student_by_user_id(user_id):
     """Get student by user ID"""
     query = """
-        SELECT s.*, u.full_name, u.username, u.email, c.name as class_name
+        SELECT s.*, u.full_name, u.username, u.email, u.major_id, c.name as class_name
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN classes c ON s.class_id = c.id
@@ -959,37 +959,46 @@ def create_enrollment_period(semester, start_date, end_date, description, create
     return execute_insert_returning(query, (semester, start_date, end_date, description, created_by))
 
 
-def get_active_enrollment_period(semester):
+def get_active_enrollment_period(semester, major_id=None):
     """Get active enrollment period for a semester (if any)"""
     query = """
-        SELECT * FROM enrollment_periods
-        WHERE semester = %s
-        AND %s BETWEEN start_date AND end_date
-        ORDER BY created_at DESC
-        LIMIT 1
+        SELECT ep.* FROM enrollment_periods ep
+        LEFT JOIN users u ON ep.created_by = u.id
+        WHERE ep.semester = %s
+        AND %s BETWEEN ep.start_date AND ep.end_date
     """
-    return execute_query(query, (semester, datetime.now()), fetch_one=True)
+    params = [semester, datetime.now()]
+    if major_id:
+        query += " AND u.major_id = %s"
+        params.append(major_id)
+        
+    query += " ORDER BY ep.created_at DESC LIMIT 1"
+    return execute_query(query, tuple(params), fetch_one=True)
 
 
-def get_all_enrollment_periods(semester=None):
-    """Get all enrollment periods, optionally filtered by semester"""
+def get_all_enrollment_periods(semester=None, major_id=None):
+    """Get all enrollment periods, optionally filtered by semester and major"""
     query = """
         SELECT ep.*, u.full_name as created_by_name
         FROM enrollment_periods ep
         LEFT JOIN users u ON ep.created_by = u.id
+        WHERE 1=1
     """
+    params = []
     if semester:
-        query += " WHERE ep.semester = %s"
-        query += " ORDER BY ep.created_at DESC"
-        return execute_query(query, (semester,), fetch_all=True)
-    else:
-        query += " ORDER BY ep.semester, ep.created_at DESC"
-        return execute_query(query, fetch_all=True)
+        query += " AND ep.semester = %s"
+        params.append(semester)
+    if major_id:
+        query += " AND u.major_id = %s"
+        params.append(major_id)
+        
+    query += " ORDER BY ep.semester, ep.created_at DESC"
+    return execute_query(query, tuple(params) if params else None, fetch_all=True)
 
 
-def is_enrollment_active(semester):
+def is_enrollment_active(semester, major_id=None):
     """Check if enrollment is currently active for a semester"""
-    period = get_active_enrollment_period(semester)
+    period = get_active_enrollment_period(semester, major_id)
     return period is not None
 
 
@@ -1013,32 +1022,41 @@ def create_exam_period(semester, period_type, start_date, end_date, description,
     return execute_insert_returning(query, (semester, period_type, start_date, end_date, description, created_by))
 
 
-def get_all_exam_periods(semester=None):
-    """Get all exam periods, optionally filtered by semester"""
+def get_all_exam_periods(semester=None, major_id=None):
+    """Get all exam periods, optionally filtered by semester and major"""
     query = """
         SELECT ep.*, u.full_name as created_by_name
         FROM exam_periods ep
         LEFT JOIN users u ON ep.created_by = u.id
+        WHERE 1=1
     """
+    params = []
     if semester:
-        query += " WHERE ep.semester = %s"
-        query += " ORDER BY ep.created_at DESC"
-        return execute_query(query, (semester,), fetch_all=True)
-    else:
-        query += " ORDER BY ep.semester, ep.period_type, ep.created_at DESC"
-        return execute_query(query, fetch_all=True)
+        query += " AND ep.semester = %s"
+        params.append(semester)
+    if major_id:
+        query += " AND u.major_id = %s"
+        params.append(major_id)
+        
+    query += " ORDER BY ep.semester, ep.period_type, ep.created_at DESC"
+    return execute_query(query, tuple(params) if params else None, fetch_all=True)
 
 
-def get_active_exam_period(semester, period_type):
+def get_active_exam_period(semester, period_type, major_id=None):
     """Get active exam period for a semester and type"""
     query = """
-        SELECT * FROM exam_periods
-        WHERE semester = %s AND period_type = %s
-        AND %s BETWEEN start_date AND end_date
-        ORDER BY created_at DESC
-        LIMIT 1
+        SELECT ep.* FROM exam_periods ep
+        LEFT JOIN users u ON ep.created_by = u.id
+        WHERE ep.semester = %s AND ep.period_type = %s
+        AND %s BETWEEN ep.start_date AND ep.end_date
     """
-    return execute_query(query, (semester, period_type, datetime.now()), fetch_one=True)
+    params = [semester, period_type, datetime.now()]
+    if major_id:
+        query += " AND u.major_id = %s"
+        params.append(major_id)
+        
+    query += " ORDER BY ep.created_at DESC LIMIT 1"
+    return execute_query(query, tuple(params), fetch_one=True)
 
 
 def delete_exam_period(period_id):

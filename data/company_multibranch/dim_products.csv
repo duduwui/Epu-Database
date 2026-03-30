@@ -1,0 +1,281 @@
+product_id,sku,product_name,category,base_cost,list_price
+1,SKU-00001,Networking Product 1,Networking,86.9,131.3
+2,SKU-00002,Security Product 2,Security,261.45,346.33
+3,SKU-00003,Services Product 3,Services,178.3,207.33
+4,SKU-00004,Networking Product 4,Networking,898.44,1161.5
+5,SKU-00005,Accessories Product 5,Accessories,439.5,680.7
+6,SKU-00006,Office Supplies Product 6,Office Supplies,615.36,702.07
+7,SKU-00007,Electronics Product 7,Electronics,1034.43,1209.02
+8,SKU-00008,Office Supplies Product 8,Office Supplies,952.16,1228.26
+9,SKU-00009,Furniture Product 9,Furniture,466.64,638.43
+10,SKU-00010,Services Product 10,Services,638.7,981.67
+11,SKU-00011,Electronics Product 11,Electronics,818.9,943.0
+12,SKU-00012,Networking Product 12,Networking,924.17,1158.06
+13,SKU-00013,Networking Product 13,Networking,526.24,686.31
+14,SKU-00014,Networking Product 14,Networking,1166.49,1683.11
+15,SKU-00015,Furniture Product 15,Furniture,1045.66,1290.66
+16,SKU-00016,Software Product 16,Software,190.18,274.45
+17,SKU-00017,Electronics Product 17,Electronics,721.94,952.87
+18,SKU-00018,Furniture Product 18,Furniture,1115.49,1668.13
+19,SKU-00019,Networking Product 19,Networking,293.43,354.58
+20,SKU-00020,Furniture Product 20,Furniture,110.1,145.19
+21,SKU-00021,Furniture Product 21,Furniture,1173.76,1572.51
+22,SKU-00022,Office Supplies Product 22,Office Supplies,161.04,211.59
+23,SKU-00023,Office Supplies Product 23,Office Supplies,323.95,483.53
+24,SKU-00024,Accessories Product 24,Accessories,1157.52,1757.13
+25,SKU-00025,Software Product 25,Software,857.84,1097.65
+26,SKU-00026,Security Product 26,Security,530.22,706.74
+27,SKU-00027,Furniture Product 27,Furniture,303.5,342.59
+28,SKU-00028,Electronics Product 28,Electronics,709.26,853.63
+29,SKU-00029,Software Product 29,Software,16.57,23.51
+30,SKU-00030,Electronics Product 30,Electronics,280.9,423.44
+31,SKU-00031,Security Product 31,Security,92.46,111.61
+32,SKU-00032,Services Product 32,Services,263.37,305.39
+33,SKU-00033,Services Product 33,Services,297.65,390.77
+34,SKU-00034,Accessories Product 34,Accessories,234.97,268.72
+35,SKU-00035,Accessories Product 35,Accessories,430.32,552.96
+36,SKU-00036,Electronics Product 36,Electronics,810.65,1250.73
+37,SKU-00037,Furniture Product 37,Furniture,80.25,114.57
+38,SKU-00038,Furniture Product 38,Furniture,304.4,360.89
+39,SKU-00039,Services Product 39,Services,175.1,207.07
+40,SKU-00040,Services Product 40,Services,305.77,463.39
+41,SKU-00041,Services Product 41,Services,971.16,1442.35
+42,SKU-00042,Furniture Product 42,Furniture,68.3,105.84
+43,SKU-00043,Electronics Product 43,Electronics,1163.04,1764.17
+44,SKU-00044,Software Product 44,Software,206.24,271.94
+45,SKU-00045,Software Product 45,Software,1038.66,1564.33
+46,SKU-00046,Office Supplies Product 46,Office Supplies,459.74,709.56
+47,SKU-00047,Networking Product 47,Networking,1112.41,1616.67
+48,SKU-00048,Networking Product 48,Networking,512.22,784.1
+49,SKU-00049,Services Product 49,Services,192.52,237.48
+50,SKU-00050,Electronics Product 50,Electronics,698.38,938.61
+51,SKU-00051,Security Product 51,Security,76.14,103.77
+52,SKU-00052,Office Supplies Product 52,Office Supplies,75.8,100.7
+53,SKU-00053,Office Supplies Product 53,Office Supplies,89.68,101.39
+54,SKU-00054,Software Product 54,Software,489.3,745.56
+55,SKU-00055,Software Product 55,Software,698.07,780.36
+56,SKU-00056,Furniture Product 56,Furniture,507.72,691.85
+57,SKU-00057,Security Product 57,Security,1122.17,1337.53
+58,SKU-00058,Security Product 58,Security,292.51,373.86
+59,SKU-00059,Networking Product 59,Networking,553.01,839.5
+60,SKU-00060,Furniture Product 60,Furniture,19.1,26.35
+61,SKU-00061,Furniture Product 61,Furniture,95.33,114.01
+62,SKU-00062,Networking Product 62,Networking,165.89,208.53
+63,SKU-00063,Furniture Product 63,Furniture,1056.09,1337.31
+64,SKU-00064,Office Supplies Product 64,Office Supplies,530.32,712.99
+65,SKU-00065,Networking Product 65,Networking,737.12,1138.3
+66,SKU-00066,Electronics Product 66,Electronics,804.09,1085.18
+67,SKU-00067,Furniture Product 67,Furniture,1127.2,1308.04
+68,SKU-00068,Furniture Product 68,Furniture,1068.54,1532.38
+69,SKU-00069,Office Supplies Product 69,Office Supplies,332.64,456.44
+70,SKU-00070,Security Product 70,Security,250.69,347.31
+71,SKU-00071,Networking Product 71,Networking,610.45,740.48
+72,SKU-00072,Electronics Product 72,Electronics,118.02,152.32
+73,SKU-00073,Networking Product 73,Networking,60.55,75.69
+74,SKU-00074,Office Supplies Product 74,Office Supplies,767.44,934.65
+75,SKU-00075,Services Product 75,Services,665.6,860.26
+76,SKU-00076,Electronics Product 76,Electronics,141.35,215.6
+77,SKU-00077,Office Supplies Product 77,Office Supplies,658.34,971.43
+78,SKU-00078,Office Supplies Product 78,Office Supplies,520.31,582.13
+79,SKU-00079,Security Product 79,Security,1079.59,1574.32
+80,SKU-00080,Electronics Product 80,Electronics,1079.52,1289.52
+81,SKU-00081,Software Product 81,Software,802.98,1011.08
+82,SKU-00082,Accessories Product 82,Accessories,1168.81,1679.89
+83,SKU-00083,Software Product 83,Software,1038.61,1598.72
+84,SKU-00084,Office Supplies Product 84,Office Supplies,1058.65,1176.32
+85,SKU-00085,Security Product 85,Security,940.6,1208.93
+86,SKU-00086,Software Product 86,Software,326.03,474.15
+87,SKU-00087,Furniture Product 87,Furniture,463.99,518.47
+88,SKU-00088,Services Product 88,Services,273.14,400.82
+89,SKU-00089,Services Product 89,Services,424.79,624.12
+90,SKU-00090,Software Product 90,Software,273.72,382.39
+91,SKU-00091,Accessories Product 91,Accessories,399.29,594.53
+92,SKU-00092,Networking Product 92,Networking,426.57,567.01
+93,SKU-00093,Security Product 93,Security,1127.57,1298.85
+94,SKU-00094,Networking Product 94,Networking,220.85,338.59
+95,SKU-00095,Networking Product 95,Networking,53.6,73.35
+96,SKU-00096,Security Product 96,Security,876.43,1087.79
+97,SKU-00097,Furniture Product 97,Furniture,467.15,635.07
+98,SKU-00098,Networking Product 98,Networking,60.91,78.95
+99,SKU-00099,Software Product 99,Software,442.15,500.29
+100,SKU-00100,Security Product 100,Security,750.8,1050.01
+101,SKU-00101,Furniture Product 101,Furniture,865.95,1069.57
+102,SKU-00102,Networking Product 102,Networking,802.94,1001.09
+103,SKU-00103,Networking Product 103,Networking,668.86,793.49
+104,SKU-00104,Accessories Product 104,Accessories,815.36,1228.15
+105,SKU-00105,Networking Product 105,Networking,492.04,725.85
+106,SKU-00106,Networking Product 106,Networking,350.0,452.71
+107,SKU-00107,Security Product 107,Security,562.27,730.37
+108,SKU-00108,Software Product 108,Software,617.32,899.55
+109,SKU-00109,Office Supplies Product 109,Office Supplies,793.35,974.0
+110,SKU-00110,Security Product 110,Security,119.32,182.37
+111,SKU-00111,Software Product 111,Software,809.97,972.85
+112,SKU-00112,Software Product 112,Software,183.65,205.83
+113,SKU-00113,Services Product 113,Services,736.64,1065.05
+114,SKU-00114,Services Product 114,Services,502.01,694.48
+115,SKU-00115,Software Product 115,Software,864.27,1100.03
+116,SKU-00116,Accessories Product 116,Accessories,298.83,416.94
+117,SKU-00117,Electronics Product 117,Electronics,1072.05,1594.35
+118,SKU-00118,Furniture Product 118,Furniture,935.88,1121.63
+119,SKU-00119,Services Product 119,Services,67.86,82.26
+120,SKU-00120,Furniture Product 120,Furniture,552.1,806.42
+121,SKU-00121,Security Product 121,Security,1140.45,1711.98
+122,SKU-00122,Accessories Product 122,Accessories,998.04,1343.9
+123,SKU-00123,Office Supplies Product 123,Office Supplies,894.44,1174.94
+124,SKU-00124,Networking Product 124,Networking,904.12,1336.23
+125,SKU-00125,Networking Product 125,Networking,920.85,1228.95
+126,SKU-00126,Software Product 126,Software,335.32,380.54
+127,SKU-00127,Networking Product 127,Networking,287.52,359.73
+128,SKU-00128,Furniture Product 128,Furniture,172.94,208.23
+129,SKU-00129,Office Supplies Product 129,Office Supplies,850.05,959.62
+130,SKU-00130,Accessories Product 130,Accessories,402.41,527.02
+131,SKU-00131,Electronics Product 131,Electronics,254.55,328.13
+132,SKU-00132,Electronics Product 132,Electronics,1029.22,1486.73
+133,SKU-00133,Accessories Product 133,Accessories,576.56,878.81
+134,SKU-00134,Networking Product 134,Networking,906.14,1344.76
+135,SKU-00135,Accessories Product 135,Accessories,649.56,929.25
+136,SKU-00136,Software Product 136,Software,589.97,721.43
+137,SKU-00137,Services Product 137,Services,42.6,53.3
+138,SKU-00138,Accessories Product 138,Accessories,871.22,1287.86
+139,SKU-00139,Office Supplies Product 139,Office Supplies,1177.02,1577.63
+140,SKU-00140,Accessories Product 140,Accessories,713.54,997.78
+141,SKU-00141,Furniture Product 141,Furniture,774.16,898.85
+142,SKU-00142,Services Product 142,Services,224.62,273.38
+143,SKU-00143,Security Product 143,Security,260.3,324.62
+144,SKU-00144,Accessories Product 144,Accessories,339.68,519.05
+145,SKU-00145,Accessories Product 145,Accessories,308.71,350.96
+146,SKU-00146,Electronics Product 146,Electronics,900.84,1012.04
+147,SKU-00147,Security Product 147,Security,275.27,311.3
+148,SKU-00148,Electronics Product 148,Electronics,907.05,1385.36
+149,SKU-00149,Software Product 149,Software,1008.36,1391.13
+150,SKU-00150,Software Product 150,Software,158.46,222.04
+151,SKU-00151,Software Product 151,Software,562.32,683.39
+152,SKU-00152,Security Product 152,Security,208.0,285.64
+153,SKU-00153,Furniture Product 153,Furniture,935.13,1097.56
+154,SKU-00154,Networking Product 154,Networking,136.85,152.12
+155,SKU-00155,Networking Product 155,Networking,694.35,1047.5
+156,SKU-00156,Accessories Product 156,Accessories,480.81,683.59
+157,SKU-00157,Furniture Product 157,Furniture,713.78,1051.94
+158,SKU-00158,Software Product 158,Software,129.47,187.42
+159,SKU-00159,Furniture Product 159,Furniture,957.1,1296.55
+160,SKU-00160,Electronics Product 160,Electronics,421.87,545.38
+161,SKU-00161,Security Product 161,Security,90.2,125.5
+162,SKU-00162,Electronics Product 162,Electronics,1020.69,1500.46
+163,SKU-00163,Furniture Product 163,Furniture,524.76,662.76
+164,SKU-00164,Services Product 164,Services,851.11,1103.01
+165,SKU-00165,Networking Product 165,Networking,742.17,1123.52
+166,SKU-00166,Services Product 166,Services,562.13,827.22
+167,SKU-00167,Networking Product 167,Networking,392.19,474.74
+168,SKU-00168,Furniture Product 168,Furniture,340.48,443.6
+169,SKU-00169,Services Product 169,Services,687.26,962.63
+170,SKU-00170,Security Product 170,Security,42.21,62.59
+171,SKU-00171,Office Supplies Product 171,Office Supplies,589.16,742.15
+172,SKU-00172,Networking Product 172,Networking,413.68,618.92
+173,SKU-00173,Networking Product 173,Networking,670.5,893.43
+174,SKU-00174,Software Product 174,Software,110.05,156.71
+175,SKU-00175,Services Product 175,Services,669.77,809.18
+176,SKU-00176,Services Product 176,Services,777.92,1027.53
+177,SKU-00177,Electronics Product 177,Electronics,118.92,142.67
+178,SKU-00178,Software Product 178,Software,373.0,507.91
+179,SKU-00179,Services Product 179,Services,667.74,837.81
+180,SKU-00180,Security Product 180,Security,427.36,557.36
+181,SKU-00181,Networking Product 181,Networking,307.67,355.14
+182,SKU-00182,Software Product 182,Software,384.13,550.96
+183,SKU-00183,Office Supplies Product 183,Office Supplies,236.32,338.5
+184,SKU-00184,Networking Product 184,Networking,871.71,1341.97
+185,SKU-00185,Networking Product 185,Networking,1176.77,1735.36
+186,SKU-00186,Networking Product 186,Networking,279.16,329.62
+187,SKU-00187,Electronics Product 187,Electronics,851.96,985.69
+188,SKU-00188,Electronics Product 188,Electronics,1169.36,1577.48
+189,SKU-00189,Office Supplies Product 189,Office Supplies,768.34,1105.45
+190,SKU-00190,Furniture Product 190,Furniture,1048.28,1423.91
+191,SKU-00191,Services Product 191,Services,578.63,725.21
+192,SKU-00192,Electronics Product 192,Electronics,308.95,459.65
+193,SKU-00193,Furniture Product 193,Furniture,987.96,1264.9
+194,SKU-00194,Furniture Product 194,Furniture,695.81,980.33
+195,SKU-00195,Office Supplies Product 195,Office Supplies,185.84,251.49
+196,SKU-00196,Networking Product 196,Networking,109.54,132.73
+197,SKU-00197,Accessories Product 197,Accessories,730.73,1063.82
+198,SKU-00198,Software Product 198,Software,932.63,1185.53
+199,SKU-00199,Services Product 199,Services,362.44,494.67
+200,SKU-00200,Accessories Product 200,Accessories,372.01,513.17
+201,SKU-00201,Furniture Product 201,Furniture,1137.53,1357.65
+202,SKU-00202,Software Product 202,Software,323.46,367.62
+203,SKU-00203,Software Product 203,Software,215.19,243.98
+204,SKU-00204,Electronics Product 204,Electronics,494.95,697.99
+205,SKU-00205,Services Product 205,Services,355.18,427.7
+206,SKU-00206,Networking Product 206,Networking,845.96,1103.4
+207,SKU-00207,Software Product 207,Software,1109.3,1613.5
+208,SKU-00208,Software Product 208,Software,514.77,692.39
+209,SKU-00209,Office Supplies Product 209,Office Supplies,1090.83,1605.68
+210,SKU-00210,Furniture Product 210,Furniture,79.09,115.21
+211,SKU-00211,Networking Product 211,Networking,531.47,696.71
+212,SKU-00212,Networking Product 212,Networking,842.08,1283.5
+213,SKU-00213,Services Product 213,Services,529.81,725.37
+214,SKU-00214,Accessories Product 214,Accessories,883.56,1211.95
+215,SKU-00215,Electronics Product 215,Electronics,116.86,179.13
+216,SKU-00216,Electronics Product 216,Electronics,1199.49,1682.32
+217,SKU-00217,Networking Product 217,Networking,694.89,1003.0
+218,SKU-00218,Office Supplies Product 218,Office Supplies,568.84,792.5
+219,SKU-00219,Networking Product 219,Networking,224.34,305.86
+220,SKU-00220,Services Product 220,Services,1163.11,1525.42
+221,SKU-00221,Accessories Product 221,Accessories,405.3,568.05
+222,SKU-00222,Office Supplies Product 222,Office Supplies,401.13,566.46
+223,SKU-00223,Networking Product 223,Networking,797.8,1021.35
+224,SKU-00224,Electronics Product 224,Electronics,550.15,683.03
+225,SKU-00225,Security Product 225,Security,146.18,211.62
+226,SKU-00226,Electronics Product 226,Electronics,791.93,1064.49
+227,SKU-00227,Accessories Product 227,Accessories,72.61,96.81
+228,SKU-00228,Services Product 228,Services,753.49,1086.53
+229,SKU-00229,Software Product 229,Software,326.33,378.2
+230,SKU-00230,Networking Product 230,Networking,530.23,749.86
+231,SKU-00231,Furniture Product 231,Furniture,42.41,58.67
+232,SKU-00232,Software Product 232,Software,854.06,1058.9
+233,SKU-00233,Electronics Product 233,Electronics,666.28,760.85
+234,SKU-00234,Furniture Product 234,Furniture,558.05,643.35
+235,SKU-00235,Office Supplies Product 235,Office Supplies,602.06,856.41
+236,SKU-00236,Networking Product 236,Networking,503.26,662.86
+237,SKU-00237,Services Product 237,Services,298.53,402.44
+238,SKU-00238,Accessories Product 238,Accessories,235.21,322.17
+239,SKU-00239,Office Supplies Product 239,Office Supplies,1037.92,1270.74
+240,SKU-00240,Accessories Product 240,Accessories,413.13,600.89
+241,SKU-00241,Networking Product 241,Networking,986.09,1210.21
+242,SKU-00242,Networking Product 242,Networking,1006.27,1369.5
+243,SKU-00243,Services Product 243,Services,1039.39,1352.19
+244,SKU-00244,Services Product 244,Services,419.39,565.49
+245,SKU-00245,Accessories Product 245,Accessories,550.77,685.6
+246,SKU-00246,Software Product 246,Software,1177.08,1421.28
+247,SKU-00247,Accessories Product 247,Accessories,286.41,415.01
+248,SKU-00248,Electronics Product 248,Electronics,387.27,508.42
+249,SKU-00249,Accessories Product 249,Accessories,468.21,654.87
+250,SKU-00250,Office Supplies Product 250,Office Supplies,598.43,668.24
+251,SKU-00251,Security Product 251,Security,1044.68,1560.11
+252,SKU-00252,Services Product 252,Services,126.86,191.52
+253,SKU-00253,Electronics Product 253,Electronics,869.15,1116.41
+254,SKU-00254,Office Supplies Product 254,Office Supplies,97.2,141.1
+255,SKU-00255,Networking Product 255,Networking,411.56,581.01
+256,SKU-00256,Furniture Product 256,Furniture,1023.3,1518.12
+257,SKU-00257,Accessories Product 257,Accessories,1145.33,1582.91
+258,SKU-00258,Services Product 258,Services,1047.88,1169.6
+259,SKU-00259,Furniture Product 259,Furniture,287.85,405.29
+260,SKU-00260,Networking Product 260,Networking,1196.93,1718.85
+261,SKU-00261,Accessories Product 261,Accessories,1174.18,1693.36
+262,SKU-00262,Furniture Product 262,Furniture,536.86,758.21
+263,SKU-00263,Electronics Product 263,Electronics,62.82,91.61
+264,SKU-00264,Networking Product 264,Networking,435.29,563.18
+265,SKU-00265,Software Product 265,Software,641.15,868.55
+266,SKU-00266,Office Supplies Product 266,Office Supplies,210.62,239.17
+267,SKU-00267,Accessories Product 267,Accessories,746.69,902.28
+268,SKU-00268,Office Supplies Product 268,Office Supplies,284.77,394.99
+269,SKU-00269,Services Product 269,Services,312.35,344.91
+270,SKU-00270,Services Product 270,Services,1082.24,1520.47
+271,SKU-00271,Office Supplies Product 271,Office Supplies,96.04,146.5
+272,SKU-00272,Networking Product 272,Networking,769.61,993.52
+273,SKU-00273,Networking Product 273,Networking,552.55,682.93
+274,SKU-00274,Accessories Product 274,Accessories,1025.18,1176.9
+275,SKU-00275,Accessories Product 275,Accessories,689.73,937.11
+276,SKU-00276,Networking Product 276,Networking,34.15,50.32
+277,SKU-00277,Accessories Product 277,Accessories,335.18,454.06
+278,SKU-00278,Electronics Product 278,Electronics,1093.46,1569.47
+279,SKU-00279,Networking Product 279,Networking,932.68,1122.53
+280,SKU-00280,Security Product 280,Security,269.05,318.97

@@ -37,6 +37,8 @@ def dashboard():
             grouped_subjects[name] = {'count': 0, 'classes': [], 'credits': s.get('credits', 6)}
         grouped_subjects[name]['count'] += 1
         grouped_subjects[name]['classes'].append({
+            'subject_id': s['id'],
+            'class_id': s.get('class_id'),
             'section': s.get('section', ''),
             'semester': s.get('semester', ''),
             'shift': s.get('shift', 'morning'),
@@ -843,6 +845,35 @@ def files():
 
     grouped_files = list(grouped.values())
     return render_template('teacher/files.html', grouped_files=grouped_files, files=files_list, subjects=subjects)
+
+
+# =============================================
+# TEACHER - EXAM SIGNUPS
+# =============================================
+
+@teacher_bp.route('/teacher/exams/signups/<int:subject_id>')
+@teacher_required
+def view_exam_signups(subject_id):
+    """View students signed up for exams in this subject."""
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash('Teacher profile not found.', 'danger')
+        return redirect(url_for('auth.dashboard'))
+
+    subjects = db.get_subjects_by_teacher(teacher['id']) or []
+    subject = next((s for s in subjects if s['id'] == subject_id), None)
+
+    if not subject:
+        flash('Subject not found or access denied.', 'danger')
+        return redirect(url_for('auth.dashboard'))
+
+    final_signups = db.get_exam_signups_for_subject(subject_id, 'final') or []
+    second_round_signups = db.get_exam_signups_for_subject(subject_id, 'second_round') or []
+
+    return render_template('teacher/exam_signups.html',
+                           subject=subject,
+                           final_signups=final_signups,
+                           second_round_signups=second_round_signups)
 
 
 @teacher_bp.route('/teacher/files/upload', methods=['GET', 'POST'])

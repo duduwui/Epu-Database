@@ -383,6 +383,15 @@ content %}
     updateCategoryTotals();
   }
 
+  function formatCategoryValue(value) {
+    if (!Number.isFinite(value)) {
+      return '-';
+    }
+
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
   function openGradeModal(studentId, studentName, studentNumber) {
     console.log('\n========================================');
     console.log('OPENING MODAL FOR STUDENT:', studentId);
@@ -409,6 +418,8 @@ content %}
       input.value = ''; // Clear value
       input.style.backgroundColor = ''; // Reset background
     });
+
+    updateCategoryTotals();
 
     // Show modal first
     currentModal = new bootstrap.Modal(document.getElementById('gradeModal'));
@@ -716,10 +727,14 @@ content %}
     console.log('Updating category averages...');
     const categories = {};
 
+    document.querySelectorAll('.category-total').forEach(badge => {
+      badge.querySelector('.current-total').textContent = '-';
+      badge.querySelector('.max-total').textContent = '-';
+    });
+
     // Group inputs by category
     document.querySelectorAll('#gradeComponentsList input[type="number"]').forEach(input => {
       const row = input.closest('tr');
-      const prevHeader = row.previousElementSibling;
 
       // Find the category by looking backwards for table-secondary row
       let categoryRow = row;
@@ -732,30 +747,33 @@ content %}
         if (categoryBadge) {
           const category = categoryBadge.dataset.category;
           if (!categories[category]) {
-            categories[category] = { currentSum: 0, maxSum: 0, count: 0, gradedCount: 0 };
+            categories[category] = { currentSum: 0, maxSum: 0, gradedCount: 0 };
           }
 
           const maxScore = parseFloat(input.max) || 0;
-          const currentScore = parseFloat(input.value) || 0;
-
-          categories[category].maxSum += maxScore;
-          categories[category].count++;
 
           if (input.value !== '') { // Only count if value is entered
+            const currentScore = parseFloat(input.value) || 0;
             categories[category].currentSum += currentScore;
+            categories[category].maxSum += maxScore;
             categories[category].gradedCount++;
           }
         }
       }
     });
 
-    // Update badges with totals
+    // Update badges with category averages
     Object.keys(categories).forEach(category => {
       const badge = document.querySelector(`.category-total[data-category="${category}"]`);
       if (badge) {
         const data = categories[category];
-        badge.querySelector('.current-total').textContent = data.currentSum.toFixed(1);
-        badge.querySelector('.max-total').textContent = data.maxSum.toFixed(1);
+        if (data.gradedCount > 0) {
+          const averageScore = data.currentSum / data.gradedCount;
+          const averageMax = data.maxSum / data.gradedCount;
+
+          badge.querySelector('.current-total').textContent = formatCategoryValue(averageScore);
+          badge.querySelector('.max-total').textContent = formatCategoryValue(averageMax);
+        }
       }
     });
   }

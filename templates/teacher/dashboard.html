@@ -82,6 +82,22 @@ content %}
                 </span>
                 {% endfor %}
               </div>
+              <div class="mt-2 text-end">
+                <div class="btn-group">
+                  <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
+                    <i class="bi bi-people me-1"></i>View Signups
+                  </button>
+                  <ul class="dropdown-menu">
+                    {% for cls in data.classes %}
+                    <li>
+                      <a class="dropdown-item" href="{{ url_for('teacher.view_exam_signups', subject_id=cls.subject_id) }}">
+                        Class {{ cls.section }} ({{ cls.shift|title }})
+                      </a>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
             </li>
             {% endfor %}
           </ul>

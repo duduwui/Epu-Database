@@ -85,7 +85,7 @@ def signups():
     semester = selected_semester
     if student['class_id']:
         class_info = db.execute_query(
-            'SELECT year, semester, section, shift FROM classes WHERE id = %s',
+            'SELECT year, semester, section, shift, major_id FROM classes WHERE id = %s',
             (student['class_id'],), fetch_one=True
         )
         if class_info and semester is None:
@@ -99,13 +99,18 @@ def signups():
 
     enrollment_period = None
     enrollment_active = False
+    effective_major_id = (
+        student.get('major_id')
+        or (class_info.get('major_id') if class_info else None)
+        or session.get('major_id')
+    )
     if semester:
-        enrollment_period = db.get_active_enrollment_period(semester)
+        enrollment_period = db.get_active_enrollment_period(semester, major_id=effective_major_id)
         enrollment_active = enrollment_period is not None
     subjects = db.get_available_subjects_for_student(student['id'], semester) or []
 
-    final_period = db.get_active_exam_period(semester, 'final') if semester else None
-    second_round_period = db.get_active_exam_period(semester, 'second_round') if semester else None
+    final_period = db.get_active_exam_period(semester, 'final', major_id=effective_major_id) if semester else None
+    second_round_period = db.get_active_exam_period(semester, 'second_round', major_id=effective_major_id) if semester else None
     final_subjects = db.get_exam_eligible_subjects(student['id'], 'final', semester) if final_period else []
     second_round_subjects = db.get_exam_eligible_subjects(student['id'], 'second_round', semester) if second_round_period else []
 
@@ -129,6 +134,11 @@ def subjects():
     """Redirect to combined signups page — subjects tab."""
     return redirect(url_for('student.signups', tab='subjects'))
 
+@student_bp.route('/student/debug_exams')
+@login_required
+def debug_exams():
+    res = f"Session Major ID: {session.get('major_id')}<br>Semester: {session.get('semester', 'N/A')}<br>Role: {session.get('role')}"
+    return res
 
 @student_bp.route('/student/subjects/enroll/<int:subject_id>', methods=['POST'])
 @login_required
@@ -148,7 +158,7 @@ def enroll_subject(subject_id):
     )
     if class_info:
         semester = class_info['semester']
-        if not db.is_enrollment_active(semester):
+        if not db.is_enrollment_active(semester, major_id=session.get('major_id')):
             return jsonify({'success': False, 'error': 'Enrollment period has ended or not started yet'}), 403
 
     try:
@@ -184,7 +194,7 @@ def unenroll_subject(subject_id):
     )
     if class_info:
         semester = class_info['semester']
-        if not db.is_enrollment_active(semester):
+        if not db.is_enrollment_active(semester, major_id=session.get('major_id')):
             return jsonify({'success': False, 'error': 'Enrollment period has ended or not started yet'}), 403
 
     try:
@@ -201,13 +211,20 @@ def unenroll_subject(subject_id):
 
 def _build_grade_display_groups(grades_data):
     """Build display groups for student grades.
-    Paired components share a pair_group — merged into one Paired Average block."""
+    Logic:
+      - Paired (pair_group != None): 'Average of Averages'
+      - Non-Paired:
+          - 'midterm': SUM
+          - All others (quiz, homework, etc): AVERAGE
+    """
     SUM_TYPES = {'midterm'}
     pair_group_items = {}
     non_paired_by_type = {}
+    
+    # Organize data
     for g in grades_data:
         pg = g.get('pair_group')
-        ct = g.get('component_type')
+        ct = g.get('component_type', '').lower().strip()
         if pg is not None:
             pair_group_items.setdefault(pg, []).append(g)
         else:
@@ -216,35 +233,70 @@ def _build_grade_display_groups(grades_data):
     display_groups = []
     seen_pgs = set()
     seen_cts = set()
+
+    # Process groups preserving order
     for g in grades_data:
         pg = g.get('pair_group')
-        ct = g.get('component_type')
+        ct = g.get('component_type', '').lower().strip()
+
+        # --- PAIRED COMPONENTS ---
         if pg is not None:
             if pg not in seen_pgs:
                 seen_pgs.add(pg)
-                items = pair_group_items[pg]
-                scores = [float(i.get('score') or 0) for i in items]
-                maxes = [float(i['max_score']) for i in items]
-                n = len(items)
+                all_items = pair_group_items[pg]
+                
+                # Group by type within the pair
+                by_type = {}
+                for item in all_items:
+                    t = item.get('component_type', '').lower().strip()
+                    by_type.setdefault(t, []).append(item)
+                
+                type_averages = []
+                type_maxes = []
+                
+                # Calculate average for each type first
+                for t, items in by_type.items():
+                    scores = [float(i.get('score') or 0) for i in items]
+                    maxes = [float(i['max_score']) for i in items]
+                    n = len(items)
+                    if n > 0:
+                        type_averages.append(sum(scores) / n)
+                        type_maxes.append(sum(maxes) / n)
+                    else:
+                        type_averages.append(0)
+                        type_maxes.append(0)
+                
+                # Now average the averages
+                count_types = len(type_averages)
+                final_score = sum(type_averages) / count_types if count_types else 0
+                final_max = sum(type_maxes) / count_types if count_types else 0
+
                 display_groups.append({
                     'is_paired': True,
                     'label': 'Paired Average',
-                    'rows': items,
-                    'subtotal_score': round(sum(scores) / n, 1) if n else 0,
-                    'subtotal_max': round(sum(maxes) / n, 1) if n else 0,
+                    'rows': all_items,
+                    'subtotal_score': round(final_score, 1),
+                    'subtotal_max': round(final_max, 1),
                 })
+
+        # --- NON-PAIRED COMPONENTS ---
         else:
             if ct not in seen_cts:
                 seen_cts.add(ct)
                 items = non_paired_by_type[ct]
                 n = len(items)
+                
                 s_sum = sum(float(i.get('score') or 0) for i in items)
                 m_sum = sum(float(i['max_score']) for i in items)
+                
                 if ct in SUM_TYPES:
+                    # Midterm: Sum
                     s, m = s_sum, m_sum
                 else:
+                    # Quiz, Homework, etc: Average
                     s = s_sum / n if n else 0
                     m = m_sum / n if n else 0
+                
                 display_groups.append({
                     'is_paired': False,
                     'label': ct.replace('_', ' ').title(),
@@ -295,6 +347,16 @@ def grades():
             subject_info = next((s for s in enrolled_subjects if s['id'] == selected_subject_id), None)
             grades_data = [g for g in raw_grades if g.get('component_type') != 'final']
             display_groups = _build_grade_display_groups(grades_data)
+            
+            # Weighted Total Calculation
+            # Logic: Sum of (Group Score / Group Max) * Group Weight
+            # If Group Max is 0, skip.
+            # This is more accurate than simple sum if components have weights.
+            # However, for backward compatibility with 'simple sum' view, we can stick to summing totals.
+            # BUT user asked for 'Avg result / 11'. 
+            # If '11' is the weight, then we should probably show weighted totals?
+            # Let's stick to the requested "Average" logic for the badge.
+            
             total_score = round(sum(g['subtotal_score'] for g in display_groups), 1)
             total_max = round(sum(g['subtotal_max'] for g in display_groups), 1)
         else:
@@ -343,7 +405,12 @@ def exam_signup(subject_id, exam_type):
         class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
         semester = (class_info['semester'] if class_info else None) or student.get('semester')
 
-        period = db.get_active_exam_period(semester, exam_type) if semester else None
+        effective_major_id = (
+            student.get('major_id')
+            or (class_info.get('major_id') if class_info else None)
+            or session.get('major_id')
+        )
+        period = db.get_active_exam_period(semester, exam_type, major_id=effective_major_id) if semester else None
         if not period:
             return jsonify({'success': False, 'error': 'No active exam period for this type'}), 400
 
@@ -381,7 +448,12 @@ def exam_cancel(subject_id, exam_type):
         class_info = db.get_class_by_id(student['class_id']) if student.get('class_id') else None
         semester = (class_info['semester'] if class_info else None) or student.get('semester')
 
-        period = db.get_active_exam_period(semester, exam_type) if semester else None
+        effective_major_id = (
+            student.get('major_id')
+            or (class_info.get('major_id') if class_info else None)
+            or session.get('major_id')
+        )
+        period = db.get_active_exam_period(semester, exam_type, major_id=effective_major_id) if semester else None
         if not period:
             return jsonify({'success': False, 'error': 'Exam period is not active'}), 400
 
@@ -410,7 +482,7 @@ def results():
         flash('Student profile not found.', 'danger')
         return redirect(url_for('auth.dashboard'))
 
-    sum_types = ['midterm', 'final']
+    sum_types = {'midterm', 'final'}
 
     enrolled_subjects = db.get_enrolled_subjects_for_student(student['id']) or []
 
@@ -451,25 +523,56 @@ def results():
 
             grouped = {}
             for grade in grades_data:
-                type_key = grade['component_type']
-                if type_key not in grouped:
-                    grouped[type_key] = []
-                grouped[type_key].append(grade)
+                # Use pair_group if available, else component_type
+                pg = grade.get('pair_group')
+                key = str(pg) if pg is not None else grade['component_type'].lower().strip()
+                if key not in grouped:
+                    grouped[key] = {'items': [], 'is_pair': pg is not None}
+                grouped[key]['items'].append(grade)
 
             total_score = 0
             total_max = 0
 
-            for component_type, group_grades in grouped.items():
-                group_total_score = sum(float(g['score'] or 0) for g in group_grades)
-                group_total_max = sum(float(g['max_score']) for g in group_grades)
-                group_count = len(group_grades)
+            for key, data in grouped.items():
+                items = data['items']
+                is_pair = data['is_pair']
+                
+                if is_pair:
+                    # Paired logic
+                    by_type = {}
+                    for item in items:
+                        t = item.get('component_type', '').lower().strip()
+                        by_type.setdefault(t, []).append(item)
+                    
+                    type_averages = []
+                    type_maxes = []
+                    for t, sub_items in by_type.items():
+                        s_vals = [float(i.get('score') or 0) for i in sub_items]
+                        m_vals = [float(i['max_score']) for i in sub_items]
+                        n = len(sub_items)
+                        if n > 0:
+                            type_averages.append(sum(s_vals) / n)
+                            type_maxes.append(sum(m_vals) / n)
+                    
+                    count_types = len(type_averages)
+                    if count_types > 0:
+                        total_score += sum(type_averages) / count_types
+                        total_max += sum(type_maxes) / count_types
+                
+                else:
+                    # Non-paired logic
+                    # key is component_type (normalized)
+                    s_sum = sum(float(g.get('score') or 0) for g in items)
+                    m_sum = sum(float(g['max_score']) for g in items)
+                    n = len(items)
 
-                if component_type in sum_types:
-                    total_score += group_total_score
-                    total_max += group_total_max
-                elif group_count > 0:
-                    total_score += group_total_score / group_count
-                    total_max += group_total_max / group_count
+                    if key in sum_types:
+                        total_score += s_sum
+                        total_max += m_sum
+                    else:
+                        if n > 0:
+                            total_score += s_sum / n
+                            total_max += m_sum / n
 
             percentage = (total_score / total_max * 100) if total_max > 0 else 0
 

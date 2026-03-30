@@ -1351,13 +1351,14 @@ def enrollment_periods():
     """Manage enrollment and exam periods (combined)."""
     now = datetime.now()
     active_tab = request.args.get('tab', 'enrollment')
+    major_id = session.get('major_id')
 
-    enroll_periods = db.get_all_enrollment_periods()
+    enroll_periods = db.get_all_enrollment_periods(major_id=major_id)
     for p in enroll_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now
 
-    exam_periods = db.get_all_exam_periods()
+    exam_periods = db.get_all_exam_periods(major_id=major_id)
     for p in exam_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now

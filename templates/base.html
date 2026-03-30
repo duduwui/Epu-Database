@@ -930,9 +930,12 @@
           _calMonth = _selDate.getMonth();
         } else {
           var now  = new Date();
+          var isEndField = (targetId || '').toLowerCase().indexOf('end') !== -1;
           _selDate = null;
-          _selHour = now.getHours();
-          _selMin  = now.getMinutes();
+          // Use predictable defaults for new date picks instead of the current clock
+          // so period ranges don't silently inherit a time the admin never chose.
+          _selHour = isEndField ? 23 : 0;
+          _selMin  = isEndField ? 59 : 0;
           _selAmPm  = _selHour >= 12 ? 'PM' : 'AM';
           _calYear  = now.getFullYear();
           _calMonth = now.getMonth();

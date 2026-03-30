@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Exam Signups - {{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header mb-4">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2><i class="bi bi-pencil-square me-2"></i>Exam Signups</h2>
+                <p class="text-muted mb-0">
+                    {{ subject.name }} - {{ subject.class_name|replace_section }}
+                </p>
+            </div>
+            <div class="col-auto">
+                <a href="{{ url_for('auth.dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Final Exam Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-journal-check me-2"></i>Final Exam</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if final_signups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Signup Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signup in final_signups %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ signup.student_name }}</strong><br>
+                                        <small class="text-muted">{{ signup.student_number }}</small>
+                                    </td>
+                                    <td>{{ signup.signed_up_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x" style="font-size: 2.5rem;"></i>
+                        <p class="mt-2">No students signed up yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light text-center">
+                    <strong>Total: {{ final_signups|length }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Round Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Second Round</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if second_round_signups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Signup Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signup in second_round_signups %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ signup.student_name }}</strong><br>
+                                        <small class="text-muted">{{ signup.student_number }}</small>
+                                    </td>
+                                    <td>{{ signup.signed_up_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x" style="font-size: 2.5rem;"></i>
+                        <p class="mt-2">No students signed up yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light text-center">
+                    <strong>Total: {{ second_round_signups|length }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
