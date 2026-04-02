@@ -375,31 +375,56 @@ def get_student_grades(student_id, subject_id):
     """Get existing grades for a specific student and subject (for pre-filling the modal)."""
     try:
         query = """
-            SELECT g.*, gc.component_name, gc.component_type, gc.max_score as component_max_score,
-                   gc.weight_percentage, gc.pair_group
-            FROM grades g
-            LEFT JOIN grade_components gc ON g.component_id = gc.id
-            WHERE g.student_id = %s AND g.subject_id = %s
-            ORDER BY g.date DESC, g.id DESC
+            SELECT
+                gc.id AS component_id,
+                gc.component_name,
+                gc.component_type,
+                gc.max_score,
+                gc.weight_percentage,
+                gc.pair_group,
+                gc.display_order,
+                g.score,
+                g.date,
+                COALESCE(g.published, FALSE) AS published
+            FROM grade_components gc
+            LEFT JOIN LATERAL (
+                SELECT gr.score, gr.date, gr.published
+                FROM grades gr
+                WHERE gr.student_id = %s
+                  AND gr.subject_id = %s
+                  AND gr.component_id = gc.id
+                ORDER BY gr.date DESC, gr.id DESC
+                LIMIT 1
+            ) g ON TRUE
+            WHERE gc.subject_id = %s
+            ORDER BY gc.display_order, gc.id
         """
-        grades_list = db.execute_query(query, (student_id, subject_id), fetch_all=True) or []
+        component_rows = db.execute_query(query, (student_id, subject_id, subject_id), fetch_all=True) or []
+        summary = db.build_grade_summary(component_rows)
 
-        latest_grades = {}
-        for grade in grades_list:
-            comp_id = grade.get('component_id')
-            if comp_id:
-                if comp_id not in latest_grades:
-                    latest_grades[comp_id] = {
-                        'component_id': comp_id,
-                        'score': grade['score'],
-                        'max_score': grade['max_score'],
-                        'weight_percentage': grade.get('weight_percentage', 0),
-                        'component_name': grade.get('component_name', ''),
-                        'pair_group': grade.get('pair_group'),
-                        'date': grade['date'].isoformat() if hasattr(grade['date'], 'isoformat') else str(grade['date'])
-                    }
+        grades_list = []
+        for grade in component_rows:
+            if grade.get('score') is None:
+                continue
+            grades_list.append({
+                'component_id': grade['component_id'],
+                'score': grade['score'],
+                'max_score': grade['max_score'],
+                'weight_percentage': grade.get('weight_percentage', 0),
+                'component_name': grade.get('component_name', ''),
+                'pair_group': grade.get('pair_group'),
+                'date': grade['date'].isoformat() if hasattr(grade.get('date'), 'isoformat') else str(grade.get('date') or ''),
+                'published': bool(grade.get('published')),
+            })
 
-        return jsonify({'success': True, 'grades': list(latest_grades.values())})
+        return jsonify({
+            'success': True,
+            'grades': grades_list,
+            'summary': {
+                'total_score': summary['total_score'],
+                'total_max': summary['total_max'],
+            }
+        })
 
     except Exception as e:
         print(f"Error fetching student grades: {e}")

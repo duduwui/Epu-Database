@@ -108,7 +108,7 @@
             {% for group in display_groups %}
 
               {% if group.is_paired %}
-              {# Paired group: each component row → per-component subtotal → combined avg #}
+              {# Paired group: raw rows, per-type totals, then combined average #}
               {% for grade in group.rows %}
               <tr class="grade-item-row">
                 <td class="ps-4">
@@ -120,27 +120,28 @@
                 </td>
                 <td class="text-center">
                   <span class="score-chip">
-                    {% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %}
-                    / {{ grade.max_score|int }}
+                    {{ '{:g}'.format(grade.score if grade.score is not none else 0) }}
+                    / {{ '{:g}'.format(grade.max_score or 0) }}
                   </span>
                 </td>
               </tr>
+              {% endfor %}
+              {% for type_total in group.type_totals %}
               <tr class="grade-subtotal-row grade-paired-item-sub">
                 <td class="ps-5">
-                  <i class="bi bi-arrow-return-right me-1"></i>{{ grade.component_name }} Total
+                  <i class="bi bi-arrow-return-right me-1"></i>{{ type_total.label }} Total
                 </td>
                 <td class="text-center">
-                  <strong>{% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %} / {{ grade.max_score|int }}</strong>
+                  <strong>{{ '{:g}'.format(type_total.subtotal_score) }} / {{ '{:g}'.format(type_total.subtotal_max) }}</strong>
                 </td>
               </tr>
               {% endfor %}
-              {# Combined paired avg #}
               <tr class="grade-subtotal-row">
                 <td class="fw-bold ps-4">
                   <i class="bi bi-calculator me-1"></i> Paired Avg
                 </td>
                 <td class="text-center">
-                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
+                  <strong>{{ '{:g}'.format(group.subtotal_score) }} / {{ '{:g}'.format(group.subtotal_max) }}</strong>
                 </td>
               </tr>
 
@@ -151,8 +152,8 @@
                 <td class="ps-4">{{ grade.component_name }}</td>
                 <td class="text-center">
                   <span class="score-chip">
-                    {% if grade.score is not none %}{{ grade.score|int }}{% else %}0{% endif %}
-                    / {{ grade.max_score|int }}
+                    {{ '{:g}'.format(grade.score if grade.score is not none else 0) }}
+                    / {{ '{:g}'.format(grade.max_score or 0) }}
                   </span>
                 </td>
               </tr>
@@ -168,7 +169,7 @@
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  <strong>{{ group.subtotal_score }} / {{ group.subtotal_max }}</strong>
+                  <strong>{{ '{:g}'.format(group.subtotal_score) }} / {{ '{:g}'.format(group.subtotal_max) }}</strong>
                 </td>
               </tr>
 
@@ -181,7 +182,7 @@
               <td class="fw-bold ps-4">Total Score <small class="fw-normal opacity-75">/ 60</small></td>
               <td class="text-center">
                 <span class="total-chip">
-                  {{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}
+                  {{ '{:g}'.format(total_score) }} / {{ '{:g}'.format(total_max) }}
                 </span>
               </td>
             </tr>
@@ -204,7 +205,7 @@
             <small class="text-muted mt-1">({{ credits }}-credit subject)</small>
           {% else %}
             <h6 class="text-muted mb-2">Total Score</h6>
-            <h3 class="mb-0 text-primary">{{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}</h3>
+            <h3 class="mb-0 text-primary">{{ '{:g}'.format(total_score) }} / {{ '{:g}'.format(total_max) }}</h3>
           {% endif %}
         </div>
       </div>
@@ -214,7 +215,7 @@
         <div class="card-body d-flex flex-column justify-content-center">
           <h6 class="text-muted mb-2">Total Marks</h6>
           <h3 class="mb-0 text-success">
-            {{ total_score|round(1) }} / {{ total_max|int if total_max == total_max|int else total_max|round(1) }}
+            {{ '{:g}'.format(total_score) }} / {{ '{:g}'.format(total_max) }}
           </h3>
         </div>
       </div>

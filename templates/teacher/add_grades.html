@@ -137,7 +137,7 @@ content %}
                     class="badge bg-info text-white partial-badge d-none"
                     data-student-id="{{ student.id }}"
                   >
-                    <span class="score-sum">0</span>/100 (<span class="graded-count">0</span>/<span
+                    <span class="score-sum">0</span>/<span class="score-max">{{ effective_total_weight|round(1) }}</span> (<span class="graded-count">0</span>/<span
                       class="total-count"
                       >0</span
                     >)
@@ -270,6 +270,8 @@ content %}
                       name="component_{{ item.id }}"
                       class="form-control text-center grade-input"
                       data-component-id="{{ item.id }}"
+                      data-component-type="{{ item.component_type }}"
+                      data-pair-group="{{ item.pair_group if item.pair_group is not none else '' }}"
                       min="0"
                       max="{{ item.max_score }}"
                       step="0.5"
@@ -638,33 +640,12 @@ content %}
       .then(response => response.json())
       .then(data => {
         const grades = data.success && data.grades ? data.grades : [];
+        const summary = data.success && data.summary ? data.summary : { total_score: 0, total_max: {{ effective_total_weight|round(1) }} };
+        const totalScore = parseFloat(summary.total_score) || 0;
+        const totalMax = parseFloat(summary.total_max) || {{ effective_total_weight|round(1) }};
 
-        // --- Pair-aware calculation mirroring Python _calc_grade_totals ---
-        const pairedGroups = {};
-        const singles = [];
-        grades.forEach(g => {
-          const pg = g.pair_group;
-          if (pg !== null && pg !== undefined) {
-            if (!pairedGroups[pg]) pairedGroups[pg] = [];
-            pairedGroups[pg].push(g);
-          } else {
-            singles.push(g);
-          }
-        });
-
-        let totalScore = 0, totalMax = 0;
-        singles.forEach(g => {
-          totalScore += parseFloat(g.score) || 0;
-          totalMax  += parseFloat(g.max_score) || 0;
-        });
-        Object.values(pairedGroups).forEach(group => {
-          const cnt = group.length;
-          totalScore += group.reduce((s, g) => s + (parseFloat(g.score) || 0), 0) / cnt;
-          totalMax   += group.reduce((s, g) => s + (parseFloat(g.max_score) || 0), 0) / cnt;
-        });
-
-        // weightedScore is the percentage 0-100
-        const weightedScore = totalMax > 0 ? Math.round((totalScore / totalMax) * 10000) / 100 : 0;
+        const displayScore = formatCategoryValue(totalScore);
+        const displayMax = formatCategoryValue(totalMax);
 
         // Effective graded count: each pair-group counts as 1 unit
         const gradedPairGroupKeys = new Set(
@@ -676,7 +657,7 @@ content %}
 
         const percentage = totalComponents > 0 ? Math.round((gradedCount / totalComponents) * 100) : 0;
 
-        console.log(`Student ${studentId}: ${gradedCount}/${totalComponents} components (${percentage}%) - Score: ${weightedScore}/100`);
+        console.log(`Student ${studentId}: ${gradedCount}/${totalComponents} components (${percentage}%) - Score: ${displayScore}/${displayMax}`);
 
         // Update progress bar
         const progressBar = document.querySelector(`.progress-bar[data-student-id="${studentId}"]`);
@@ -693,7 +674,7 @@ content %}
           if (completeBadge) {
             completeBadge.classList.remove('d-none', 'bg-secondary');
             completeBadge.classList.add('bg-success');
-            completeBadge.innerHTML = `<i class="bi bi-check-circle me-1"></i>${weightedScore}/100`;
+            completeBadge.innerHTML = `<i class="bi bi-check-circle me-1"></i>${displayScore}/${displayMax}`;
           }
           if (partialBadge) {
             partialBadge.classList.add('d-none');
@@ -705,7 +686,8 @@ content %}
           }
           if (partialBadge) {
             partialBadge.classList.remove('d-none');
-            partialBadge.querySelector('.score-sum').textContent = weightedScore;
+            partialBadge.querySelector('.score-sum').textContent = displayScore;
+            partialBadge.querySelector('.score-max').textContent = displayMax;
             partialBadge.querySelector('.graded-count').textContent = gradedCount;
             partialBadge.querySelector('.total-count').textContent = totalComponents;
           }
@@ -747,10 +729,13 @@ content %}
         if (categoryBadge) {
           const category = categoryBadge.dataset.category;
           if (!categories[category]) {
-            categories[category] = { currentSum: 0, maxSum: 0, gradedCount: 0 };
+            categories[category] = { currentSum: 0, maxSum: 0, gradedCount: 0, hasPairGroup: false };
           }
 
           const maxScore = parseFloat(input.max) || 0;
+          if (input.dataset.pairGroup !== '') {
+            categories[category].hasPairGroup = true;
+          }
 
           if (input.value !== '') { // Only count if value is entered
             const currentScore = parseFloat(input.value) || 0;
@@ -768,11 +753,12 @@ content %}
       if (badge) {
         const data = categories[category];
         if (data.gradedCount > 0) {
-          const averageScore = data.currentSum / data.gradedCount;
-          const averageMax = data.maxSum / data.gradedCount;
+          const shouldSum = category === 'midterm' || data.hasPairGroup;
+          const displayScore = shouldSum ? data.currentSum : (data.currentSum / data.gradedCount);
+          const displayMax = shouldSum ? data.maxSum : (data.maxSum / data.gradedCount);
 
-          badge.querySelector('.current-total').textContent = formatCategoryValue(averageScore);
-          badge.querySelector('.max-total').textContent = formatCategoryValue(averageMax);
+          badge.querySelector('.current-total').textContent = formatCategoryValue(displayScore);
+          badge.querySelector('.max-total').textContent = formatCategoryValue(displayMax);
         }
       }
     });

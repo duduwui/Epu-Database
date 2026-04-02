@@ -120,8 +120,8 @@
                           <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Expired</span>
                         {% endif %}
                       </td>
-                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
+                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
                       <td><small>{{ period.description or '-' }}</small></td>
                       <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                       <td class="text-center">
@@ -233,8 +233,8 @@
                           <span class="badge bg-warning text-dark">2nd Round</span>
                         {% endif %}
                       </td>
-                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
+                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
                       <td><small>{{ period.description or '-' }}</small></td>
                       <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                       <td class="text-center">
@@ -304,29 +304,11 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <div class="input-group input-group-sm">
-                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="enroll_start_display"
-                       placeholder="Pick date &amp; time" readonly
-                       onclick="openEpuCalendar('enroll_start_date','enroll_start_display')">
-                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
-                        onclick="openEpuCalendar('enroll_start_date','enroll_start_display')">
-                  <i class="bi bi-calendar3"></i>
-                </button>
-              </div>
-              <input type="hidden" id="enroll_start_date" name="start_date">
+              <input type="date" class="form-control form-control-sm" id="enroll_start_date" name="start_date" required>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <div class="input-group input-group-sm">
-                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="enroll_end_display"
-                       placeholder="Pick date &amp; time" readonly
-                       onclick="openEpuCalendar('enroll_end_date','enroll_end_display')">
-                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
-                        onclick="openEpuCalendar('enroll_end_date','enroll_end_display')">
-                  <i class="bi bi-calendar3"></i>
-                </button>
-              </div>
-              <input type="hidden" id="enroll_end_date" name="end_date">
+              <input type="date" class="form-control form-control-sm" id="enroll_end_date" name="end_date" required>
             </div>
           </div>
           <div class="mb-2">
@@ -385,29 +367,11 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <div class="input-group input-group-sm">
-                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="exam_start_display"
-                       placeholder="Pick date &amp; time" readonly
-                       onclick="openEpuCalendar('exam_start_date','exam_start_display')">
-                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
-                        onclick="openEpuCalendar('exam_start_date','exam_start_display')">
-                  <i class="bi bi-calendar3"></i>
-                </button>
-              </div>
-              <input type="hidden" id="exam_start_date" name="start_date">
+              <input type="date" class="form-control form-control-sm" id="exam_start_date" name="start_date" required>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <div class="input-group input-group-sm">
-                <input type="text" class="form-control form-control-sm epu-cal-display-input" id="exam_end_display"
-                       placeholder="Pick date &amp; time" readonly
-                       onclick="openEpuCalendar('exam_end_date','exam_end_display')">
-                <button type="button" class="epu-cal-trigger" style="padding:0 8px"
-                        onclick="openEpuCalendar('exam_end_date','exam_end_display')">
-                  <i class="bi bi-calendar3"></i>
-                </button>
-              </div>
-              <input type="hidden" id="exam_end_date" name="end_date">
+              <input type="date" class="form-control form-control-sm" id="exam_end_date" name="end_date" required>
             </div>
           </div>
           <div class="mb-2">
@@ -416,7 +380,7 @@
           </div>
           <div class="rounded p-2 d-flex gap-2" style="background:#f5f0ff;font-size:.75rem;color:#4a0e8f">
             <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
-            <span><strong>Final:</strong> midterm &ge; 20/60 eligible &nbsp;&middot;&nbsp; <strong>2nd Round:</strong> failed (&lt;60%) only</span>
+            <span><strong>Final:</strong> coursework marks &ge; 20/60 eligible &nbsp;&middot;&nbsp; <strong>2nd Round:</strong> failed (&lt;60%) only</span>
           </div>
         </div>
         <div class="modal-footer border-0 px-4 pb-4 pt-2">
@@ -441,10 +405,10 @@ document.addEventListener('DOMContentLoaded', function() {
     e.preventDefault();
     const startVal = document.getElementById('enroll_start_date').value;
     const endVal   = document.getElementById('enroll_end_date').value;
-    if (!startVal) { alert('Please select a start date & time.'); return; }
-    if (!endVal)   { alert('Please select an end date & time.');   return; }
-    if (new Date(endVal) <= new Date(startVal)) {
-      alert('End date must be after start date!'); return;
+    if (!startVal) { alert('Please select a start date.'); return; }
+    if (!endVal)   { alert('Please select an end date.');   return; }
+    if (endVal < startVal) {
+      alert('End date must be on or after start date!'); return;
     }
     const btn = document.getElementById('createEnrollPeriodBtn');
     btn.disabled = true;
@@ -454,8 +418,6 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           enrollModal.hide(); this.reset();
-          document.getElementById('enroll_start_display').value = '';
-          document.getElementById('enroll_end_display').value = '';
           document.getElementById('toastMessage').textContent = data.message;
           toast.show();
           setTimeout(() => location.reload(), 800);
@@ -470,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('exam_period_type').addEventListener('change', function() {
     const hint = document.getElementById('typeHint');
-    if (this.value === 'final') hint.textContent = 'Students need midterm \u2265 20/60 to be eligible';
+    if (this.value === 'final') hint.textContent = 'Students need coursework marks \u2265 20/60 to be eligible';
     else if (this.value === 'second_round') hint.textContent = 'Only students who failed (< 60%) can sign up';
     else hint.textContent = '';
   });
@@ -479,10 +441,10 @@ document.addEventListener('DOMContentLoaded', function() {
     e.preventDefault();
     const startVal = document.getElementById('exam_start_date').value;
     const endVal   = document.getElementById('exam_end_date').value;
-    if (!startVal) { alert('Please select a start date & time.'); return; }
-    if (!endVal)   { alert('Please select an end date & time.');   return; }
-    if (new Date(endVal) <= new Date(startVal)) {
-      alert('End date must be after start date!'); return;
+    if (!startVal) { alert('Please select a start date.'); return; }
+    if (!endVal)   { alert('Please select an end date.');   return; }
+    if (endVal < startVal) {
+      alert('End date must be on or after start date!'); return;
     }
     const btn = document.getElementById('createExamPeriodBtn');
     btn.disabled = true;
@@ -492,8 +454,6 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.success) {
           examModal.hide(); this.reset();
-          document.getElementById('exam_start_display').value = '';
-          document.getElementById('exam_end_display').value = '';
           document.getElementById('toastMessage').textContent = data.message;
           toast.show();
           setTimeout(() => location.reload(), 800);

@@ -249,7 +249,7 @@
           <div class="col-md-8">
             <i class="bi bi-clock-history me-2"></i>
             <strong>Final Exam Signup Open!</strong>
-            <span class="ms-2">You need a midterm score &ge; 20/60 to be eligible.</span>
+            <span class="ms-2">You need coursework marks &ge; 20/60 to be eligible.</span>
           </div>
           <div class="col-md-4 text-end">
             <i class="bi bi-hourglass-split me-2"></i>
@@ -285,7 +285,7 @@
               <thead class="table-light">
                 <tr>
                   <th>Subject</th>
-                  <th>Score</th>
+                  <th>Coursework Score</th>
                   <th>Status</th>
                   <th class="text-center">Action</th>
                 </tr>
@@ -296,7 +296,7 @@
                   <td><strong>{{ subj.name }}</strong></td>
                   <td>
                     <span class="badge {{ 'bg-primary' if subj.eligible else 'bg-danger' }}">
-                      {{ subj.midterm_normalized }}/60
+                      {{ subj.coursework_normalized }}/60
                     </span>
                   </td>
                   <td>
