@@ -124,6 +124,48 @@ def execute_insert_returning(query, params=None):
         return_connection(conn)
         return None
 
+
+_results_schema_ready = False
+
+
+def ensure_results_publication_support():
+    """Ensure result-publication snapshot columns exist."""
+    global _results_schema_ready
+    if _results_schema_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS results_published_at TIMESTAMP")
+        cursor.execute("ALTER TABLE grades ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP")
+        cursor.execute("ALTER TABLE grades ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP")
+        cursor.execute("""
+            UPDATE subjects
+            SET results_published_at = CURRENT_TIMESTAMP
+            WHERE results_published = TRUE
+              AND results_published_at IS NULL
+        """)
+        cursor.execute("""
+            UPDATE grades
+            SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
+            WHERE updated_at IS NULL
+        """)
+        conn.commit()
+        cursor.close()
+        return_connection(conn)
+        _results_schema_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
+        raise
+
 # SYSTEM SETTINGS
 def get_current_cycle():
     result = execute_query("SELECT value FROM system_settings WHERE key = 'current_cycle'", fetch_one=True)
@@ -298,6 +340,11 @@ def get_available_subjects_for_student(student_id, semester=None):
 
 def get_enrolled_subjects_for_student(student_id): return execute_query("SELECT s.*, se.enrolled_at FROM student_enrollments se JOIN subjects s ON se.subject_id=s.id WHERE se.student_id=%s ORDER BY s.name", (student_id,), fetch_all=True)
 
+
+def grade_rows_have_scores(rows):
+    """Return True when at least one grade row has a real saved score."""
+    return any(row.get('score') is not None for row in (rows or []))
+
 def enroll_student_in_subject(student_id, subject_id):
     if execute_query("SELECT id FROM student_enrollments WHERE student_id=%s AND subject_id=%s", (student_id, subject_id), fetch_one=True): return False
     result = execute_query("INSERT INTO student_enrollments (student_id, subject_id) VALUES (%s,%s) RETURNING id", (student_id, subject_id), fetch_one=True)
@@ -394,8 +441,9 @@ def get_exam_eligible_subjects(student_id, exam_type, semester=None):
     elif exam_type == 'second_round':
         for subj in enrolled:
             if not subj.get('results_published'): continue
-            grades_data = get_student_grades_for_subject(student_id, subj['id']) or []
-            if not grades_data: continue
+            grades_data = get_student_result_grades_for_subject(student_id, subj['id']) or []
+            if not grade_rows_have_scores(grades_data):
+                continue
             total_score, total_max = _calc_grade_totals(grades_data)
             percentage = (total_score / total_max * 100) if total_max > 0 else 0
             if percentage >= 60: continue
@@ -546,9 +594,10 @@ def get_attendance_dates(subject_id):
 
 def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes=None, component_id=None, published=False):
     """Add a grade for a student (default unpublished/draft)"""
+    ensure_results_publication_support()
     query = """
-        INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         RETURNING id
     """
     return execute_insert_returning(query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
@@ -556,6 +605,7 @@ def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_
 
 def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, component_id, notes=None, published=False):
     """Update existing grade or insert new one for a student/component combination (default unpublished/draft)"""
+    ensure_results_publication_support()
     # Check if a grade already exists for this student and component
     check_query = """
         SELECT id FROM grades 
@@ -569,15 +619,16 @@ def upsert_grade(student_id, subject_id, teacher_id, grade_type, title, score, m
         update_query = """
             UPDATE grades 
             SET score = %s, max_score = %s, date = %s, notes = %s, grade_type = %s, title = %s,
-                published = CASE WHEN published = TRUE THEN TRUE ELSE %s END
+                published = CASE WHEN published = TRUE THEN TRUE ELSE %s END,
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
             RETURNING id
         """
         return execute_insert_returning(update_query, (score, max_score, date, notes, grade_type, title, published, existing['id']))
     else:
         insert_query = """
-            INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO grades (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             RETURNING id
         """
         return execute_insert_returning(insert_query, (student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes, component_id, published))
@@ -639,6 +690,58 @@ def get_student_grades_for_subject(student_id, subject_id):
     return execute_query(query, (student_id, subject_id, subject_id), fetch_all=True)
 
 
+def get_student_result_grades_for_subject(student_id, subject_id):
+    """Get a student's official result snapshot for a subject.
+
+    Official result rows are visible only when:
+      - the subject results were admin-published,
+      - the student was enrolled before the publish moment,
+      - and the grade row existed on or before that publish moment.
+    """
+    ensure_results_publication_support()
+    query = """
+        SELECT
+            gc.id as component_id,
+            gc.component_type,
+            gc.component_name,
+            gc.max_score,
+            gc.weight_percentage,
+            gc.display_order,
+            gc.pair_group,
+            g.score,
+            g.date as grade_date,
+            g.updated_at as grade_updated_at,
+            COALESCE(g.published, FALSE) as published
+        FROM subjects sub
+        JOIN student_enrollments se
+            ON se.subject_id = sub.id
+           AND se.student_id = %s
+        JOIN grade_components gc
+            ON gc.subject_id = sub.id
+        LEFT JOIN LATERAL (
+            SELECT
+                gr.score,
+                gr.date,
+                gr.published,
+                COALESCE(gr.updated_at, gr.created_at, CURRENT_TIMESTAMP) as updated_at
+            FROM grades gr
+            WHERE gr.component_id = gc.id
+              AND gr.student_id = %s
+              AND gr.subject_id = sub.id
+              AND gr.published = TRUE
+              AND COALESCE(gr.updated_at, gr.created_at, CURRENT_TIMESTAMP) <= sub.results_published_at
+            ORDER BY COALESCE(gr.updated_at, gr.created_at, CURRENT_TIMESTAMP) DESC, gr.id DESC
+            LIMIT 1
+        ) g ON TRUE
+        WHERE sub.id = %s
+          AND sub.results_published = TRUE
+          AND sub.results_published_at IS NOT NULL
+          AND se.enrolled_at <= sub.results_published_at
+        ORDER BY gc.display_order, gc.id
+    """
+    return execute_query(query, (student_id, student_id, subject_id), fetch_all=True) or []
+
+
 def publish_grades_for_subject(subject_id, class_id):
     """Publish all draft grades for a specific subject and class"""
     if class_id:
@@ -686,34 +789,52 @@ def get_unpublished_grade_count(subject_id, class_id):
     return result['count'] if result else 0
 
 
-def toggle_subject_results_published(subject_id, published):
+def toggle_subject_results_published(subject_id, published, major_id=None):
     """Admin: Toggle results visibility for a subject (final transcript)"""
+    ensure_results_publication_support()
     query = """
         UPDATE subjects 
-        SET results_published = %s
+        SET results_published = %s,
+            results_published_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END
         WHERE id = %s
     """
-    return execute_query(query, (published, subject_id))
+    params = [published, published, subject_id]
+    if major_id is not None:
+        query += " AND major_id = %s"
+        params.append(major_id)
+    return execute_query(query, tuple(params))
 
 
-def publish_semester_results(semester):
+def publish_semester_results(semester, major_id=None):
     """Admin: Publish all subject results for an entire semester"""
+    ensure_results_publication_support()
     query = """
         UPDATE subjects 
-        SET results_published = TRUE
+        SET results_published = TRUE,
+            results_published_at = CURRENT_TIMESTAMP
         WHERE semester = %s
     """
-    return execute_query(query, (semester,))
+    params = [semester]
+    if major_id is not None:
+        query += " AND major_id = %s"
+        params.append(major_id)
+    return execute_query(query, tuple(params))
 
 
-def unpublish_semester_results(semester):
+def unpublish_semester_results(semester, major_id=None):
     """Admin: Close/unpublish all subject results for an entire semester"""
+    ensure_results_publication_support()
     query = """
         UPDATE subjects 
-        SET results_published = FALSE
+        SET results_published = FALSE,
+            results_published_at = NULL
         WHERE semester = %s
     """
-    return execute_query(query, (semester,))
+    params = [semester]
+    if major_id is not None:
+        query += " AND major_id = %s"
+        params.append(major_id)
+    return execute_query(query, tuple(params))
 
 
 # =============================================
@@ -1845,7 +1966,7 @@ def ensure_upgrade_tables():
     execute_query(query)
 
 
-def get_semester_upgrade_preview(semester):
+def get_semester_upgrade_preview(semester, major_id=None):
     """Calculate pass/fail for every student in a semester.
     A student passes only if they score >= 60% in EVERY enrolled subject.
     Returns dict with 'passed' and 'failed' student lists.
@@ -1856,9 +1977,13 @@ def get_semester_upgrade_preview(semester):
         FROM students s
         JOIN users u ON s.user_id = u.id
         WHERE s.semester = %s
-        ORDER BY u.full_name
     """
-    students = execute_query(students_query, (semester,), fetch_all=True) or []
+    params = [semester]
+    if major_id is not None:
+        students_query += " AND u.major_id = %s"
+        params.append(major_id)
+    students_query += " ORDER BY u.full_name"
+    students = execute_query(students_query, tuple(params), fetch_all=True) or []
 
     passed = []
     failed = []
@@ -1866,11 +1991,12 @@ def get_semester_upgrade_preview(semester):
     for stu in students:
         # Enrolled subjects
         enrolled = execute_query("""
-            SELECT sub.id, sub.name, sub.credits
+            SELECT sub.id, sub.name, sub.credits, sub.results_published, sub.results_published_at
             FROM student_enrollments se
             JOIN subjects sub ON se.subject_id = sub.id
             WHERE se.student_id = %s
-        """, (stu['id'],), fetch_all=True) or []
+              AND sub.semester = %s
+        """ + (" AND sub.major_id = %s" if major_id is not None else ""), ((stu['id'], semester, major_id) if major_id is not None else (stu['id'], semester)), fetch_all=True) or []
 
         if not enrolled:
             # No enrollments - cannot evaluate - mark as failed
@@ -1881,15 +2007,12 @@ def get_semester_upgrade_preview(semester):
         all_passed = True
 
         for subj in enrolled:
-            grades = execute_query("""
-                SELECT gc.component_type, gc.pair_group, g.score, gc.max_score
-                FROM grade_components gc
-                LEFT JOIN grades g ON gc.id = g.component_id
-                    AND g.student_id = %s AND g.subject_id = %s
-                WHERE gc.subject_id = %s
-            """, (stu['id'], subj['id'], subj['id']), fetch_all=True) or []
+            if subj.get('results_published') and subj.get('results_published_at'):
+                grades = get_student_result_grades_for_subject(stu['id'], subj['id']) or []
+            else:
+                grades = get_student_grades_for_subject(stu['id'], subj['id']) or []
 
-            if not grades:
+            if not grade_rows_have_scores(grades):
                 subject_results.append({'name': subj['name'], 'percentage': 0, 'passed': False})
                 all_passed = False
                 continue
@@ -1915,12 +2038,12 @@ def get_semester_upgrade_preview(semester):
     return {'passed': passed, 'failed': failed, 'semester': semester}
 
 
-def execute_semester_upgrade(semester, admin_user_id):
+def execute_semester_upgrade(semester, admin_user_id, major_id=None):
     """Promote all passing students from `semester` to `semester+1`.
     Returns counts: {promoted, failed, graduated}.
     """
     import json
-    preview = get_semester_upgrade_preview(semester)
+    preview = get_semester_upgrade_preview(semester, major_id=major_id)
     promoted_count = 0
     graduated_count = 0
 
@@ -1956,8 +2079,11 @@ def execute_semester_upgrade(semester, admin_user_id):
         else:
             # Promote: update semester, year, lookup new class_id
             new_class = execute_query(
-                "SELECT id FROM classes WHERE semester=%s AND shift=%s AND section=%s AND is_active=true LIMIT 1",
-                (new_sem, stu['shift'], stu['section']), fetch_one=True
+                "SELECT id FROM classes WHERE semester=%s AND shift=%s AND section=%s AND is_active=true"
+                + (" AND major_id=%s" if major_id is not None else "")
+                + " LIMIT 1",
+                ((new_sem, stu['shift'], stu['section'], major_id) if major_id is not None else (new_sem, stu['shift'], stu['section'])),
+                fetch_one=True
             )
             new_class_id = new_class['id'] if new_class else None
             execute_query("""

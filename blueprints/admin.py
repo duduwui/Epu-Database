@@ -1029,7 +1029,7 @@ def toggle_subject_results(subject_id):
     try:
         data = request.get_json()
         published = data.get('published', False)
-        result = db.toggle_subject_results_published(subject_id, published)
+        result = db.toggle_subject_results_published(subject_id, published, major_id=session.get('major_id'))
         if result:
             return jsonify({'success': True,
                             'message': f'Results {"published" if published else "unpublished"} successfully',
@@ -1046,7 +1046,7 @@ def publish_semester_results(semester):
     try:
         if semester not in [1, 2, 3, 4]:
             return jsonify({'success': False, 'message': 'Invalid semester'}), 400
-        result = db.publish_semester_results(semester)
+        result = db.publish_semester_results(semester, major_id=session.get('major_id'))
         if result:
             return jsonify({'success': True,
                             'message': f'All results for Semester {semester} have been published successfully!'})
@@ -1063,7 +1063,7 @@ def unpublish_semester_results(semester):
     try:
         if semester not in [1, 2, 3, 4]:
             return jsonify({'success': False, 'message': 'Invalid semester'}), 400
-        result = db.unpublish_semester_results(semester)
+        result = db.unpublish_semester_results(semester, major_id=session.get('major_id'))
         if result:
             return jsonify({'success': True,
                             'message': f'Results for Semester {semester} have been closed. Students can no longer view them.'})
@@ -1862,7 +1862,7 @@ def upgrade_preview(semester):
         return redirect(url_for('.dashboard'))
 
     db.ensure_upgrade_tables()
-    preview = db.get_semester_upgrade_preview(semester)
+    preview = db.get_semester_upgrade_preview(semester, major_id=session.get('major_id'))
     return render_template('admin/upgrade_preview.html', preview=preview, semester=semester)
 
 
@@ -1877,7 +1877,7 @@ def upgrade_execute(semester):
     db.ensure_upgrade_tables()
 
     try:
-        result = db.execute_semester_upgrade(semester, session['user_id'])
+        result = db.execute_semester_upgrade(semester, session['user_id'], major_id=session.get('major_id'))
         if semester >= 4:
             flash(f'Semester {semester} upgrade complete: {result["graduated"]} graduated, {result["failed"]} failed.', 'success')
         else:

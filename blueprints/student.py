@@ -404,16 +404,15 @@ def results():
         sem_has_published = False
 
         for subject in sem_subjects:
-            if subject.get('results_published'):
-                sem_has_published = True
+            current_grades_data = db.get_student_grades_for_subject(student['id'], subject['id']) or []
+            if db.grade_rows_have_scores(current_grades_data):
+                grades_exist = True
 
-            grades_data = db.get_student_grades_for_subject(student['id'], subject['id']) or []
-            if not grades_data:
+            grades_data = db.get_student_result_grades_for_subject(student['id'], subject['id']) or []
+            if not db.grade_rows_have_scores(grades_data):
                 continue
-            grades_exist = True
 
-            if not subject.get('results_published'):
-                continue
+            sem_has_published = True
 
             # Use the canonical calculator — same rules as My Grades tab and signup eligibility.
             # This ensures all three views show the same number.
