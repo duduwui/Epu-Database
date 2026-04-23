@@ -1382,14 +1382,23 @@ def add_enrollment_period():
         return jsonify({'success': False, 'error': 'All fields are required'}), 400
 
     try:
-        start_day = date.fromisoformat(start_date)
-        end_day = date.fromisoformat(end_date)
+        # Handle both standard date 'YYYY-MM-DD' and datetime 'YYYY-MM-DDTHH:MM' 
+        if 'T' in start_date:
+            start_dt = datetime.fromisoformat(start_date)
+            start_day = start_dt.date()
+        else:
+            start_day = date.fromisoformat(start_date)
+            start_dt = datetime.combine(start_day, time(0, 0, 0))
+            
+        if 'T' in end_date:
+            end_dt = datetime.fromisoformat(end_date)
+            end_day = end_dt.date()
+        else:
+            end_day = date.fromisoformat(end_date)
+            end_dt = datetime.combine(end_day, time(23, 59, 59))
 
-        if end_day < start_day:
-            return jsonify({'success': False, 'error': 'End date must be on or after start date'}), 400
-
-        start_dt = datetime.combine(start_day, time(0, 0, 0))
-        end_dt = datetime.combine(end_day, time(23, 59, 59))
+        if end_dt < start_dt:
+            return jsonify({'success': False, 'error': 'End time must be on or after start time'}), 400
 
         result = db.create_enrollment_period(semester, start_dt, end_dt, description, session['user_id'])
         if result:
@@ -1439,14 +1448,22 @@ def add_exam_period():
         return jsonify({'success': False, 'error': 'Invalid period type'}), 400
 
     try:
-        start_day = date.fromisoformat(start_date)
-        end_day = date.fromisoformat(end_date)
+        if 'T' in start_date:
+            start_dt = datetime.fromisoformat(start_date)
+            start_day = start_dt.date()
+        else:
+            start_day = date.fromisoformat(start_date)
+            start_dt = datetime.combine(start_day, time(0, 0, 0))
 
-        if end_day < start_day:
-            return jsonify({'success': False, 'error': 'End date must be on or after start date'}), 400
+        if 'T' in end_date:
+            end_dt = datetime.fromisoformat(end_date)
+            end_day = end_dt.date()
+        else:
+            end_day = date.fromisoformat(end_date)
+            end_dt = datetime.combine(end_day, time(23, 59, 59))
 
-        start_dt = datetime.combine(start_day, time(0, 0, 0))
-        end_dt = datetime.combine(end_day, time(23, 59, 59))
+        if end_dt < start_dt:
+            return jsonify({'success': False, 'error': 'End time must be on or after start time'}), 400
 
         result = db.create_exam_period(semester, period_type, start_dt, end_dt, description, session['user_id'])
         if result:

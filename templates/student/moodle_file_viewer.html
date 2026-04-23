@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}{{ file_info['title'] }} - {{ subject['name'] }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h2 class="mb-0 text-navy">
+                <i class="bi bi-file-earmark-text me-2"></i>{{ file_info['title'] }}
+            </h2>
+            <p class="text-muted mb-0">{{ subject['name'] }}</p>
+        </div>
+        <div class="col-auto d-flex gap-2">
+            <a href="{{ url_for('student.moodle_view', subject_id=subject['id'], class_id=class_id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back to Subject
+            </a>
+            <a href="{{ view_payload['download_url'] }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-download me-1"></i>Download
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 border-top border-primary border-4">
+        <div class="card-body p-0 viewer-shell">
+            {% if view_payload['mode'] == 'embed' %}
+            <iframe src="{{ view_payload['raw_url'] }}" class="viewer-frame" title="{{ file_info['title'] }}"></iframe>
+            {% elif view_payload['mode'] == 'html' %}
+            <div class="p-4 viewer-html">
+                {{ view_payload['content_html']|safe }}
+            </div>
+            {% elif view_payload['mode'] == 'native' %}
+            <div class="p-5 text-center">
+                <i class="bi bi-file-earmark-richtext display-4 text-muted d-block mb-3"></i>
+                <h4 class="mb-2">Open Original File</h4>
+                <p class="text-muted mb-4">
+                    This format is now kept in its original state. Use the native open action below so the browser or device can handle it naturally without custom conversion.
+                </p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="{{ view_payload['raw_url'] }}" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Open Original
+                    </a>
+                    <a href="{{ view_payload['download_url'] }}" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i>Download File
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-5 text-center">
+                <i class="bi bi-file-earmark-arrow-down display-4 text-muted d-block mb-3"></i>
+                <h4 class="mb-2">Preview Not Available</h4>
+                <p class="text-muted mb-4">
+                    This file type cannot be rendered directly inside the system yet.
+                    You can still download it.
+                </p>
+                <a href="{{ view_payload['download_url'] }}" class="btn btn-primary">
+                    <i class="bi bi-download me-1"></i>Download File
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const intervalSeconds = 30;
+    const subjectId = {{ subject['id'] }};
+    const classId = {{ class_id }};
+    const pingUrl = "{{ url_for('student.api_ping_engagement') }}";
+    const resourceTitle = {{ file_info['title']|tojson }};
+    const resourceType = {{ view_payload['extension']|tojson }};
+    let engagementSessionId = null;
+    let pingTimer = null;
+
+    function postJson(payload, useBeacon = false) {
+        if (useBeacon && navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+            navigator.sendBeacon(pingUrl, blob);
+            return Promise.resolve(null);
+        }
+
+        return fetch(pingUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload)
+        }).then(response => response.json());
+    }
+
+    function startSession() {
+        if (engagementSessionId !== null || document.visibilityState !== 'visible') {
+            return;
+        }
+
+        postJson({
+            action: 'start',
+            subject_id: subjectId,
+            class_id: classId,
+            resource_title: resourceTitle,
+            resource_type: resourceType
+        }).then(data => {
+            if (data && data.success) {
+                engagementSessionId = data.session_id;
+            }
+        }).catch(() => {});
+    }
+
+    function pingSession() {
+        if (engagementSessionId === null || document.visibilityState !== 'visible') {
+            return;
+        }
+
+        postJson({
+            action: 'ping',
+            session_id: engagementSessionId,
+            subject_id: subjectId,
+            class_id: classId,
+            active_seconds: intervalSeconds
+        }).then(data => {
+            if (data && data.success && data.session_id) {
+                engagementSessionId = data.session_id;
+            }
+        }).catch(() => {});
+    }
+
+    function stopSession(useBeacon = false) {
+        if (engagementSessionId === null) {
+            return;
+        }
+
+        const currentSessionId = engagementSessionId;
+        engagementSessionId = null;
+        postJson({
+            action: 'stop',
+            session_id: currentSessionId,
+            subject_id: subjectId,
+            class_id: classId
+        }, useBeacon).catch(() => {});
+    }
+
+    pingTimer = setInterval(pingSession, intervalSeconds * 1000);
+    startSession();
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            startSession();
+        } else {
+            stopSession();
+        }
+    });
+
+    window.addEventListener('pagehide', function () {
+        stopSession(true);
+    });
+
+    window.addEventListener('beforeunload', function () {
+        stopSession(true);
+    });
+});
+</script>
+
+<style>
+    .viewer-shell {
+        min-height: 75vh;
+    }
+
+    .viewer-frame {
+        width: 100%;
+        min-height: 75vh;
+        border: 0;
+    }
+
+    .viewer-html {
+        max-height: 75vh;
+        overflow: auto;
+    }
+
+    .viewer-pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0;
+        font-family: Consolas, monospace;
+        font-size: 0.95rem;
+    }
+
+    .viewer-section + .viewer-section {
+        margin-top: 2rem;
+    }
+</style>
+{% endblock %}

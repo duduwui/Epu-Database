@@ -126,6 +126,7 @@ def execute_insert_returning(query, params=None):
 
 
 _results_schema_ready = False
+_moodle_assignment_schema_ready = False
 
 
 def ensure_results_publication_support():
@@ -158,6 +159,66 @@ def ensure_results_publication_support():
         cursor.close()
         return_connection(conn)
         _results_schema_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
+        raise
+
+
+def ensure_moodle_assignment_support():
+    """Ensure Moodle request and submission support exists without affecting legacy homework pages."""
+    global _moodle_assignment_schema_ready
+    if _moodle_assignment_schema_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE homework ADD COLUMN IF NOT EXISTS due_at TIMESTAMP")
+        cursor.execute("ALTER TABLE homework ADD COLUMN IF NOT EXISTS is_moodle_request BOOLEAN DEFAULT FALSE")
+        cursor.execute("""
+            UPDATE homework
+            SET due_at = COALESCE(
+                due_at,
+                due_date::timestamp + INTERVAL '23 hours 59 minutes'
+            )
+            WHERE due_at IS NULL
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS homework_submissions (
+                id SERIAL PRIMARY KEY,
+                homework_id INTEGER NOT NULL REFERENCES homework(id) ON DELETE CASCADE,
+                student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+                file_name VARCHAR(255) NOT NULL,
+                file_path VARCHAR(500) NOT NULL,
+                file_type VARCHAR(255),
+                file_size INTEGER DEFAULT 0,
+                submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_homework_submissions_homework_student
+            ON homework_submissions(homework_id, student_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_homework_moodle_lookup
+            ON homework(subject_id, class_id, week_id, due_at)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_homework_submissions_homework
+            ON homework_submissions(homework_id, submitted_at DESC)
+        """)
+        conn.commit()
+        cursor.close()
+        return_connection(conn)
+        _moodle_assignment_schema_ready = True
     except Exception:
         try:
             conn.rollback()
@@ -338,7 +399,31 @@ def get_available_subjects_for_student(student_id, semester=None):
     if major_id: return execute_query(base+" AND s.major_id=%s ORDER BY s.name", (student_id, semester, major_id), fetch_all=True)
     return execute_query(base+" ORDER BY s.name", (student_id, semester), fetch_all=True)
 
-def get_enrolled_subjects_for_student(student_id): return execute_query("SELECT s.*, se.enrolled_at FROM student_enrollments se JOIN subjects s ON se.subject_id=s.id WHERE se.student_id=%s ORDER BY s.name", (student_id,), fetch_all=True)
+def get_enrolled_subjects_for_student(student_id):
+    query = """
+        SELECT s.*,
+               se.enrolled_at,
+               st.class_id,
+               c.name AS class_name,
+               COALESCE((
+                   SELECT STRING_AGG(
+                       u.full_name || ' (' || INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                       ' / ' ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                   )
+                   FROM teacher_assignments ta
+                   JOIN teachers t ON ta.teacher_id = t.id
+                   JOIN users u ON t.user_id = u.id
+                   WHERE ta.subject_id = s.id
+                     AND ta.class_id = st.class_id
+               ), '') AS teacher_name
+        FROM student_enrollments se
+        JOIN subjects s ON se.subject_id = s.id
+        JOIN students st ON st.id = se.student_id
+        LEFT JOIN classes c ON c.id = st.class_id
+        WHERE se.student_id = %s
+        ORDER BY s.name
+    """
+    return execute_query(query, (student_id,), fetch_all=True)
 
 
 def grade_rows_have_scores(rows):
@@ -841,18 +926,39 @@ def unpublish_semester_results(semester, major_id=None):
 # HOMEWORK QUERIES
 # =============================================
 
-def create_homework(class_id, subject_id, teacher_id, title, description, due_date, filename=None, file_path=None, file_type=None, file_size=None):
+def create_homework(class_id, subject_id, teacher_id, title, description, due_date,
+                    filename=None, file_path=None, file_type=None, file_size=None,
+                    week_id=None, is_moodle_request=False, due_at=None):
     """Create a new homework assignment"""
+    ensure_moodle_assignment_support()
+    filename = filename or ""
+    file_path = file_path or ""
+    file_type = file_type or ""
+    file_size = file_size or 0
+
+    if isinstance(due_date, datetime):
+        due_at = due_date
+        due_date = due_date.date()
+    elif due_at is None and due_date:
+        due_at = f"{due_date} 23:59:00"
+
     query = """
-        INSERT INTO homework (class_id, subject_id, teacher_id, title, description, due_date, filename, file_path, file_type, file_size)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO homework (
+            class_id, subject_id, teacher_id, title, description, due_date,
+            filename, file_path, file_type, file_size, week_id, due_at, is_moodle_request
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (class_id, subject_id, teacher_id, title, description, due_date, filename, file_path, file_type, file_size))
+    return execute_insert_returning(query, (
+        class_id, subject_id, teacher_id, title, description, due_date,
+        filename, file_path, file_type, file_size, week_id, due_at, is_moodle_request
+    ))
 
 
 def get_homework_by_class(class_id):
     """Get all homework for a class"""
+    ensure_moodle_assignment_support()
     query = """
         SELECT h.*, s.name as subject_name, u.full_name as teacher_name
         FROM homework h
@@ -860,6 +966,7 @@ def get_homework_by_class(class_id):
         LEFT JOIN teachers t ON h.teacher_id = t.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE h.class_id = %s
+          AND COALESCE(h.is_moodle_request, FALSE) = FALSE
         ORDER BY h.due_date DESC
     """
     return execute_query(query, (class_id,), fetch_all=True)
@@ -867,12 +974,14 @@ def get_homework_by_class(class_id):
 
 def get_homework_by_teacher(teacher_id):
     """Get all homework created by a teacher (with file information)"""
+    ensure_moodle_assignment_support()
     query = """
         SELECT h.*, s.name as subject_name, c.name as class_name
         FROM homework h
         JOIN subjects s ON h.subject_id = s.id
         JOIN classes c ON h.class_id = c.id
         WHERE h.teacher_id = %s
+          AND COALESCE(h.is_moodle_request, FALSE) = FALSE
         ORDER BY h.due_date DESC
     """
     return execute_query(query, (teacher_id,), fetch_all=True)
@@ -1410,14 +1519,21 @@ def get_timetable_by_teacher(teacher_id):
 # LECTURE FILES MANAGEMENT
 # =============================================
 
-def create_lecture_file(subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number=None):
-    """Upload a new lecture file"""
+def create_lecture_file(subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number=None, week_id=None, is_link=False, link_url=None):
+    """Upload a new lecture file or link"""
+    # Fix for links: database wants NOT NULL files, so supply a stub if empty
+    if is_link:
+        file_name = file_name or "Link"
+        file_size = file_size or 0
+        file_path = file_path or "link"
+        file_type = file_type or "link"
+        
     query = """
-        INSERT INTO lecture_files (subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO lecture_files (subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number, week_id, is_link, link_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-    return execute_insert_returning(query, (subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number))
+    return execute_insert_returning(query, (subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number, week_id, is_link, link_url))
 
 
 def get_lecture_files_by_subject(subject_id):
@@ -2175,3 +2291,506 @@ def get_student_semester_results(student_id, semester):
         })
 
     return results
+def get_moodle_weeks(class_id, subject_id):
+    query = """
+        SELECT * FROM moodle_weeks
+        WHERE class_id = %s AND subject_id = %s
+        ORDER BY display_order ASC, id ASC
+    """
+    return execute_query(query, (class_id, subject_id), fetch_all=True) or []
+
+
+_student_engagement_schema_ready = False
+
+
+def ensure_student_engagement_support():
+    """Ensure engagement tracking can store exact access times and per-visit sessions."""
+    global _student_engagement_schema_ready
+    if _student_engagement_schema_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            ALTER TABLE student_engagement
+            ADD COLUMN IF NOT EXISTS last_access_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """)
+        cursor.execute("""
+            UPDATE student_engagement
+            SET last_access_at = COALESCE(last_access_at, access_date::timestamp, CURRENT_TIMESTAMP)
+            WHERE last_access_at IS NULL
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS student_engagement_sessions (
+                id SERIAL PRIMARY KEY,
+                student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+                subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+                class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+                started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_ping_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ended_at TIMESTAMP NULL,
+                total_seconds INTEGER NOT NULL DEFAULT 0,
+                resource_title VARCHAR(255) NULL,
+                resource_type VARCHAR(50) NULL
+            )
+        """)
+        cursor.execute("""
+            ALTER TABLE student_engagement_sessions
+            ADD COLUMN IF NOT EXISTS resource_title VARCHAR(255)
+        """)
+        cursor.execute("""
+            ALTER TABLE student_engagement_sessions
+            ADD COLUMN IF NOT EXISTS resource_type VARCHAR(50)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_student_engagement_sessions_lookup
+            ON student_engagement_sessions(student_id, subject_id, class_id, started_at DESC)
+        """)
+        cursor.execute("""
+            INSERT INTO student_engagement_sessions (student_id, subject_id, class_id, started_at, last_ping_at, ended_at, total_seconds, resource_title, resource_type)
+            SELECT se.student_id,
+                   se.subject_id,
+                   se.class_id,
+                   COALESCE(se.last_access_at, se.access_date::timestamp, CURRENT_TIMESTAMP),
+                   COALESCE(se.last_access_at, se.access_date::timestamp, CURRENT_TIMESTAMP),
+                   COALESCE(se.last_access_at, se.access_date::timestamp, CURRENT_TIMESTAMP),
+                   COALESCE(se.time_spent_seconds, 0),
+                   NULL,
+                   NULL
+            FROM student_engagement se
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM student_engagement_sessions sess
+                WHERE sess.student_id = se.student_id
+                  AND sess.subject_id = se.subject_id
+                  AND sess.class_id = se.class_id
+                  AND DATE(sess.started_at) = se.access_date
+            )
+        """)
+        conn.commit()
+        cursor.close()
+        _student_engagement_schema_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        return_connection(conn)
+
+def create_moodle_week(class_id, subject_id, teacher_id, title, display_order=0):
+    try:
+        display_order = int(display_order) if display_order and str(display_order).strip() else 0
+    except ValueError:
+        display_order = 0
+    query = """
+        INSERT INTO moodle_weeks (class_id, subject_id, teacher_id, title, display_order)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    execute_query(query, (class_id, subject_id, teacher_id, title, display_order))
+    return True
+
+def delete_moodle_week(week_id, teacher_id):
+    query = "DELETE FROM moodle_weeks WHERE id = %s AND teacher_id = %s"
+    execute_query(query, (week_id, teacher_id))
+
+
+def get_moodle_week_by_id(week_id, teacher_id=None):
+    query = "SELECT * FROM moodle_weeks WHERE id = %s"
+    params = [week_id]
+    if teacher_id is not None:
+        query += " AND teacher_id = %s"
+        params.append(teacher_id)
+    return execute_query(query, tuple(params), fetch_one=True)
+
+
+def get_moodle_request_by_id(request_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hw.*,
+               COALESCE(summary.submitted_count, 0) AS submitted_count,
+               COALESCE(summary.total_students, 0) AS total_students
+        FROM homework hw
+        LEFT JOIN LATERAL (
+            SELECT COUNT(hs.id) AS submitted_count,
+                   (
+                       SELECT COUNT(*)
+                       FROM student_enrollments se
+                       JOIN students st ON st.id = se.student_id
+                       WHERE se.subject_id = hw.subject_id
+                         AND st.class_id = hw.class_id
+                   ) AS total_students
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+        ) summary ON TRUE
+        WHERE hw.id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+    """
+    return execute_query(query, (request_id,), fetch_one=True)
+
+
+def get_moodle_requests(class_id, subject_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hw.*,
+               COALESCE(summary.submitted_count, 0) AS submitted_count,
+               COALESCE(summary.total_students, 0) AS total_students
+        FROM homework hw
+        LEFT JOIN LATERAL (
+            SELECT COUNT(hs.id) AS submitted_count,
+                   (
+                       SELECT COUNT(*)
+                       FROM student_enrollments se
+                       JOIN students st ON st.id = se.student_id
+                       WHERE se.subject_id = hw.subject_id
+                         AND st.class_id = hw.class_id
+                   ) AS total_students
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+        ) summary ON TRUE
+        WHERE hw.class_id = %s
+          AND hw.subject_id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+        ORDER BY COALESCE(hw.week_id, 2147483647), COALESCE(hw.due_at, hw.due_date::timestamp) ASC, hw.id ASC
+    """
+    rows = execute_query(query, (class_id, subject_id), fetch_all=True) or []
+    for row in rows:
+        row['remaining_count'] = max((row.get('total_students') or 0) - (row.get('submitted_count') or 0), 0)
+    return rows
+
+
+def get_moodle_requests_for_student(class_id, subject_id, student_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hw.*,
+               sub.id AS submission_id,
+               sub.file_name AS submission_file_name,
+               sub.file_path AS submission_file_path,
+               sub.file_type AS submission_file_type,
+               sub.file_size AS submission_file_size,
+               sub.submitted_at,
+               sub.updated_at AS submission_updated_at
+        FROM homework hw
+        LEFT JOIN LATERAL (
+            SELECT hs.*
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+              AND hs.student_id = %s
+            ORDER BY hs.updated_at DESC, hs.id DESC
+            LIMIT 1
+        ) sub ON TRUE
+        WHERE hw.class_id = %s
+          AND hw.subject_id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+        ORDER BY COALESCE(hw.week_id, 2147483647), COALESCE(hw.due_at, hw.due_date::timestamp) ASC, hw.id ASC
+    """
+    return execute_query(query, (student_id, class_id, subject_id), fetch_all=True) or []
+
+
+def get_moodle_request_roster(request_id):
+    ensure_moodle_assignment_support()
+    request_row = get_moodle_request_by_id(request_id)
+    if not request_row:
+        return []
+
+    query = """
+        SELECT st.id AS student_id,
+               u.full_name AS student_name,
+               u.username,
+               se.enrolled_at,
+               hs.id AS submission_id,
+               hs.file_name,
+               hs.file_path,
+               hs.file_type,
+               hs.file_size,
+               hs.submitted_at,
+               hs.updated_at
+        FROM student_enrollments se
+        JOIN students st ON st.id = se.student_id
+        JOIN users u ON u.id = st.user_id
+        LEFT JOIN LATERAL (
+            SELECT sub.*
+            FROM homework_submissions sub
+            WHERE sub.homework_id = %s
+              AND sub.student_id = st.id
+            ORDER BY sub.updated_at DESC, sub.id DESC
+            LIMIT 1
+        ) hs ON TRUE
+        WHERE se.subject_id = %s
+          AND st.class_id = %s
+        ORDER BY CASE WHEN hs.id IS NULL THEN 1 ELSE 0 END, u.full_name
+    """
+    return execute_query(query, (request_id, request_row['subject_id'], request_row['class_id']), fetch_all=True) or []
+
+
+def get_moodle_request_submission_by_student(request_id, student_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT *
+        FROM homework_submissions
+        WHERE homework_id = %s AND student_id = %s
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+    """
+    return execute_query(query, (request_id, student_id), fetch_one=True)
+
+
+def get_moodle_request_submission_by_id(submission_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hs.*, hw.subject_id, hw.class_id, hw.teacher_id, hw.title AS request_title
+        FROM homework_submissions hs
+        JOIN homework hw ON hw.id = hs.homework_id
+        WHERE hs.id = %s
+    """
+    return execute_query(query, (submission_id,), fetch_one=True)
+
+
+def get_moodle_request_submissions(request_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT *
+        FROM homework_submissions
+        WHERE homework_id = %s
+        ORDER BY submitted_at DESC, id DESC
+    """
+    return execute_query(query, (request_id,), fetch_all=True) or []
+
+
+def update_moodle_request_due(request_id, teacher_id, due_at):
+    ensure_moodle_assignment_support()
+    query = """
+        UPDATE homework
+        SET due_at = %s,
+            due_date = DATE(%s)
+        WHERE id = %s
+          AND teacher_id = %s
+          AND COALESCE(is_moodle_request, FALSE) = TRUE
+    """
+    return execute_query(query, (due_at, due_at, request_id, teacher_id))
+
+
+def delete_moodle_request(request_id, teacher_id):
+    ensure_moodle_assignment_support()
+    query = """
+        DELETE FROM homework
+        WHERE id = %s
+          AND teacher_id = %s
+          AND COALESCE(is_moodle_request, FALSE) = TRUE
+        RETURNING id
+    """
+    return execute_insert_returning(query, (request_id, teacher_id))
+
+
+def delete_moodle_requests_by_week(week_id):
+    ensure_moodle_assignment_support()
+    query = "DELETE FROM homework WHERE week_id = %s AND COALESCE(is_moodle_request, FALSE) = TRUE"
+    return execute_query(query, (week_id,))
+
+
+def upsert_moodle_request_submission(request_id, student_id, file_name, file_path, file_type=None, file_size=0):
+    ensure_moodle_assignment_support()
+    query = """
+        INSERT INTO homework_submissions (
+            homework_id, student_id, file_name, file_path, file_type, file_size, submitted_at, updated_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (homework_id, student_id)
+        DO UPDATE SET
+            file_name = EXCLUDED.file_name,
+            file_path = EXCLUDED.file_path,
+            file_type = EXCLUDED.file_type,
+            file_size = EXCLUDED.file_size,
+            submitted_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING id
+    """
+    return execute_insert_returning(query, (request_id, student_id, file_name, file_path, file_type, file_size))
+
+
+def delete_moodle_request_submissions(request_id):
+    ensure_moodle_assignment_support()
+    query = "DELETE FROM homework_submissions WHERE homework_id = %s"
+    return execute_query(query, (request_id,))
+
+
+def get_moodle_content(class_id, subject_id, student_id=None):
+    ensure_moodle_assignment_support()
+    weeks = get_moodle_weeks(class_id, subject_id)
+    
+    query_files = "SELECT * FROM lecture_files WHERE class_id = %s AND subject_id = %s ORDER BY id ASC"
+    files = execute_query(query_files, (class_id, subject_id), fetch_all=True) or []
+    requests = (
+        get_moodle_requests_for_student(class_id, subject_id, student_id)
+        if student_id is not None else
+        get_moodle_requests(class_id, subject_id)
+    )
+    content = []
+    
+    for week in weeks:
+        week_data = dict(week)
+        week_data['files'] = [f for f in files if f.get('week_id') == week['id']]
+        week_data['requests'] = [r for r in requests if r.get('week_id') == week['id']]
+        content.append(week_data)
+        
+    no_week_files = [f for f in files if f.get('week_id') is None]
+    no_week_requests = [r for r in requests if r.get('week_id') is None]
+    
+    if no_week_files or no_week_requests:
+        content.append({
+            'id': None,
+            'title': 'Unassigned',
+            'display_order': 9999,
+            'files': no_week_files,
+            'requests': no_week_requests,
+        })
+        
+    return content
+
+def record_student_engagement(student_id, subject_id, class_id, active_seconds):
+    ensure_student_engagement_support()
+    query = """
+        INSERT INTO student_engagement (student_id, subject_id, class_id, time_spent_seconds, last_access_at)
+        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+        ON CONFLICT (student_id, subject_id, class_id, access_date)
+        DO UPDATE SET time_spent_seconds = student_engagement.time_spent_seconds + EXCLUDED.time_spent_seconds,
+                      last_access_at = CURRENT_TIMESTAMP
+    """
+    execute_query(query, (student_id, subject_id, class_id, active_seconds))
+
+
+def start_student_engagement_session(student_id, subject_id, class_id, resource_title=None, resource_type=None):
+    ensure_student_engagement_support()
+    query = """
+        INSERT INTO student_engagement_sessions (student_id, subject_id, class_id, started_at, last_ping_at, total_seconds, resource_title, resource_type)
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, %s, %s)
+        RETURNING id
+    """
+    return execute_insert_returning(query, (student_id, subject_id, class_id, resource_title, resource_type))
+
+
+def ping_student_engagement_session(session_id, student_id, active_seconds):
+    ensure_student_engagement_support()
+    active_seconds = max(int(active_seconds or 0), 0)
+    query = """
+        UPDATE student_engagement_sessions
+        SET total_seconds = total_seconds + %s,
+            last_ping_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+          AND student_id = %s
+          AND ended_at IS NULL
+    """
+    return execute_query(query, (active_seconds, session_id, student_id))
+
+
+def stop_student_engagement_session(session_id, student_id):
+    ensure_student_engagement_support()
+    query = """
+        UPDATE student_engagement_sessions
+        SET total_seconds = total_seconds + GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - last_ping_at))::INTEGER),
+            ended_at = CURRENT_TIMESTAMP,
+            last_ping_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+          AND student_id = %s
+          AND ended_at IS NULL
+    """
+    return execute_query(query, (session_id, student_id))
+
+
+def set_student_engagement_resource(session_id, student_id, resource_title=None, resource_type=None):
+    ensure_student_engagement_support()
+    query = """
+        UPDATE student_engagement_sessions
+        SET resource_title = %s,
+            resource_type = %s
+        WHERE id = %s
+          AND student_id = %s
+    """
+    return execute_query(query, (resource_title, resource_type, session_id, student_id))
+
+
+def get_moodle_engagement_stats(subject_id, class_id):
+    ensure_student_engagement_support()
+    query = """
+        SELECT s.id AS student_id,
+               u.full_name AS student_name,
+               MAX(COALESCE(sess.ended_at, sess.last_ping_at, sess.started_at)) AS last_access_at,
+               SUM(sess.total_seconds) AS time_spent_seconds,
+               COUNT(DISTINCT DATE(sess.started_at)) AS active_days,
+               COUNT(*) AS session_count
+        FROM student_engagement_sessions sess
+        JOIN students s ON sess.student_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE sess.subject_id = %s AND sess.class_id = %s
+        GROUP BY s.id, u.full_name
+        ORDER BY MAX(COALESCE(sess.ended_at, sess.last_ping_at, sess.started_at)) DESC,
+                 SUM(sess.total_seconds) DESC
+    """
+    return execute_query(query, (subject_id, class_id), fetch_all=True) or []
+
+
+def get_moodle_engagement_daily_details(subject_id, class_id):
+    ensure_student_engagement_support()
+    query = """
+        SELECT sess.id AS session_id,
+               s.id AS student_id,
+               u.full_name AS student_name,
+               DATE(sess.started_at) AS access_date,
+               sess.started_at,
+               COALESCE(sess.ended_at, sess.last_ping_at, sess.started_at) AS ended_at,
+               sess.total_seconds AS time_spent_seconds,
+               sess.resource_title,
+               sess.resource_type
+        FROM student_engagement_sessions sess
+        JOIN students s ON sess.student_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE sess.subject_id = %s AND sess.class_id = %s
+        ORDER BY u.full_name, sess.started_at DESC
+    """
+    return execute_query(query, (subject_id, class_id), fetch_all=True) or []
+
+
+def update_lecture_file_asset(file_id, teacher_id, file_name, file_path, file_size, file_type):
+    query = """
+        UPDATE lecture_files
+        SET file_name = %s,
+            file_path = %s,
+            file_size = %s,
+            file_type = %s,
+            is_link = FALSE,
+            link_url = NULL
+        WHERE id = %s AND teacher_id = %s
+    """
+    return execute_query(query, (file_name, file_path, file_size, file_type, file_id, teacher_id))
+
+
+def get_lecture_files_for_week(week_id, teacher_id=None):
+    query = "SELECT * FROM lecture_files WHERE week_id = %s"
+    params = [week_id]
+    if teacher_id is not None:
+        query += " AND teacher_id = %s"
+        params.append(teacher_id)
+    return execute_query(query + " ORDER BY id ASC", tuple(params), fetch_all=True) or []
+
+
+def get_homework_for_week(week_id):
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT *
+        FROM homework
+        WHERE week_id = %s
+          AND COALESCE(is_moodle_request, FALSE) = TRUE
+        ORDER BY id ASC
+    """
+    return execute_query(query, (week_id,), fetch_all=True) or []
+
+
+def delete_homework_by_week(week_id):
+    ensure_moodle_assignment_support()
+    query = "DELETE FROM homework WHERE week_id = %s AND COALESCE(is_moodle_request, FALSE) = TRUE"
+    return execute_query(query, (week_id,))

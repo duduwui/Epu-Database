@@ -304,11 +304,29 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <input type="date" class="form-control form-control-sm" id="enroll_start_date" name="start_date" required>
+              <input type="hidden" id="enroll_start_date" name="start_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="start_date_display"
+                       placeholder="Select start..." readonly required
+                       onclick="openEpuCalendar('enroll_start_date','start_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('enroll_start_date','start_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <input type="date" class="form-control form-control-sm" id="enroll_end_date" name="end_date" required>
+              <input type="hidden" id="enroll_end_date" name="end_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="end_date_display"
+                       placeholder="Select end..." readonly required
+                       onclick="openEpuCalendar('enroll_end_date','end_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('enroll_end_date','end_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
           </div>
           <div class="mb-2">
@@ -367,11 +385,29 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <input type="date" class="form-control form-control-sm" id="exam_start_date" name="start_date" required>
+              <input type="hidden" id="exam_start_date" name="start_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="exam_start_date_display"
+                       placeholder="Select start..." readonly required
+                       onclick="openEpuCalendar('exam_start_date','exam_start_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('exam_start_date','exam_start_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <input type="date" class="form-control form-control-sm" id="exam_end_date" name="end_date" required>
+              <input type="hidden" id="exam_end_date" name="end_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="exam_end_date_display"
+                       placeholder="Select end..." readonly required
+                       onclick="openEpuCalendar('exam_end_date','exam_end_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('exam_end_date','exam_end_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
           </div>
           <div class="mb-2">

@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 uploads/
 .env
+node_modules/
+*.log
+*.txt

@@ -1,4 +1,43 @@
 <!doctype html>
+{% macro render_primary_nav(link_class='nav-link', item_class='nav-item') -%}
+  {% if current_user.role == 'admin' %}
+    {% if session.get('major_id') %}
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-grid-1x2"></i><span>{{ t('Dashboard') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.students') }}"><i class="bi bi-people"></i><span>{{ t('Students') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.classes') }}"><i class="bi bi-calendar3"></i><span>{{ t('Semesters') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.subjects') }}"><i class="bi bi-journal-bookmark"></i><span>{{ t('Subjects') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.teachers') }}"><i class="bi bi-person-badge"></i><span>{{ t('Teachers') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.users') }}"><i class="bi bi-person-gear"></i><span>{{ t('Users') }}</span></a></li>
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.enrollment_periods') }}"><i class="bi bi-calendar-range"></i><span>{{ t('Periods') }}</span></a></li>
+    {% else %}
+      <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('admin.majors') }}"><i class="bi bi-diagram-3"></i><span>{{ t('Majors') }}</span></a></li>
+    {% endif %}
+  {% elif current_user.role == 'teacher' %}
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('teacher.dashboard') }}"><i class="bi bi-grid-1x2"></i><span>{{ t('Dashboard') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('teacher.attendance') }}"><i class="bi bi-calendar-check"></i><span>{{ t('Attendance') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('teacher.grades') }}"><i class="bi bi-clipboard-data"></i><span>{{ t('Grades') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('teacher.moodle') }}"><i class="bi bi-mortarboard-fill"></i><span>{{ t('Moodle Hub') }}</span></a></li>
+  {% elif current_user.role == 'student' %}
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('student.dashboard') }}"><i class="bi bi-grid-1x2"></i><span>{{ t('Dashboard') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('student.signups') }}"><i class="bi bi-ui-checks"></i><span>{{ t('Signups') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('student.grades') }}"><i class="bi bi-clipboard-data"></i><span>{{ t('My Grades') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('student.results') }}"><i class="bi bi-trophy"></i><span>{{ t('Results') }}</span></a></li>
+    <li class="{{ item_class }}"><a class="{{ link_class }}" href="{{ url_for('student.moodle') }}"><i class="bi bi-mortarboard-fill"></i><span>{{ t('Moodle Hub') }}</span></a></li>
+  {% endif %}
+{%- endmacro %}
+
+{% macro render_language_links(link_class='dropdown-item', wrapper='li') -%}
+  {% if wrapper == 'li' %}
+    <li><a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='en', next=request.full_path) }}"><span>{{ t('English') }}</span>{% if current_lang == 'en' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a></li>
+    <li><a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='ku', next=request.full_path) }}"><span>{{ t('Kurdish') }}</span>{% if current_lang == 'ku' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a></li>
+    <li><a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='ar', next=request.full_path) }}"><span>{{ t('Arabic') }}</span>{% if current_lang == 'ar' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a></li>
+  {% else %}
+    <a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='en', next=request.full_path) }}"><span>{{ t('English') }}</span>{% if current_lang == 'en' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a>
+    <a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='ku', next=request.full_path) }}"><span>{{ t('Kurdish') }}</span>{% if current_lang == 'ku' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a>
+    <a class="{{ link_class }}" href="{{ url_for('auth.set_language', lang='ar', next=request.full_path) }}"><span>{{ t('Arabic') }}</span>{% if current_lang == 'ar' %}<i class="bi bi-check2 text-success"></i>{% endif %}</a>
+  {% endif %}
+{%- endmacro %}
+
 <html lang="{{ current_lang }}" dir="ltr">
   <head>
     <meta charset="UTF-8" />
@@ -41,150 +80,11 @@
                style="margin-right:8px;vertical-align:middle;"
                onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
           <i class="bi bi-mortarboard-fill" style="display:none;margin-right:6px"></i>
-          <span>{{ current_major.name if current_major else t('Erbil Polytechnic University') }}</span>
+          <span class="brand-title d-none d-lg-inline">{{ current_major.name if current_major else t('Erbil Polytechnic University') }}</span>
         </a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="d-none d-lg-flex align-items-center flex-grow-1" id="navbarNav">
           <ul class="navbar-nav me-auto">
-            {% if current_user.role == 'admin' %}
-            <!-- Admin Navigation -->
-            {% if session.get('major_id') %}
-            <!-- Major admin: full feature set -->
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
-                <i class="bi bi-grid-1x2"></i>
-                <span>{{ t('Dashboard') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.students') }}">
-                <i class="bi bi-people"></i>
-                <span>{{ t('Students') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.classes') }}">
-                <i class="bi bi-calendar3"></i>
-                <span>{{ t('Semesters') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.subjects') }}">
-                <i class="bi bi-journal-bookmark"></i>
-                <span>{{ t('Subjects') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.teachers') }}">
-                <i class="bi bi-person-badge"></i>
-                <span>{{ t('Teachers') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.users') }}">
-                <i class="bi bi-person-gear"></i>
-                <span>{{ t('Users') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.enrollment_periods') }}">
-                <i class="bi bi-calendar-range"></i>
-                <span>{{ t('Periods') }}</span>
-              </a>
-            </li>
-            {% else %}
-            <!-- Superadmin: only Majors management -->
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('admin.majors') }}">
-                <i class="bi bi-diagram-3"></i>
-                <span>{{ t('Majors') }}</span>
-              </a>
-            </li>
-            {% endif %}
-
-            {% elif current_user.role == 'teacher' %}
-            <!-- Teacher Navigation -->
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.dashboard') }}">
-                <i class="bi bi-grid-1x2"></i>
-                <span>{{ t('Dashboard') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.attendance') }}">
-                <i class="bi bi-calendar-check"></i>
-                <span>{{ t('Attendance') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.grades') }}">
-                <i class="bi bi-clipboard-data"></i>
-                <span>{{ t('Grades') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.homework') }}">
-                <i class="bi bi-journal-text"></i>
-                <span>{{ t('Homework') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.topics') }}">
-                <i class="bi bi-journal-bookmark-fill"></i>
-                <span>{{ t('Exam Notes') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('teacher.files') }}">
-                <i class="bi bi-folder2-open"></i>
-                <span>{{ t('Files') }}</span>
-              </a>
-            </li>
-
-            {% elif current_user.role == 'student' %}
-            <!-- Student Navigation -->
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student.dashboard') }}">
-                <i class="bi bi-grid-1x2"></i>
-                <span>{{ t('Dashboard') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student.signups') }}">
-                <i class="bi bi-ui-checks"></i>
-                <span>{{ t('Signups') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student.grades') }}">
-                <i class="bi bi-clipboard-data"></i>
-                <span>{{ t('My Grades') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student.results') }}">
-                <i class="bi bi-trophy"></i>
-                <span>{{ t('Results') }}</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('student.files') }}">
-                <i class="bi bi-folder2-open"></i>
-                <span>{{ t('Files') }}</span>
-              </a>
-            </li>
-
-            {% endif %}
+            {{ render_primary_nav() }}
           </ul>
 
           <!-- User Menu -->
@@ -197,24 +97,7 @@
               </a>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0">
                 <li><h6 class="dropdown-header">{{ t('Language') }}</h6></li>
-                <li>
-                  <a class="dropdown-item d-flex justify-content-between align-items-center" href="{{ url_for('auth.set_language', lang='en', next=request.full_path) }}">
-                    <span>{{ t('English') }}</span>
-                    {% if current_lang == 'en' %}<i class="bi bi-check2 text-success"></i>{% endif %}
-                  </a>
-                </li>
-                <li>
-                  <a class="dropdown-item d-flex justify-content-between align-items-center" href="{{ url_for('auth.set_language', lang='ku', next=request.full_path) }}">
-                    <span>{{ t('Kurdish') }}</span>
-                    {% if current_lang == 'ku' %}<i class="bi bi-check2 text-success"></i>{% endif %}
-                  </a>
-                </li>
-                <li>
-                  <a class="dropdown-item d-flex justify-content-between align-items-center" href="{{ url_for('auth.set_language', lang='ar', next=request.full_path) }}">
-                    <span>{{ t('Arabic') }}</span>
-                    {% if current_lang == 'ar' %}<i class="bi bi-check2 text-success"></i>{% endif %}
-                  </a>
-                </li>
+                {{ render_language_links('dropdown-item d-flex justify-content-between align-items-center', 'li') }}
                 <li><hr class="dropdown-divider"></li>
                 <li>
                   <a class="dropdown-item text-danger fw-semibold" href="{{ url_for('auth.logout') }}">
@@ -225,8 +108,48 @@
             </li>
           </ul>
         </div>
+        <div class="d-flex d-lg-none align-items-center ms-auto">
+          <button
+            class="navbar-toggler mobile-menu-toggle"
+            type="button"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#mobileSidebar"
+            aria-controls="mobileSidebar"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+        </div>
       </div>
     </nav>
+    <div class="offcanvas offcanvas-end mobile-sidebar" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+      <div class="offcanvas-header mobile-sidebar-header">
+        <div>
+          <h5 class="offcanvas-title mb-1" id="mobileSidebarLabel">{{ current_user.full_name }}</h5>
+          <small class="text-white-50">{{ current_major.name if current_major else t('Erbil Polytechnic University') }}</small>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body px-0">
+        <div class="mobile-sidebar-section">
+          <div class="mobile-sidebar-section-title">{{ t('Navigation') }}</div>
+          <ul class="navbar-nav mobile-sidebar-nav">
+            {{ render_primary_nav('mobile-sidebar-link', 'mobile-sidebar-item') }}
+          </ul>
+        </div>
+        <div class="mobile-sidebar-section">
+          <div class="mobile-sidebar-section-title">{{ t('Language') }}</div>
+          <div class="mobile-sidebar-links">
+            {{ render_language_links('mobile-sidebar-link d-flex justify-content-between align-items-center', 'anchor') }}
+          </div>
+        </div>
+        <div class="mobile-sidebar-footer">
+          <a class="mobile-logout-link" href="{{ url_for('auth.logout') }}">
+            <i class="bi bi-box-arrow-right me-2"></i>{{ t('Logout') }}
+          </a>
+        </div>
+      </div>
+    </div>
     {% endif %}
 
     <!-- Flash Messages -->
@@ -440,6 +363,101 @@
          API:  openEpuCalendar('hiddenInputId', 'displayInputId')
          ═══════════════════════════════════════════════════════════════════ -->
     <style>
+      .brand-title {
+        white-space: nowrap;
+      }
+      .mobile-menu-toggle {
+        border: none;
+        box-shadow: none !important;
+        padding: 0.25rem 0.4rem;
+      }
+      .mobile-sidebar {
+        --bs-offcanvas-width: min(86vw, 340px);
+        width: var(--bs-offcanvas-width);
+        max-width: var(--bs-offcanvas-width);
+        border-left: 1px solid rgba(255,255,255,.08);
+        background: #fff;
+        box-shadow: -16px 0 40px rgba(15, 23, 42, 0.22);
+      }
+      .mobile-sidebar.offcanvas-end {
+        right: 0;
+        left: auto;
+      }
+      .mobile-sidebar .offcanvas-body {
+        overflow-y: auto;
+      }
+      .mobile-sidebar-header {
+        background: linear-gradient(135deg, #1C0770 0%, #150558 100%);
+        color: #fff;
+        padding: 1rem 1.1rem;
+      }
+      .mobile-sidebar-section {
+        padding: 1rem 1rem 0.25rem;
+      }
+      .mobile-sidebar-section-title {
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: #6b7280;
+        font-weight: 800;
+        margin-bottom: .75rem;
+      }
+      .mobile-sidebar-nav,
+      .mobile-sidebar-links {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+      }
+      .mobile-sidebar-item {
+        list-style: none;
+      }
+      .mobile-sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        width: 100%;
+        padding: .8rem .9rem;
+        border-radius: 14px;
+        color: #1f2937;
+        text-decoration: none;
+        font-weight: 600;
+        background: #f8f7ff;
+      }
+      .mobile-sidebar-link i {
+        color: #1C0770;
+        font-size: 1rem;
+      }
+      .mobile-sidebar-link:hover,
+      .mobile-sidebar-link:focus {
+        background: #ede9ff;
+        color: #1C0770;
+      }
+      .mobile-sidebar-footer {
+        padding: 1rem;
+      }
+      .mobile-logout-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .9rem 1rem;
+        border-radius: 14px;
+        background: #fff1f2;
+        color: #dc2626;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .mobile-logout-link:hover {
+        background: #ffe4e6;
+        color: #b91c1c;
+      }
+      @media (max-width: 991.98px) {
+        .navbar-brand {
+          max-width: calc(100% - 60px);
+        }
+        .brand-title {
+          display: none !important;
+        }
+      }
       /* ── Backdrop ── */
       #epuCalBackdrop {
         display: none;
@@ -625,7 +643,15 @@
         padding: 5px 4px;
         outline: none;
         transition: border-color .15s, box-shadow .15s;
+        -moz-appearance: textfield; /* Remove Firefox spinner */
       }
+      /* Remove Webkit spinner */
+      #epuCalPanel .ecp-time-input::-webkit-outer-spin-button,
+      #epuCalPanel .ecp-time-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
       #epuCalPanel .ecp-time-input:focus {
         border-color: #1C0770;
         box-shadow: 0 0 0 3px rgba(28,7,112,.15);
@@ -743,9 +769,9 @@
       <!-- Time picker -->
       <div class="ecp-time-row">
         <span class="ecp-time-label"><i class="bi bi-clock me-1"></i>Time</span>
-        <input class="ecp-time-input" type="number" id="epuCalHour" min="1" max="12" placeholder="HH">
+        <input class="ecp-time-input" type="text" inputmode="numeric" id="epuCalHour" placeholder="HH" maxlength="2">
         <span class="ecp-time-sep">:</span>
-        <input class="ecp-time-input" type="number" id="epuCalMin"  min="0" max="59" placeholder="MM">
+        <input class="ecp-time-input" type="text" inputmode="numeric" id="epuCalMin" placeholder="MM" maxlength="2">
         <button class="ecp-ampm-btn" type="button" id="epuCalAmPm">AM</button>
       </div>
 
@@ -887,16 +913,34 @@
       }
 
       function openPanel() {
-        getBackdrop().style.display = 'block';
-        getPanel().style.display    = 'block';
-        getPanel().classList.remove('epu-shake-panel');
-        // Fix: remove Bootstrap's modal focus trap interference
-        document.body.style.overflow = '';
+        var bd = getBackdrop();
+        var pl = getPanel();
+        
+        // Find if a Bootstrap modal is open
+        var activeModal = document.querySelector('.modal.show');
+        if (activeModal) {
+          // Append calendar inside the modal so Bootstrap focus trap ignores it
+          activeModal.appendChild(bd);
+          activeModal.appendChild(pl);
+        } else {
+          document.body.appendChild(bd);
+          document.body.appendChild(pl);
+        }
+        
+        bd.style.display = 'block';
+        pl.style.display = 'block';
+        pl.classList.remove('epu-shake-panel');
       }
 
       function closePanel() {
-        getBackdrop().style.display = 'none';
-        getPanel().style.display    = 'none';
+        var bd = getBackdrop();
+        var pl = getPanel();
+        bd.style.display = 'none';
+        pl.style.display = 'none';
+        
+        // Return element to body on close just in case
+        document.body.appendChild(bd);
+        document.body.appendChild(pl);
       }
 
       function setQuickDate(offsetDays) {
@@ -930,12 +974,10 @@
           _calMonth = _selDate.getMonth();
         } else {
           var now  = new Date();
-          var isEndField = (targetId || '').toLowerCase().indexOf('end') !== -1;
           _selDate = null;
-          // Use predictable defaults for new date picks instead of the current clock
-          // so period ranges don't silently inherit a time the admin never chose.
-          _selHour = isEndField ? 23 : 0;
-          _selMin  = isEndField ? 59 : 0;
+          // Set default time to the exact current time to minimize typing
+          _selHour = now.getHours();
+          _selMin  = now.getMinutes();
           _selAmPm  = _selHour >= 12 ? 'PM' : 'AM';
           _calYear  = now.getFullYear();
           _calMonth = now.getMonth();
@@ -971,19 +1013,26 @@
         });
 
         /* Time inputs */
+        document.getElementById('epuCalHour').addEventListener('focus', function() { this.select(); });
         document.getElementById('epuCalHour').addEventListener('input', function() {
-          var v = parseInt(this.value);
-          var h12 = isNaN(v) ? 12 : Math.min(12, Math.max(1, v));
-          _selHour = (_selAmPm === 'AM') ? (h12 === 12 ? 0 : h12) : (h12 === 12 ? 12 : h12 + 12);
-          updateSelDisplay();
+          this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2);
+          var v = parseInt(this.value, 10);
+          if (!isNaN(v)) {
+            _selHour = _selAmPm === 'PM' ? (v === 12 ? 12 : v + 12) : (v === 12 ? 0 : v);
+            updateSelDisplay();
+          }
         });
         document.getElementById('epuCalHour').addEventListener('blur', function() {
           this.value = pad(_selHour % 12 || 12);
         });
+        document.getElementById('epuCalMin').addEventListener('focus', function() { this.select(); });
         document.getElementById('epuCalMin').addEventListener('input', function() {
-          var v = parseInt(this.value);
-          _selMin = isNaN(v) ? 0 : Math.min(59, Math.max(0, v));
-          updateSelDisplay();
+          this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2);
+          var v = parseInt(this.value, 10);
+          if (!isNaN(v) && v >= 0 && v <= 59) {
+            _selMin = v;
+            updateSelDisplay();
+          }
         });
         document.getElementById('epuCalMin').addEventListener('blur', function() {
           this.value = pad(_selMin);

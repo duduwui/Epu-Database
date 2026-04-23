@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+{% block title %}{{ subject['name'] }} - Moodle Hub{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3 align-items-center">
+        <div class="col">
+            <h2 class="mb-0 text-navy">
+                <i class="bi bi-mortarboard-fill me-2"></i>{{ subject['name'] }}
+            </h2>
+            <p class="text-muted"><i class="bi bi-calendar3 me-2"></i>Files and links by week</p>
+        </div>
+        <div class="col text-end">
+            <a href="{{ url_for('teacher.moodle_engagement', subject_id=subject['id'], class_id=class_id) }}" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-bar-chart-fill me-1"></i>{{ t('Engagement Stats') }}
+            </a>
+            <button class="btn btn-outline-primary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#addRequestModal">
+                <i class="bi bi-clipboard-plus me-1"></i>New Request / Homework
+            </button>
+            <button class="btn btn-primary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#addWeekModal">
+                <i class="bi bi-plus-lg me-1"></i>{{ t('Add Week/Block') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Moodle Content Accordion -->
+    <div class="accordion shadow-sm" id="moodleAccordion">
+        {% for week in moodle_content %}
+        <div class="accordion-item border-0 mb-3 rounded-3 shadow-sm bg-white overflow-hidden">
+            <h2 class="accordion-header" id="heading{{ loop.index }}">
+                <button class="accordion-button {% if not loop.first %}collapsed{% endif %} bg-light text-navy fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}">
+                    {{ week['title'] }} {% if week['display_order'] %}(Order: {{ week['display_order'] }}){% endif %}
+                </button>
+            </h2>
+            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#moodleAccordion">
+                <div class="accordion-body">
+                    
+                    <!-- Action Buttons -->
+                    {% if week['id'] %}
+                    <div class="mb-4 d-flex gap-2 flex-wrap">
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addMaterialModal{{ week['id'] }}">
+                            <i class="bi bi-file-earmark-plus me-1"></i>{{ t('Add File / Link') }}
+                        </button>
+                        <form action="{{ url_for('teacher.moodle_delete_week', subject_id=subject['id'], class_id=class_id, week_id=week['id']) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this week and all files inside it?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash me-1"></i>{{ t('Delete Week') }}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Files Section -->
+                    <h6 class="text-secondary fw-bold mt-2 mb-3"><i class="bi bi-files me-2"></i>{{ t('Files & Links') }}</h6>
+                    <ul class="list-group list-group-flush mb-4">
+                        {% for file in week['files'] %}
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center border-0 border-bottom gap-3">
+                            <div>
+                                {% if file['is_link'] %}
+                                    <i class="bi bi-link-45deg text-primary me-2 fs-5"></i>
+                                    <a href="{{ file['link_url'] }}" target="_blank" class="text-decoration-none text-dark fw-medium">{{ file['title'] }}</a>
+                                {% else %}
+                                    <i class="bi bi-file-earmark-text text-danger me-2 fs-5"></i>
+                                    <a href="{{ url_for('teacher.view_file', file_id=file['id']) }}" target="_blank" class="text-decoration-none text-dark fw-medium">{{ file['title'] }}</a>
+                                {% endif %}
+                                {% if file['description'] %}
+                                    <br><small class="text-muted ms-4">{{ file['description'] }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                                {% if file['is_link'] %}
+                                <a href="{{ file['link_url'] }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ t('Open') }}
+                                </a>
+                                <form action="{{ url_for('teacher.moodle_delete_file', subject_id=subject['id'], class_id=class_id, file_id=file['id']) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this link?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-trash me-1"></i>{{ t('Delete') }}
+                                    </button>
+                                </form>
+                                {% else %}
+                                <a href="{{ url_for('teacher.view_file', file_id=file['id']) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-eye me-1"></i>{{ t('Open') }}
+                                </a>
+                                <a href="{{ url_for('teacher.download_file', file_id=file['id']) }}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-download me-1"></i>{{ t('Download') }}
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#replaceFileModal{{ file['id'] }}">
+                                    <i class="bi bi-arrow-repeat me-1"></i>{{ t('Replace') }}
+                                </button>
+                                <form action="{{ url_for('teacher.moodle_delete_file', subject_id=subject['id'], class_id=class_id, file_id=file['id']) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this file?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-trash me-1"></i>{{ t('Delete') }}
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </li>
+
+                        {% if not file['is_link'] %}
+                        <div class="modal fade" id="replaceFileModal{{ file['id'] }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <form action="{{ url_for('teacher.moodle_replace_file', subject_id=subject['id'], class_id=class_id, file_id=file['id']) }}" method="POST" enctype="multipart/form-data">
+                                    <div class="modal-content">
+                                        <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                                            <h5 class="modal-title text-white"><i class="bi bi-arrow-repeat me-2"></i>{{ t('Replace File') }}</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-4 bg-light">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">{{ t('Current File') }}</label>
+                                                <div class="form-control bg-white">{{ file['file_name'] }}</div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">{{ t('New File') }} <span class="text-danger">*</span></label>
+                                                <input type="file" name="file" class="form-control" required>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 bg-light">
+                                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('Cancel') }}</button>
+                                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-arrow-repeat me-1"></i>{{ t('Replace') }}</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <li class="list-group-item px-0 border-0 text-muted small"><i class="bi bi-info-circle me-1"></i>{{ t('No files or links yet.') }}</li>
+                        {% endfor %}
+                    </ul>
+
+                    <h6 class="text-secondary fw-bold mt-2 mb-3"><i class="bi bi-clipboard-check me-2"></i>Requests / Homework</h6>
+                    <div class="d-grid gap-3">
+                        {% for req in week['requests'] %}
+                        <div class="card border-0 shadow-sm bg-light">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                    <div>
+                                        <div class="fw-bold text-navy">{{ req['title'] }}</div>
+                                        {% if req['description'] %}
+                                        <div class="text-muted small mt-1">{{ req['description'] }}</div>
+                                        {% endif %}
+                                        <div class="d-flex gap-3 flex-wrap small text-muted mt-2">
+                                            <span><i class="bi bi-calendar-event me-1"></i>Due {{ req['due_at'].strftime('%Y-%m-%d %H:%M') if req['due_at'] else req['due_date'].strftime('%Y-%m-%d') }}</span>
+                                            <span><i class="bi bi-check-circle me-1 text-success"></i>{{ req['submitted_count'] or 0 }} submitted</span>
+                                            <span><i class="bi bi-hourglass-split me-1 text-danger"></i>{{ req['remaining_count'] or 0 }} remaining</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap justify-content-end">
+                                        {% if req['filename'] %}
+                                        <a href="{{ url_for('teacher.view_homework_file', homework_id=req['id']) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-eye me-1"></i>Open Brief
+                                        </a>
+                                        <a href="{{ url_for('teacher.download_homework_file', homework_id=req['id']) }}" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-download me-1"></i>Download Brief
+                                        </a>
+                                        {% endif %}
+                                        <a href="{{ url_for('teacher.moodle_request_details', subject_id=subject['id'], class_id=class_id, request_id=req['id']) }}" class="btn btn-outline-info btn-sm">
+                                            <i class="bi bi-people me-1"></i>Submissions
+                                        </a>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#extendRequestModal{{ req['id'] }}">
+                                            <i class="bi bi-clock-history me-1"></i>Extend Due
+                                        </button>
+                                        <form action="{{ url_for('teacher.moodle_delete_request', subject_id=subject['id'], class_id=class_id, request_id=req['id']) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this request and all student submissions?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="bi bi-trash me-1"></i>Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal fade" id="extendRequestModal{{ req['id'] }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <form action="{{ url_for('teacher.moodle_update_request_due', subject_id=subject['id'], class_id=class_id, request_id=req['id']) }}" method="POST">
+                                    <div class="modal-content">
+                                        <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                                            <h5 class="modal-title text-white"><i class="bi bi-clock-history me-2"></i>Update Due Time</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-4 bg-light">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Request</label>
+                                                <div class="form-control bg-white">{{ req['title'] }}</div>
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label fw-bold">Due Date & Time <span class="text-danger">*</span></label>
+                                                <input type="datetime-local" name="due_at" class="form-control" value="{{ req['due_at'].strftime('%Y-%m-%dT%H:%M') if req['due_at'] else '' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 bg-light">
+                                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>Save</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-muted small"><i class="bi bi-info-circle me-1"></i>No requests yet.</div>
+                        {% endfor %}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        {% if week['id'] %}
+        <!-- Add Material Modal for Week {{ week['id'] }} -->
+        <div class="modal fade" id="addMaterialModal{{ week['id'] }}" tabindex="-1">
+            <div class="modal-dialog">
+                <form action="{{ url_for('teacher.moodle_add_file', subject_id=subject['id'], class_id=class_id) }}" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="week_id" value="{{ week['id'] }}">
+                    <div class="modal-content">
+                        <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                            <h5 class="modal-title text-white"><i class="bi bi-file-earmark-plus me-2"></i>{{ t('Add Material to') }} {{ week['title'] }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4 bg-light">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ t('Type') }}</label>
+                                <select class="form-select form-select-sm" name="material_type" onchange="toggleMaterialType(this, {{ week['id'] }})">
+                                    <option value="file">{{ t('File Upload') }}</option>
+                                    <option value="link">{{ t('URL Link') }}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ t('Title') }} <span class="text-danger">*</span></label>
+                                <input type="text" name="title" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ t('Description (Optional)') }}</label>
+                                <textarea name="description" class="form-control form-control-sm" rows="2"></textarea>
+                            </div>
+                            
+                            <!-- File Input -->
+                            <div class="mb-3" id="fileInputContainer{{ week['id'] }}">
+                                <label class="form-label fw-bold">{{ t('File') }} <span class="text-danger">*</span></label>
+                                <input type="file" name="file" class="form-control form-control-sm" id="fileInput{{ week['id'] }}" required>
+                            </div>
+                            
+                            <!-- Link Input -->
+                            <div class="mb-3 d-none" id="linkInputContainer{{ week['id'] }}">
+                                <label class="form-label fw-bold">{{ t('URL') }} <span class="text-danger">*</span></label>
+                                <input type="url" name="link_url" class="form-control form-control-sm" id="linkInput{{ week['id'] }}" placeholder="https://...">
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 bg-light">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('Cancel') }}</button>
+                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>{{ t('Upload') }}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% endif %}
+
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function toggleMaterialType(selectElement, weekId) {
+    const isLink = selectElement.value === 'link';
+    const fileContainer = document.getElementById('fileInputContainer' + weekId);
+    const linkContainer = document.getElementById('linkInputContainer' + weekId);
+    const fileInput = document.getElementById('fileInput' + weekId);
+    const linkInput = document.getElementById('linkInput' + weekId);
+    
+    if (isLink) {
+        fileContainer.classList.add('d-none');
+        linkContainer.classList.remove('d-none');
+        fileInput.required = false;
+        linkInput.required = true;
+    } else {
+        fileContainer.classList.remove('d-none');
+        linkContainer.classList.add('d-none');
+        fileInput.required = true;
+        linkInput.required = false;
+    }
+}
+</script>
+
+<!-- Add Week Modal -->
+<div class="modal fade" id="addWeekModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('teacher.moodle_add_week', subject_id=subject['id'], class_id=class_id) }}" method="POST">
+            <div class="modal-content">
+                <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                    <h5 class="modal-title text-white"><i class="bi bi-plus-circle me-2"></i>{{ t('Add Week/Block') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ t('Title') }} <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" placeholder="e.g. Week 1: Introduction" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ t('Display Order') }}</label>
+                        <input type="number" name="display_order" class="form-control" value="0">
+                        <div class="form-text">Lower numbers appear first.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('Cancel') }}</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>{{ t('Save Week') }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="addRequestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('teacher.moodle_add_request', subject_id=subject['id'], class_id=class_id) }}" method="POST" enctype="multipart/form-data">
+            <div class="modal-content">
+                <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                    <h5 class="modal-title text-white"><i class="bi bi-clipboard-plus me-2"></i>New Request / Homework</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Instructions / Description</label>
+                        <textarea name="description" class="form-control" rows="4" placeholder="Write the homework or project details here..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Attach File (Optional)</label>
+                        <input type="file" name="file" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Assign to Week / Block</label>
+                        <select name="week_id" class="form-select">
+                            <option value="">Unassigned</option>
+                            {% for week in moodle_content if week['id'] %}
+                            <option value="{{ week['id'] }}">{{ week['title'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Due Date & Time <span class="text-danger">*</span></label>
+                        <input type="datetime-local" name="due_at" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Create Request</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

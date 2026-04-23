@@ -175,3 +175,14 @@ def dashboard():
         return redirect(url_for('student.dashboard'))
 
     return render_template('dashboard.html')
+def student_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'warning')
+            return redirect(url_for('auth.login'))
+        if session.get('role') != 'student':
+            flash('Access denied. Student account required.', 'danger')
+            return redirect(url_for('auth.dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function

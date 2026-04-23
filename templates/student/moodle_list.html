@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}{{ t('Moodle View') }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3 align-items-center">
+        <div class="col">
+            <h2 class="mb-0 text-navy"><i class="bi bi-book-half me-2"></i>{{ t('My Course Hub') }}</h2>
+            <p class="text-muted mb-0">{{ t('Select a subject to view weekly content.') }}</p>
+        </div>
+    </div>
+    
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for subject in subjects %}
+        <div class="col">
+            <a href="{{ url_for('student.moodle_view', subject_id=subject['id'], class_id=subject['class_id']) }}" class="text-decoration-none d-block h-100">
+                <div class="card h-100 shadow-sm border-0 border-top border-primary border-4 p-2 bg-white moodle-subject-card">
+                    <div class="card-body">
+                        <h5 class="card-title text-navy">{{ subject['name'] }}</h5>
+                        <p class="card-text text-muted small"><i class="bi bi-person-video3 me-1"></i>{{ subject['teacher_name'] or 'Teacher not assigned' }}</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-end">
+                        <span class="btn btn-primary btn-sm px-3 shadow-sm rounded-pill">
+                            <i class="bi bi-eye me-1"></i>{{ t('View Content') }}
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .moodle-subject-card {
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        cursor: pointer;
+    }
+
+    .moodle-subject-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 1rem 2rem rgba(28, 7, 112, 0.12) !important;
+    }
+</style>
+{% endblock %}

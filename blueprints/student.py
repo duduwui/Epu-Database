@@ -1,12 +1,65 @@
 """
 Student blueprint — all student-facing routes.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-from datetime import date
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
+from datetime import date, datetime
+from markupsafe import Markup, escape
+from werkzeug.utils import secure_filename
+import os
+import time
 import db
-from blueprints.auth import login_required
+from blueprints.auth import login_required, student_required
+from blueprints.teacher import _resolve_uploaded_path
 
 student_bp = Blueprint('student', __name__)
+
+
+def _get_file_extension(file_info):
+    file_name = (file_info.get('file_name') or '').lower()
+    if '.' in file_name:
+        return file_name.rsplit('.', 1)[1]
+
+    file_type = (file_info.get('file_type') or '').lower()
+    if '/' in file_type:
+        return file_type.split('/')[-1]
+    return file_type
+
+
+def _extract_text_html(file_path):
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        text = f.read()
+    return Markup(f"<pre class=\"viewer-pre\">{escape(text)}</pre>")
+
+
+def _get_student_file_view_payload(file_info):
+    file_path = _resolve_uploaded_path(file_info.get('file_path'))
+    extension = _get_file_extension(file_info)
+
+    inline_extensions = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    text_extensions = {'txt', 'csv', 'json', 'md'}
+    html_extensions = {'html', 'htm'}
+    docx_extensions = {'docx'}
+    pptx_extensions = {'pptx'}
+    xlsx_extensions = {'xlsx'}
+
+    payload = {
+        'mode': 'unsupported',
+        'extension': extension,
+        'raw_url': url_for('teacher.view_file', file_id=file_info['id']),
+        'download_url': url_for('student.download_file', file_id=file_info['id']),
+        'content_html': None,
+    }
+
+    if extension in inline_extensions:
+        payload['mode'] = 'embed'
+    elif extension in text_extensions or extension in html_extensions:
+        payload['mode'] = 'html'
+        payload['content_html'] = _extract_text_html(file_path)
+    elif extension in docx_extensions or extension in pptx_extensions or extension in xlsx_extensions:
+        # Preserve the original file and let the browser/device handle the native format.
+        payload['mode'] = 'native'
+
+    return payload
 
 
 # =============================================
@@ -504,3 +557,222 @@ def files():
                            files=files_list,
                            grouped_files=grouped_files,
                            student=student)
+
+
+# =============================================
+# STUDENT - MOODLE
+# =============================================
+
+@student_bp.route('/student/moodle')
+@student_required
+def moodle():
+    """List student subjects for Moodle view"""
+    student_id = session.get('student_id')
+    user_id = session['user_id']
+    if not student_id:
+        st = db.get_student_by_user_id(user_id)
+        if st:
+            student_id = st['id']
+            session['student_id'] = student_id
+
+    subjects = db.get_enrolled_subjects_for_student(student_id) or []
+    return render_template('student/moodle_list.html', subjects=subjects)
+
+@student_bp.route('/student/moodle/<int:subject_id>')
+@student_required
+def moodle_view(subject_id):
+    student_id = session.get('student_id')
+    user_id = session['user_id']
+    if not student_id:
+        st = db.get_student_by_user_id(user_id)
+        if st:
+            student_id = st['id']
+            session['student_id'] = student_id
+            
+    enrolled_subjects = db.get_enrolled_subjects_for_student(student_id) or []
+    subject_row = next((sub for sub in enrolled_subjects if sub['id'] == subject_id), None)
+    if not subject_row:
+        return "You are not enrolled in this subject", 403
+
+    class_id = request.args.get('class_id', type=int) or subject_row.get('class_id')
+    if not class_id:
+        return "Not enrolled in any class", 403
+    
+    subject = db.execute_query("SELECT id, name FROM subjects WHERE id = %s", (subject_id,), fetch_one=True)
+    moodle_content = db.get_moodle_content(class_id, subject_id, student_id=student_id)
+    
+    return render_template(
+        'student/moodle_view.html',
+        subject=subject,
+        class_id=class_id,
+        moodle_content=moodle_content,
+        student_id=student_id,
+        current_time=datetime.now()
+    )
+
+
+@student_bp.route('/student/moodle/request/<int:request_id>/submit', methods=['POST'])
+@student_required
+def submit_moodle_request(request_id):
+    student = db.get_student_by_user_id(session['user_id'])
+    if not student:
+        flash('Student profile not found.', 'danger')
+        return redirect(url_for('auth.dashboard'))
+
+    request_row = db.get_moodle_request_by_id(request_id)
+    if not request_row:
+        flash('Request not found.', 'danger')
+        return redirect(url_for('student.moodle'))
+
+    if student['class_id'] != request_row['class_id']:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('student.moodle'))
+
+    enrolled_subjects = db.get_enrolled_subjects_for_student(student['id']) or []
+    if not any(sub['id'] == request_row['subject_id'] for sub in enrolled_subjects):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('student.moodle'))
+
+    due_at = request_row.get('due_at')
+    if due_at and due_at < datetime.now():
+        flash('This request is closed. The due time has passed.', 'danger')
+        return redirect(url_for('student.moodle_view', subject_id=request_row['subject_id'], class_id=request_row['class_id']))
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        flash('Please choose a file to submit.', 'danger')
+        return redirect(url_for('student.moodle_view', subject_id=request_row['subject_id'], class_id=request_row['class_id']))
+
+    filename = secure_filename(file.filename)
+    upload_dir = os.path.join(
+        current_app.config['UPLOAD_FOLDER'],
+        'moodle_submissions',
+        f"request_{request_id}",
+        f"student_{student['id']}"
+    )
+    os.makedirs(upload_dir, exist_ok=True)
+    unique_filename = f"{int(time.time())}_{filename}"
+    absolute_path = os.path.join(upload_dir, unique_filename)
+    file.save(absolute_path)
+    relative_path = os.path.relpath(absolute_path, current_app.config['UPLOAD_FOLDER'])
+    file_size = os.path.getsize(absolute_path)
+    file_type = file.content_type
+
+    existing = db.get_moodle_request_submission_by_student(request_id, student['id'])
+    db.upsert_moodle_request_submission(
+        request_id=request_id,
+        student_id=student['id'],
+        file_name=filename,
+        file_path=relative_path,
+        file_type=file_type,
+        file_size=file_size
+    )
+    if existing:
+        old_file_path = _resolve_uploaded_path(existing.get('file_path'))
+        if old_file_path and os.path.exists(old_file_path) and os.path.normpath(old_file_path) != os.path.normpath(absolute_path):
+            os.remove(old_file_path)
+    flash('Submission saved successfully.', 'success')
+    return redirect(url_for('student.moodle_view', subject_id=request_row['subject_id'], class_id=request_row['class_id']))
+
+
+@student_bp.route('/student/moodle/file/<int:file_id>')
+@student_required
+def moodle_file_viewer(file_id):
+    student = db.get_student_by_user_id(session['user_id'])
+    if not student:
+        flash('Student profile not found.', 'danger')
+        return redirect(url_for('auth.dashboard'))
+
+    file_info = db.get_lecture_file_by_id(file_id)
+    if not file_info:
+        flash('File not found.', 'danger')
+        return redirect(url_for('student.moodle'))
+
+    if student['class_id'] != file_info['class_id']:
+        flash('Access denied. This file is not for your class.', 'danger')
+        return redirect(url_for('student.moodle'))
+
+    subject = db.execute_query("SELECT id, name FROM subjects WHERE id = %s", (file_info['subject_id'],), fetch_one=True)
+    view_payload = _get_student_file_view_payload(file_info)
+
+    return render_template(
+        'student/moodle_file_viewer.html',
+        file_info=file_info,
+        subject=subject,
+        class_id=file_info['class_id'],
+        view_payload=view_payload
+    )
+
+
+@student_bp.route('/student/files/download/<int:file_id>')
+@student_required
+def download_file(file_id):
+    """Student alias for the shared lecture-file download route."""
+    return redirect(url_for('teacher.download_file', file_id=file_id))
+
+
+@student_bp.route('/student/files/view/<int:file_id>')
+@student_required
+def view_file(file_id):
+    """Student alias for the shared lecture-file inline view route."""
+    return redirect(url_for('teacher.view_file', file_id=file_id))
+
+@student_bp.route('/student/api/ping_engagement', methods=['POST'])
+@student_required
+def api_ping_engagement():
+    try:
+        data = request.get_json()
+        action = data.get('action', 'ping')
+        subject_id = data.get('subject_id')
+        class_id = data.get('class_id')
+        active_seconds = data.get('active_seconds', 30)
+        session_id = data.get('session_id')
+        
+        student_id = session.get('student_id')
+        if not student_id:
+           st = db.get_student_by_user_id(session['user_id'])
+           student_id = st['id']
+
+        subject_id = int(subject_id)
+        class_id = int(class_id)
+
+        if action == 'start':
+            engagement_session_id = db.start_student_engagement_session(
+                student_id,
+                subject_id,
+                class_id,
+                data.get('resource_title'),
+                data.get('resource_type')
+            )
+            return jsonify({"success": True, "session_id": engagement_session_id})
+
+        if action == 'stop':
+            if session_id:
+                db.stop_student_engagement_session(int(session_id), student_id)
+            return jsonify({"success": True})
+
+        if action == 'resource':
+            if session_id:
+                db.set_student_engagement_resource(
+                    int(session_id),
+                    student_id,
+                    data.get('resource_title'),
+                    data.get('resource_type')
+                )
+            return jsonify({"success": True})
+
+        if not session_id:
+            engagement_session_id = db.start_student_engagement_session(
+                student_id,
+                subject_id,
+                class_id,
+                data.get('resource_title'),
+                data.get('resource_type')
+            )
+            db.ping_student_engagement_session(engagement_session_id, student_id, int(active_seconds))
+            return jsonify({"success": True, "session_id": engagement_session_id})
+
+        db.ping_student_engagement_session(int(session_id), student_id, int(active_seconds))
+        return jsonify({"success": True, "session_id": int(session_id)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
