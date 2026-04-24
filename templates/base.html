@@ -793,7 +793,6 @@
       var _targetId  = null;
       var _displayId = null;
       var _minDate   = null;
-      var _mode      = 'datetime';
       var _calYear   = new Date().getFullYear();
       var _calMonth  = new Date().getMonth();
       var _selDate   = null;
@@ -810,46 +809,6 @@
 
       function getPanel()   { return document.getElementById('epuCalPanel'); }
       function getBackdrop(){ return document.getElementById('epuCalBackdrop'); }
-      function getTimeRow() { return document.querySelector('#epuCalPanel .ecp-time-row'); }
-
-      function normalizeMode(mode) {
-        return mode === 'date' ? 'date' : 'datetime';
-      }
-
-      function formatEpuCalendarValue(value, mode) {
-        if (!value) return '';
-        var normalizedMode = normalizeMode(mode);
-        var parts = value.split('T');
-        var dp = parts[0] ? parts[0].split('-') : [];
-        if (dp.length !== 3) return value;
-
-        var year = dp[0];
-        var monthIndex = parseInt(dp[1], 10) - 1;
-        var day = dp[2];
-        if (normalizedMode === 'date') {
-          return day + ' ' + MONTHS_SHORT[monthIndex] + ' ' + year;
-        }
-
-        var tp = parts.length > 1 ? parts[1].split(':') : ['00', '00'];
-        var hour24 = parseInt(tp[0], 10) || 0;
-        var minute = tp[1] || '00';
-        var ampm = hour24 >= 12 ? 'PM' : 'AM';
-        var hour12 = hour24 % 12 || 12;
-        return day + ' ' + MONTHS_SHORT[monthIndex] + ' ' + year + ', ' + pad(hour12) + ':' + minute + ' ' + ampm;
-      }
-
-      function syncDisplayValue(targetId, displayId, mode) {
-        var tgt = targetId ? document.getElementById(targetId) : null;
-        var disp = displayId ? document.getElementById(displayId) : null;
-        if (!disp) return;
-        disp.value = tgt && tgt.value ? formatEpuCalendarValue(tgt.value, mode) : '';
-      }
-
-      function syncCalendarModeUi() {
-        var timeRow = getTimeRow();
-        if (!timeRow) return;
-        timeRow.style.display = _mode === 'date' ? 'none' : 'flex';
-      }
 
       function updateSelDisplay() {
         var el = document.getElementById('epuSelDisplay');
@@ -858,12 +817,9 @@
           return;
         }
         var h12 = _selHour % 12 || 12;
-        var text = DAYS[_selDate.getDay()] + ', ' + _selDate.getDate() + ' ' +
-          MONTHS_SHORT[_selDate.getMonth()] + ' ' + _selDate.getFullYear();
-        if (_mode !== 'date') {
-          text += '   \u2022   ' + pad(h12) + ':' + pad(_selMin) + ' ' + _selAmPm;
-        }
-        el.textContent = text;
+        el.textContent = DAYS[_selDate.getDay()] + ', ' + _selDate.getDate() + ' ' +
+          MONTHS_SHORT[_selDate.getMonth()] + ' ' + _selDate.getFullYear() +
+          '   \u2022   ' + pad(h12) + ':' + pad(_selMin) + ' ' + _selAmPm;
       }
 
       function renderCalendar() {
@@ -998,12 +954,10 @@
       }
 
       /* ── Public API ── */
-      window.openEpuCalendar = function(targetId, displayId, minDateISO, options) {
-        var config = options || {};
+      window.openEpuCalendar = function(targetId, displayId, minDateISO) {
         _targetId  = targetId;
         _displayId = displayId || null;
         _minDate   = minDateISO || null;
-        _mode      = normalizeMode(config.mode);
 
         var tgt      = document.getElementById(targetId);
         var existing = tgt ? tgt.value : '';
@@ -1029,38 +983,11 @@
           _calMonth = now.getMonth();
         }
 
-        syncCalendarModeUi();
         renderCalendar();
         openPanel();
       };
 
-      window.bindEpuCalendarTriggers = function(root) {
-        var scope = root || document;
-
-        scope.querySelectorAll('[data-epu-target]').forEach(function(trigger) {
-          if (trigger.dataset.epuBound === '1') return;
-          trigger.dataset.epuBound = '1';
-          trigger.addEventListener('click', function() {
-            openEpuCalendar(
-              trigger.dataset.epuTarget,
-              trigger.dataset.epuDisplay || null,
-              trigger.dataset.epuMin || null,
-              { mode: trigger.dataset.epuMode || 'datetime' }
-            );
-          });
-        });
-
-        scope.querySelectorAll('[data-epu-display-for]').forEach(function(display) {
-          syncDisplayValue(
-            display.dataset.epuDisplayFor,
-            display.id,
-            display.dataset.epuMode || 'datetime'
-          );
-        });
-      };
-
       document.addEventListener('DOMContentLoaded', function() {
-        bindEpuCalendarTriggers(document);
 
         /* Navigation */
         document.getElementById('epuCalPrev').addEventListener('click', function() {
@@ -1141,19 +1068,14 @@
           var d    = pad(_selDate.getDate());
           var h    = pad(_selHour);
           var mi   = pad(_selMin);
-          var isoVal = _mode === 'date'
-            ? y + '-' + mo + '-' + d
-            : y + '-' + mo + '-' + d + 'T' + h + ':' + mi;
+          var h12  = _selHour % 12 || 12;
+          var isoVal = y + '-' + mo + '-' + d + 'T' + h + ':' + mi;
 
           var tgt = _targetId ? document.getElementById(_targetId) : null;
-          if (tgt) {
-            tgt.value = isoVal;
-            tgt.dispatchEvent(new Event('input', { bubbles: true }));
-            tgt.dispatchEvent(new Event('change', { bubbles: true }));
-          }
+          if (tgt) tgt.value = isoVal;
 
           var disp = _displayId ? document.getElementById(_displayId) : null;
-          if (disp) disp.value = formatEpuCalendarValue(isoVal, _mode);
+          if (disp) disp.value = d + ' ' + MONTHS_SHORT[_selDate.getMonth()] + ' ' + y + ', ' + pad(h12) + ':' + mi + ' ' + ampm;
 
           closePanel();
         });
@@ -1162,11 +1084,7 @@
         document.getElementById('epuCalClear').addEventListener('click', function() {
           var tgt  = _targetId  ? document.getElementById(_targetId)  : null;
           var disp = _displayId ? document.getElementById(_displayId) : null;
-          if (tgt)  {
-            tgt.value  = '';
-            tgt.dispatchEvent(new Event('input', { bubbles: true }));
-            tgt.dispatchEvent(new Event('change', { bubbles: true }));
-          }
+          if (tgt)  tgt.value  = '';
           if (disp) disp.value = '';
           _selDate = null;
           renderCalendar();

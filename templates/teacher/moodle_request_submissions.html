@@ -69,17 +69,7 @@
             <form action="{{ url_for('teacher.moodle_update_request_due', subject_id=subject['id'], class_id=class_id, request_id=request_row['id']) }}" method="POST" class="row g-3 align-items-end">
                 <div class="col-md-8">
                     <label class="form-label fw-semibold">Extend / Update Due Time</label>
-                    <input type="hidden" name="due_at" id="request_due_at" value="{{ request_row['due_at'].strftime('%Y-%m-%dT%H:%M') if request_row['due_at'] else '' }}">
-                    <div class="input-group">
-                        <input type="text" class="form-control epu-cal-display-input" id="request_due_at_display"
-                               data-epu-display-for="request_due_at" data-epu-mode="datetime"
-                               data-epu-target="request_due_at" data-epu-display="request_due_at_display"
-                               placeholder="Select due time..." readonly required>
-                        <button type="button" class="btn btn-outline-secondary epu-cal-trigger"
-                                data-epu-target="request_due_at" data-epu-display="request_due_at_display" data-epu-mode="datetime">
-                            <i class="bi bi-calendar3"></i>
-                        </button>
-                    </div>
+                    <input type="datetime-local" name="due_at" class="form-control" value="{{ request_row['due_at'].strftime('%Y-%m-%dT%H:%M') if request_row['due_at'] else '' }}" required>
                 </div>
                 <div class="col-md-4">
                     <button type="submit" class="btn btn-primary w-100">

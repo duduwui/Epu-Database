@@ -40,29 +40,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label fw-semibold">Date</label>
-              <input type="hidden" name="exam_date" id="topic_exam_date" />
-              <div class="input-group">
-                <input
-                  type="text"
-                  class="form-control epu-cal-display-input"
-                  id="topic_exam_date_display"
-                  data-epu-display-for="topic_exam_date"
-                  data-epu-mode="date"
-                  data-epu-target="topic_exam_date"
-                  data-epu-display="topic_exam_date_display"
-                  placeholder="Select date..."
-                  readonly
-                />
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary epu-cal-trigger"
-                  data-epu-target="topic_exam_date"
-                  data-epu-display="topic_exam_date_display"
-                  data-epu-mode="date"
-                >
-                  <i class="bi bi-calendar3"></i>
-                </button>
-              </div>
+              <input type="date" name="exam_date" class="form-control" />
               <div class="form-text">Leave blank if date is TBD</div>
             </div>
             <div class="mb-3">

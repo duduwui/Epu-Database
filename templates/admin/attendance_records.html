@@ -42,29 +42,7 @@
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label small">Date</label>
-          <input type="hidden" id="dateFilter" />
-          <div class="input-group input-group-sm">
-            <input
-              type="text"
-              class="form-control form-control-sm epu-cal-display-input"
-              id="dateFilter_display"
-              data-epu-display-for="dateFilter"
-              data-epu-mode="date"
-              data-epu-target="dateFilter"
-              data-epu-display="dateFilter_display"
-              placeholder="Select date..."
-              readonly
-            />
-            <button
-              type="button"
-              class="btn btn-outline-secondary epu-cal-trigger"
-              data-epu-target="dateFilter"
-              data-epu-display="dateFilter_display"
-              data-epu-mode="date"
-            >
-              <i class="bi bi-calendar3"></i>
-            </button>
-          </div>
+          <input type="date" class="form-control form-control-sm" id="dateFilter" />
         </div>
         <div class="col-6 col-md-1">
           <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
@@ -246,7 +224,6 @@
     document.getElementById('shiftFilter').value = '';
     document.getElementById('semesterFilter').value = '';
     document.getElementById('dateFilter').value = '';
-    document.getElementById('dateFilter_display').value = '';
     applyFilters();
   }
 

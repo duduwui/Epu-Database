@@ -446,46 +446,6 @@ def get_enrolled_students_for_subject(subject_id, class_id=None):
     return execute_query(query+" ORDER BY u.full_name", tuple(params), fetch_all=True)
 
 # ENROLLMENT PERIODS
-def get_all_grades_overview_for_teacher(teacher_id):
-    """
-    Fetch all grades, components, subjects, classes and students tied to a specific teacher's assignments.
-    Used for the advanced filtering Overview tab.
-    """
-    query = """
-        SELECT 
-            u.full_name as student_name,
-            st.student_number,
-            st.id as student_id,
-            s.id as subject_id,
-            s.name as subject_name,
-            s.semester,
-            c.id as class_id,
-            c.name as class_name,
-            c.shift,
-            c.year,
-            c.section,
-            gc.id as component_id,
-            gc.component_name,
-            gc.component_type,
-            gc.max_score,
-            gc.weight_percentage,
-            gc.pair_group,
-            g.score,
-            g.date as grade_date,
-            g.id as grade_id
-        FROM teacher_assignments ta
-        JOIN subjects s ON ta.subject_id = s.id
-        JOIN student_enrollments se ON se.subject_id = s.id
-        JOIN students st ON se.student_id = st.id AND (ta.class_id IS NULL OR st.class_id = ta.class_id)
-        JOIN users u ON st.user_id = u.id
-        LEFT JOIN classes c ON st.class_id = c.id
-        JOIN grade_components gc ON gc.subject_id = s.id
-        LEFT JOIN grades g ON g.student_id = st.id AND g.component_id = gc.id
-        WHERE ta.teacher_id = %s
-        ORDER BY c.year, c.semester, s.name, u.full_name, gc.id
-    """
-    return execute_query(query, (teacher_id,), fetch_all=True)
-
 def create_enrollment_period(semester, start_date, end_date, description, created_by): return execute_insert_returning("INSERT INTO enrollment_periods (semester, start_date, end_date, description, created_by) VALUES (%s,%s,%s,%s,%s) RETURNING id", (semester, start_date, end_date, description, created_by))
 
 def get_active_enrollment_period(semester, major_id=None):
