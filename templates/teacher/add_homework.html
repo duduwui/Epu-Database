@@ -92,7 +92,30 @@
 
             <div class="mb-3">
               <label class="form-label">Due Date <span class="text-danger">*</span></label>
-              <input type="date" name="due_date" class="form-control" required />
+              <input type="hidden" name="due_date" id="homework_due_date" />
+              <div class="input-group">
+                <input
+                  type="text"
+                  class="form-control epu-cal-display-input"
+                  id="homework_due_date_display"
+                  data-epu-display-for="homework_due_date"
+                  data-epu-mode="date"
+                  data-epu-target="homework_due_date"
+                  data-epu-display="homework_due_date_display"
+                  placeholder="Select due date..."
+                  readonly
+                  required
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary epu-cal-trigger"
+                  data-epu-target="homework_due_date"
+                  data-epu-display="homework_due_date_display"
+                  data-epu-mode="date"
+                >
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
               <small class="text-muted">Click to select date from calendar</small>
             </div>
 

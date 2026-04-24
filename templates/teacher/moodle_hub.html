@@ -184,7 +184,17 @@
                                             </div>
                                             <div class="mb-0">
                                                 <label class="form-label fw-bold">Due Date & Time <span class="text-danger">*</span></label>
-                                                <input type="datetime-local" name="due_at" class="form-control" value="{{ req['due_at'].strftime('%Y-%m-%dT%H:%M') if req['due_at'] else '' }}" required>
+                                                <input type="hidden" name="due_at" id="extend_due_at_{{ req['id'] }}" value="{{ req['due_at'].strftime('%Y-%m-%dT%H:%M') if req['due_at'] else '' }}">
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control epu-cal-display-input" id="extend_due_at_{{ req['id'] }}_display"
+                                                           data-epu-display-for="extend_due_at_{{ req['id'] }}" data-epu-mode="datetime"
+                                                           data-epu-target="extend_due_at_{{ req['id'] }}" data-epu-display="extend_due_at_{{ req['id'] }}_display"
+                                                           placeholder="Select due time..." readonly required>
+                                                    <button type="button" class="btn btn-outline-secondary epu-cal-trigger"
+                                                            data-epu-target="extend_due_at_{{ req['id'] }}" data-epu-display="extend_due_at_{{ req['id'] }}_display" data-epu-mode="datetime">
+                                                        <i class="bi bi-calendar3"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="modal-footer border-0 bg-light">
@@ -342,7 +352,17 @@ function toggleMaterialType(selectElement, weekId) {
                     </div>
                     <div class="mb-0">
                         <label class="form-label fw-bold">Due Date & Time <span class="text-danger">*</span></label>
-                        <input type="datetime-local" name="due_at" class="form-control" required>
+                        <input type="hidden" name="due_at" id="new_moodle_request_due_at">
+                        <div class="input-group">
+                            <input type="text" class="form-control epu-cal-display-input" id="new_moodle_request_due_at_display"
+                                   data-epu-display-for="new_moodle_request_due_at" data-epu-mode="datetime"
+                                   data-epu-target="new_moodle_request_due_at" data-epu-display="new_moodle_request_due_at_display"
+                                   placeholder="Select due time..." readonly required>
+                            <button type="button" class="btn btn-outline-secondary epu-cal-trigger"
+                                    data-epu-target="new_moodle_request_due_at" data-epu-display="new_moodle_request_due_at_display" data-epu-mode="datetime">
+                                <i class="bi bi-calendar3"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">

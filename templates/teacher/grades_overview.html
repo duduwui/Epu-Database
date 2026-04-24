@@ -1,0 +1,230 @@
+{% extends 'base.html' %} {% block title %}Grades Overview{% endblock %} {% block content %}
+<div class="container-fluid">
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2><i class="bi bi-table me-2"></i>Grades Overview</h2>
+        <p class="text-muted">Search, filter, and edit grades for all your subjects in real-time.</p>
+      </div>
+      <div class="col-auto">
+        <a href="{{ url_for('teacher.grades') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Back to Groups
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4 shadow-sm border-0">
+    <div class="card-header bg-navy text-white">
+      <i class="bi bi-funnel-fill me-2"></i><strong>Filters</strong>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label text-muted small">Student Name</label>
+          <input type="text" id="searchName" class="form-control form-control-sm" placeholder="Type English or Kurdish name...">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted small">Semester</label>
+          <select id="filterSemester" class="form-select form-select-sm">
+            <option value="all">All Semesters</option>
+            {% for sem in filters.semesters %}
+            <option value="{{ sem }}">{{ sem }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted small">Shift</label>
+          <select id="filterShift" class="form-select form-select-sm">
+            <option value="all">All Shifts</option>
+            {% for shift in filters.shifts %}
+            <option value="{{ shift|lower }}">{{ shift|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted small">Class</label>
+          <select id="filterClass" class="form-select form-select-sm">
+            <option value="all">All Classes</option>
+            {% for cls in filters.classes %}
+            <option value="{{ cls }}">{{ cls }}</option>
+            {% endfor %}
+          </select>
+        </div>
+         <div class="col-md-3">
+          <label class="form-label text-muted small">Subject</label>
+          <select id="filterSubject" class="form-select form-select-sm">
+            <option value="all">All Subjects</option>
+            {% for sub in filters.subjects %}
+            <option value="{{ sub }}">{{ sub }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-0 table-responsive">
+      <table class="table table-hover table-striped align-middle mb-0" id="overviewTable">
+        <thead class="table-light">
+          <tr>
+            <th>Student</th>
+            <th>Subject</th>
+            <th>Class Info</th>
+            <th>Components & Grades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in students %}
+          <tr class="grade-row" 
+              data-name="{{ st.student_name|lower }}" 
+              data-semester="{{ st.semester }}" 
+              data-shift="{{ st.shift|lower }}" 
+              data-class="{{ st.class_name }}" 
+              data-subject="{{ st.subject_name }}">
+            <td>
+              <div class="d-flex align-items-center">
+                <i class="bi bi-person-circle fs-3 text-secondary me-3"></i>
+                <div>
+                  <strong>{{ st.student_name }}</strong><br>
+                  <small class="text-muted">{{ st.student_number or '-' }}</small>
+                </div>
+              </div>
+            </td>
+            <td><strong>{{ st.subject_name }}</strong></td>
+            <td>
+              <span class="badge bg-secondary">{{ st.class_name }}</span><br>
+              <small class="text-muted">Sem {{ st.semester }} - {{ st.shift|title }}</small>
+            </td>
+            <td style="min-width: 300px;">
+              <div class="d-flex flex-wrap gap-2">
+                {% for comp_info in subject_components[st.subject_id] %}
+                  {% set c = st.components.get(comp_info.id) %}
+                  <div class="input-group input-group-sm" style="width: 140px;">
+                    <span class="input-group-text bg-light border-secondary" style="font-size: 0.75rem;" title="{{ comp_info.name }}">
+                      {{ comp_info.name[:8] }}...
+                    </span>
+                    <input 
+                      type="number" 
+                      class="form-control text-center form-control-sm grade-input" 
+                      style="font-size: 0.8rem; font-weight: bold; color: #1C0770;"
+                      data-student-id="{{ st.student_id }}"
+                      data-subject-id="{{ st.subject_id }}"
+                      data-component-id="{{ comp_info.id }}"
+                      max="{{ comp_info.max_score }}"
+                      min="0"
+                      value="{{ c.score if c and c.score is not none else '' }}"
+                      onchange="saveGrade(this)"
+                    />
+                    <span class="input-group-text bg-light text-muted" style="font-size: 0.75rem;">/{{ comp_info.max_score }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-4 text-muted">
+              <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+              No grades data found. You might not have any assigned students or subjects yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const tableRows = document.querySelectorAll('.grade-row');
+    const searchName = document.getElementById('searchName');
+    const filterSemester = document.getElementById('filterSemester');
+    const filterShift = document.getElementById('filterShift');
+    const filterClass = document.getElementById('filterClass');
+    const filterSubject = document.getElementById('filterSubject');
+
+    function filterTable() {
+        const query = searchName.value.toLowerCase().trim();
+        const sem = filterSemester.value;
+        const shift = filterShift.value.toLowerCase();
+        const cls = filterClass.value;
+        const sub = filterSubject.value;
+
+        tableRows.forEach(row => {
+            const rowName = row.getAttribute('data-name');
+            const rowSem = row.getAttribute('data-semester');
+            const rowShift = row.getAttribute('data-shift');
+            const rowClass = row.getAttribute('data-class');
+            const rowSub = row.getAttribute('data-subject');
+
+            let match = true;
+            if (query && !rowName.includes(query)) match = false;
+            if (sem !== 'all' && rowSem !== sem) match = false;
+            if (shift !== 'all' && rowShift !== shift) match = false;
+            if (cls !== 'all' && rowClass !== cls) match = false;
+            if (sub !== 'all' && rowSub !== sub) match = false;
+
+            row.style.display = match ? '' : 'none';
+        });
+    }
+
+    [searchName, filterSemester, filterShift, filterClass, filterSubject].forEach(el => {
+        el.addEventListener('input', filterTable);
+        el.addEventListener('change', filterTable);
+    });
+});
+
+async function saveGrade(input) {
+    const studentId = input.getAttribute('data-student-id');
+    const subjectId = input.getAttribute('data-subject-id');
+    const componentId = input.getAttribute('data-component-id');
+    let val = input.value.trim();
+    const maxScore = parseFloat(input.getAttribute('max'));
+    
+    if (val !== '') {
+        val = parseFloat(val);
+        if (isNaN(val) || val < 0 || val > maxScore) {
+            alert(`Invalid score. Must be between 0 and ${maxScore}.`);
+            input.value = '';
+            input.focus();
+            return;
+        }
+    }
+
+    // Give visual feedback that it's saving
+    input.classList.add('bg-warning');
+    input.classList.remove('bg-success', 'text-white');
+
+    try {
+        const formData = new FormData();
+        formData.append('student_id', studentId);
+        formData.append('subject_id', subjectId);
+        formData.append('component_id', componentId);
+        formData.append('score', input.value.trim());
+
+        const res = await fetch("{{ url_for('teacher.api_save_inline_grade') }}", {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        input.classList.remove('bg-warning');
+        if (data.success) {
+            input.classList.add('bg-success', 'text-white');
+            setTimeout(() => input.classList.remove('bg-success', 'text-white'), 1500);
+        } else {
+            alert(data.message || 'Error saving score');
+            input.classList.add('bg-danger', 'text-white');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Network error saving grade');
+        input.classList.remove('bg-warning');
+        input.classList.add('bg-danger', 'text-white');
+    }
+}
+</script>
+{% endblock %}

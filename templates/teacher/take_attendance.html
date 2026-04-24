@@ -198,12 +198,28 @@ extra_css %}
     <div class="card-body py-2">
       <div class="row align-items-center g-2">
         <div class="col-6 col-md-2">
-          <input
-            type="date"
-            id="attendanceDate"
-            class="form-control"
-            value="{{ attendance_date }}"
-          />
+          <input type="hidden" id="attendanceDate" value="{{ attendance_date }}" />
+          <div class="input-group">
+            <input
+              type="text"
+              id="attendanceDate_display"
+              class="form-control epu-cal-display-input"
+              data-epu-display-for="attendanceDate"
+              data-epu-mode="date"
+              data-epu-target="attendanceDate"
+              data-epu-display="attendanceDate_display"
+              readonly
+            />
+            <button
+              type="button"
+              class="btn btn-outline-secondary epu-cal-trigger"
+              data-epu-target="attendanceDate"
+              data-epu-display="attendanceDate_display"
+              data-epu-mode="date"
+            >
+              <i class="bi bi-calendar3"></i>
+            </button>
+          </div>
         </div>
         <div class="col-6 col-md-5">
           <button type="button" class="btn btn-success btn-sm" onclick="setAll('present')">
@@ -366,7 +382,7 @@ extra_css %}
     if (rows.length === 0) return;
 
     // Ignore if typing in date input
-    if (document.activeElement.id === 'attendanceDate') return;
+    if (document.activeElement.id === 'attendanceDate' || document.activeElement.id === 'attendanceDate_display') return;
 
     switch (e.key) {
       case 'ArrowDown':
