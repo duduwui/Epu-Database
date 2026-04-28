@@ -296,8 +296,33 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Filters -->
+                  <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Search student name or ID..." id="searchInput{{ period.id }}" onkeyup="filterRoster({{ period.id }})">
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" id="statusFilter{{ period.id }}" onchange="filterRoster({{ period.id }})">
+                        <option value="all">All Statuses</option>
+                        <option value="assigned">Assigned</option>
+                        <option value="not_assigned">Not Assigned</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" id="shiftFilter{{ period.id }}" onchange="filterRoster({{ period.id }})">
+                        <option value="all">All Shifts</option>
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="rosterTable{{ period.id }}">
                       <thead class="table-light">
                         <tr>
                           <th>Student</th>
@@ -618,6 +643,34 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exams-tab').click();
   }
 });
+
+function filterRoster(periodId) {
+  const query = document.getElementById('searchInput' + periodId).value.toLowerCase();
+  const status = document.getElementById('statusFilter' + periodId).value;
+  const shift = document.getElementById('shiftFilter' + periodId).value;
+
+  const table = document.getElementById('rosterTable' + periodId);
+  const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+  for (let i = 0; i < rows.length; i++) {
+    // If it's the "No students found" row, skip
+    if (rows[i].cells.length === 1) continue;
+
+    const nameId = rows[i].cells[0].innerText.toLowerCase() + ' ' + rows[i].cells[1].innerText.toLowerCase();
+    const rowShift = rows[i].cells[3].innerText.toLowerCase();
+    const rowStatus = rows[i].cells[4].innerText.toLowerCase();
+
+    let matchesSearch = nameId.includes(query);
+    let matchesStatus = (status === 'all') || (status === 'assigned' && rowStatus.includes('assigned') && !rowStatus.includes('not')) || (status === 'not_assigned' && rowStatus.includes('not assigned'));
+    let matchesShift = (shift === 'all') || rowShift.includes(shift);
+
+    if (matchesSearch && matchesStatus && matchesShift) {
+      rows[i].style.display = "";
+    } else {
+      rows[i].style.display = "none";
+    }
+  }
+}
 </script>
 
 <style>
