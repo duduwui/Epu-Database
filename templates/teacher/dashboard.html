@@ -148,48 +148,7 @@ content %}
         </div>
       </div>
 
-      <div class="card shadow-sm border-0">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <div><i class="bi bi-activity me-2"></i>Recent Student Activity</div>
-          <span class="badge bg-light text-dark">{{ recent_activity_count }}</span>
-        </div>
-        <div class="card-body p-0">
-          {% if visible_activity %}
-          <div class="list-group list-group-flush compact-list">
-            {% for item in visible_activity %}
-            <div class="list-group-item compact-item">
-              <div class="d-flex justify-content-between align-items-start gap-2">
-                <div class="me-2">
-                  <div class="fw-semibold text-navy compact-item-title">{{ item.student_name }}</div>
-                  <div class="small text-muted compact-item-meta">{{ item.subject_name }} · Class {{ item.section }} · {{ item.shift|title }}</div>
-                  <div class="small mt-1">
-                    {% if item.activity_type == 'submission' %}
-                    <span class="fw-medium">{{ item.request_title }}</span>
-                    <span class="text-muted">· {{ item.item_title }}</span>
-                    {% else %}
-                    <span class="fw-medium">{{ item.item_title }}</span>
-                    {% if item.total_seconds %}
-                    <span class="text-muted">· {{ (item.total_seconds / 60)|round(1) }} min</span>
-                    {% endif %}
-                    {% endif %}
-                  </div>
-                  <div class="small text-muted mt-1">{{ item.occurred_at.strftime('%Y-%m-%d %H:%M') if item.occurred_at else '-' }}</div>
-                </div>
-                <span class="badge {% if item.activity_type == 'submission' %}bg-success-subtle text-success{% else %}bg-info-subtle text-info{% endif %} border flex-shrink-0">
-                  {{ 'Submission' if item.activity_type == 'submission' else 'View' }}
-                </span>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-          {% if recent_activity|length > 4 %}
-          <div class="px-3 py-2 small text-muted text-center border-top">Showing latest 4 of {{ recent_activity|length }} events</div>
-          {% endif %}
-          {% else %}
-          <p class="text-muted text-center py-4 mb-0">No recent Moodle activity in the last 7 days.</p>
-          {% endif %}
-        </div>
-      </div>
+    <!-- Removing Recent Student Activity module based on user request to simplify mobile view -->
     </div>
   </div>
 
