@@ -7,7 +7,12 @@
             <h2 class="mb-0 text-navy">
                 <i class="bi bi-mortarboard-fill me-2"></i>{{ subject['name'] }}
             </h2>
-            <p class="text-muted"><i class="bi bi-calendar3 me-2"></i>Files and links by week</p>
+            <p class="text-muted mb-1"><i class="bi bi-calendar3 me-2"></i>Files and links by week</p>
+            {% if current_assignment %}
+            <p class="text-muted mb-0 small">
+                <i class="bi bi-building me-2"></i>Class {{ current_assignment.section }} · {{ current_assignment.shift|title }} · {{ current_assignment.student_count }} students
+            </p>
+            {% endif %}
         </div>
         <div class="col text-end">
             <a href="{{ url_for('teacher.moodle_engagement', subject_id=subject['id'], class_id=class_id) }}" class="btn btn-outline-info btn-sm">
@@ -21,6 +26,30 @@
             </button>
         </div>
     </div>
+
+    {% if subject_assignments|length > 1 %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Assigned Classes</label>
+                    <select id="moodleClassSelect" class="form-select">
+                        {% for item in subject_assignments %}
+                        <option value="{{ url_for('teacher.moodle_hub', subject_id=subject['id'], class_id=item['class_id']) }}" {% if item['class_id'] == class_id %}selected{% endif %}>
+                            Class {{ item['section'] }} - {{ item['shift']|title }} - {{ item['student_count'] }} students
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" id="moodleClassSelectGo" class="btn btn-primary w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i>Open Class
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Moodle Content Accordion -->
     <div class="accordion shadow-sm" id="moodleAccordion">
@@ -231,6 +260,14 @@
                                 <label class="form-label fw-bold">{{ t('Description (Optional)') }}</label>
                                 <textarea name="description" class="form-control form-control-sm" rows="2"></textarea>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Apply To</label>
+                                <select class="form-select form-select-sm" name="apply_scope">
+                                    <option value="current_class">This class only</option>
+                                    <option value="current_shift">All {{ current_assignment.shift|title if current_assignment else 'current shift' }} classes</option>
+                                    <option value="all_classes">All assigned classes</option>
+                                </select>
+                            </div>
                             
                             <!-- File Input -->
                             <div class="mb-3" id="fileInputContainer{{ week['id'] }}">
@@ -279,6 +316,23 @@ function toggleMaterialType(selectElement, weekId) {
         linkInput.required = false;
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('moodleClassSelect');
+    const goBtn = document.getElementById('moodleClassSelectGo');
+    if (select && goBtn) {
+        goBtn.addEventListener('click', function () {
+            if (select.value) {
+                window.location.href = select.value;
+            }
+        });
+        select.addEventListener('change', function () {
+            if (this.value) {
+                window.location.href = this.value;
+            }
+        });
+    }
+});
 </script>
 
 <!-- Add Week Modal -->
@@ -299,6 +353,14 @@ function toggleMaterialType(selectElement, weekId) {
                         <label class="form-label fw-bold">{{ t('Display Order') }}</label>
                         <input type="number" name="display_order" class="form-control" value="0">
                         <div class="form-text">Lower numbers appear first.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Apply To</label>
+                        <select class="form-select" name="apply_scope">
+                            <option value="current_class">This class only</option>
+                            <option value="current_shift">All {{ current_assignment.shift|title if current_assignment else 'current shift' }} classes</option>
+                            <option value="all_classes">All assigned classes</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">

@@ -170,8 +170,22 @@ def dashboard():
             return redirect(url_for('admin.majors'))
         return redirect(url_for('admin.dashboard'))
     elif role == 'teacher':
+        teacher = db.get_teacher_by_user_id(session.get('user_id'))
+        if not teacher:
+            lang = normalize_lang(session.get('lang', 'en'))
+            session.clear()
+            session['lang'] = lang
+            flash('Your teacher profile no longer exists. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
         return redirect(url_for('teacher.dashboard'))
     elif role == 'student':
+        student = db.get_student_by_user_id(session.get('user_id'))
+        if not student:
+            lang = normalize_lang(session.get('lang', 'en'))
+            session.clear()
+            session['lang'] = lang
+            flash('Your student profile no longer exists. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
         return redirect(url_for('student.dashboard'))
 
     return render_template('dashboard.html')

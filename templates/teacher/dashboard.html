@@ -6,128 +6,180 @@ content %}
     <div class="row align-items-center">
       <div class="col">
         <h2><i class="bi bi-grid-1x2 me-2"></i>Teacher Dashboard</h2>
-        <p>Welcome back, {{ teacher.full_name }}!</p>
+        <p>Operational summary for {{ teacher.full_name }}</p>
       </div>
     </div>
   </div>
 
-  <!-- Quick Actions -->
-  <h5 class="section-header"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
-  <div class="row mb-4">
-    <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher.attendance') }}" class="quick-action-card">
-        <div class="quick-action-card-content">
-          <i class="bi bi-calendar-check"></i>
-          <h5>Take Attendance</h5>
-          <p>Record daily attendance</p>
+  <div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3">
+      <div class="metric-card border-start border-4 border-warning">
+        <div class="metric-icon bg-warning-subtle text-warning"><i class="bi bi-clipboard2-x"></i></div>
+        <div>
+          <div class="metric-label">Students Needing Grades</div>
+          <div class="metric-value">{{ pending_grade_students }}</div>
         </div>
-      </a>
+      </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher.grades') }}" class="quick-action-card">
-        <div class="quick-action-card-content">
-          <i class="bi bi-clipboard-data"></i>
-          <h5>Manage Grades</h5>
-          <p>Add quiz/exam grades</p>
+    <div class="col-md-6 col-xl-3">
+      <div class="metric-card border-start border-4 border-danger">
+        <div class="metric-icon bg-danger-subtle text-danger"><i class="bi bi-clipboard-check"></i></div>
+        <div>
+          <div class="metric-label">Pending Submissions</div>
+          <div class="metric-value">{{ pending_submission_count }}</div>
         </div>
-      </a>
+      </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher.homework') }}" class="quick-action-card">
-        <div class="quick-action-card-content">
-          <i class="bi bi-journal-text"></i>
-          <h5>Assign Homework</h5>
-          <p>Create assignments</p>
+    <div class="col-md-6 col-xl-3">
+      <div class="metric-card border-start border-4 border-info">
+        <div class="metric-icon bg-info-subtle text-info"><i class="bi bi-activity"></i></div>
+        <div>
+          <div class="metric-label">Recent Activity (7 Days)</div>
+          <div class="metric-value">{{ recent_activity_count }}</div>
         </div>
-      </a>
+      </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-      <a href="{{ url_for('teacher.topics') }}" class="quick-action-card">
-        <div class="quick-action-card-content">
-          <i class="bi bi-journal-bookmark-fill"></i>
-          <h5>Exam Notes</h5>
-          <p>Set exam &amp; quiz dates</p>
+    <div class="col-md-6 col-xl-3">
+      <div class="metric-card border-start border-4 border-primary">
+        <div class="metric-icon bg-primary-subtle text-primary"><i class="bi bi-calendar-check"></i></div>
+        <div>
+          <div class="metric-label">Attendance Pending Today</div>
+          <div class="metric-value">{{ attendance_pending_groups }}</div>
+          <div class="metric-subtext">{{ attendance_summary.recorded_groups }}/{{ attendance_summary.total_groups }} groups recorded</div>
         </div>
-      </a>
+      </div>
     </div>
   </div>
 
   <div class="row">
-    <!-- My Subjects -->
-    <div class="col-md-6 mb-4">
+    <div class="col-xl-8 mb-4">
       <div class="card h-100">
-        <div class="card-header"><i class="bi bi-journal-bookmark me-2"></i>My Subjects</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-collection me-2"></i>My Teaching Groups</span>
+          <span class="badge bg-light text-dark">{{ teaching_groups|length }} subjects · {{ total_students }} students</span>
+        </div>
         <div class="card-body">
-          {% if grouped_subjects %}
-          <ul class="list-group list-group-flush">
-            {% for subject_name, data in grouped_subjects.items() %}
-            <li class="list-group-item">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <strong>{{ subject_name }}</strong>
-                  <span class="badge bg-secondary ms-2">{{ data.credits or 6 }} cr</span>
+          {% if teaching_groups %}
+          <div class="row g-3">
+            {% for group in teaching_groups %}
+            <div class="col-md-6">
+              <div class="teaching-group-card h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                  <div>
+                    <h5 class="group-title mb-1">{{ group.subject_name }}</h5>
+                    <div class="group-meta">
+                      Semester {{ group.semester }} · {{ group.class_count }} classes · {{ group.shifts_label }}
+                    </div>
+                  </div>
+                  <span class="badge bg-secondary">{{ group.credits or 6 }} cr</span>
                 </div>
-                <span class="badge bg-navy">Active</span>
-              </div>
-              <div class="d-flex flex-wrap gap-1">
-                {% for cls in data.classes %}
-                <span class="class-chip">
-                  <span class="chip-sem">S{{ cls.semester }}</span>
-                  <span class="chip-section">Class {{ cls.section }}</span>
-                  {% if cls.shift == 'morning' %}
-                  <span class="chip-shift chip-morning"><i class="bi bi-sun-fill"></i></span>
-                  {% else %}
-                  <span class="chip-shift chip-night"><i class="bi bi-moon-fill"></i></span>
-                  {% endif %}
-                </span>
-                {% endfor %}
-              </div>
-              <div class="mt-2 text-end">
-                <div class="btn-group">
-                  <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
-                    <i class="bi bi-people me-1"></i>View Signups
-                  </button>
-                  <ul class="dropdown-menu">
-                    {% for cls in data.classes %}
-                    <li>
-                      <a class="dropdown-item" href="{{ url_for('teacher.view_exam_signups', subject_id=cls.subject_id) }}">
-                        Class {{ cls.section }} ({{ cls.shift|title }})
-                      </a>
-                    </li>
-                    {% endfor %}
-                  </ul>
+                <div class="group-stats mb-3">
+                  <span><i class="bi bi-people me-1"></i>{{ group.total_students }} students</span>
+                  <span><i class="bi bi-list-check me-1"></i>{{ group.component_count }} grading components</span>
+                </div>
+                <div class="group-actions mb-3">
+                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-clipboard-data me-1"></i>Grades
+                  </a>
+                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='attendance') }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-calendar-check me-1"></i>Attendance
+                  </a>
+                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='moodle') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-folder2-open me-1"></i>Moodle
+                  </a>
+                  <a href="{{ url_for('teacher.view_exam_signups', subject_id=group.subject_id) }}" class="btn btn-sm btn-outline-dark">
+                    <i class="bi bi-people me-1"></i>Signups
+                  </a>
+                </div>
+                <div class="assignment-preview-list">
+                  {% for assignment in group.assignments %}
+                  <div class="assignment-preview-item">
+                    <span class="badge bg-light text-dark border">Class {{ assignment.section }} · {{ assignment.shift|title }}</span>
+                    <span class="text-muted small">{{ assignment.student_count }} students</span>
+                  </div>
+                  {% endfor %}
                 </div>
               </div>
-            </li>
+            </div>
             {% endfor %}
-          </ul>
+          </div>
           {% else %}
-          <p class="text-muted text-center py-3">No subjects assigned yet.</p>
+          <p class="text-muted text-center py-4 mb-0">No teaching groups assigned yet.</p>
           {% endif %}
         </div>
       </div>
     </div>
 
-    <!-- Recent Homework -->
-    <div class="col-md-6 mb-4">
-      <div class="card h-100">
-        <div class="card-header"><i class="bi bi-journal-text me-2"></i>Recent Homework</div>
-        <div class="card-body p-0" style="max-height: 350px; overflow-y: auto;">
-          {% if homework %}
-          <ul class="list-group list-group-flush">
-            {% for hw in homework %}
-            <li class="list-group-item">
-              <strong>{{ hw.title }}</strong>
-              <br />
-              <small class="text-muted">
-                {{ hw.subject_name }} - {{ hw.class_name|replace_section }}
-                <br />Due: {{ hw.due_date }}
-              </small>
-            </li>
+    <div class="col-xl-4 mb-4">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-hourglass-split me-2"></i>Pending Moodle Work</span>
+          <span class="badge bg-danger">{{ pending_submission_count }}</span>
+        </div>
+        <div class="card-body p-0">
+          {% if pending_requests %}
+          <div class="list-group list-group-flush">
+            {% for request in pending_requests %}
+            <a href="{{ url_for('teacher.moodle_request_details', subject_id=request.subject_id, class_id=request.class_id, request_id=request.request_id) }}" class="list-group-item list-group-item-action py-3">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="fw-semibold text-navy">{{ request.title }}</div>
+                  <div class="small text-muted">
+                    {{ request.subject_name }} · Sem {{ request.semester }} · Class {{ request.section }} · {{ request.shift|title }}
+                  </div>
+                </div>
+                <span class="badge bg-danger-subtle text-danger border">{{ request.remaining_count }} pending</span>
+              </div>
+              <div class="small text-muted mt-2">
+                Due {{ request.due_at.strftime('%Y-%m-%d %H:%M') if request.due_at else request.due_date.strftime('%Y-%m-%d') }}
+              </div>
+            </a>
             {% endfor %}
-          </ul>
+          </div>
           {% else %}
-          <p class="text-muted text-center py-3">No homework created yet.</p>
+          <p class="text-muted text-center py-4 mb-0">No Moodle requests are waiting right now.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-activity me-2"></i>Recent Student Activity</span>
+          <span class="badge bg-light text-dark">{{ recent_activity_count }}</span>
+        </div>
+        <div class="card-body p-0">
+          {% if recent_activity %}
+          <div class="list-group list-group-flush">
+            {% for item in recent_activity %}
+            <div class="list-group-item py-3">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="fw-semibold text-navy">{{ item.student_name }}</div>
+                  <div class="small text-muted">
+                    {{ item.subject_name }} · Class {{ item.section }} · {{ item.shift|title }}
+                  </div>
+                </div>
+                <span class="badge {% if item.activity_type == 'submission' %}bg-success-subtle text-success{% else %}bg-info-subtle text-info{% endif %} border">
+                  {{ 'Submission' if item.activity_type == 'submission' else 'View' }}
+                </span>
+              </div>
+              <div class="small mt-2">
+                {% if item.activity_type == 'submission' %}
+                <span class="fw-medium">{{ item.request_title }}</span>
+                <span class="text-muted">· {{ item.item_title }}</span>
+                {% else %}
+                <span class="fw-medium">{{ item.item_title }}</span>
+                {% if item.total_seconds %}
+                <span class="text-muted">· {{ (item.total_seconds / 60)|round(1) }} min</span>
+                {% endif %}
+                {% endif %}
+              </div>
+              <div class="small text-muted mt-1">{{ item.occurred_at.strftime('%Y-%m-%d %H:%M') if item.occurred_at else '-' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted text-center py-4 mb-0">No recent Moodle activity in the last 7 days.</p>
           {% endif %}
         </div>
       </div>
@@ -210,38 +262,81 @@ content %}
 </div>
 
 <style>
-  /* Class chip badges for My Subjects */
-  .class-chip {
-    display: inline-flex;
+  .metric-card {
+    display: flex;
     align-items: center;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    overflow: hidden;
-    font-size: 0.75rem;
-    font-weight: 600;
+    gap: 14px;
+    padding: 18px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    height: 100%;
+  }
+  .metric-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+  .metric-label {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+  .metric-value {
+    font-size: 1.9rem;
+    font-weight: 700;
     line-height: 1;
+    color: #0f172a;
   }
-  .chip-sem {
-    background: #1C0770;
-    color: #fff;
-    padding: 4px 7px;
+  .metric-subtext {
+    font-size: 0.76rem;
+    color: #64748b;
+    margin-top: 5px;
   }
-  .chip-section {
-    padding: 4px 7px;
-    background: #f0edff;
+  .teaching-group-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  }
+  .group-title {
     color: #1C0770;
+    font-size: 1rem;
+    font-weight: 700;
   }
-  .chip-shift {
-    padding: 4px 6px;
-    font-size: 0.7rem;
+  .group-meta,
+  .group-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    font-size: 0.82rem;
+    color: #64748b;
   }
-  .chip-morning {
-    background: #e8eaf6;
-    color: #3949ab;
+  .group-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .chip-night {
-    background: #e8eaf6;
-    color: #3949ab;
+
+  .assignment-preview-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .assignment-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: #f8f7ff;
   }
 
   .scheduler-wrapper {

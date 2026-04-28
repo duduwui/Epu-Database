@@ -207,11 +207,12 @@
                     <tr>
                       <th style="width: 12%;">Status</th>
                       <th style="width: 13%;">Type</th>
+                      <th style="width: 12%;">Students</th>
                       <th style="width: 18%;">Start Date</th>
                       <th style="width: 18%;">End Date</th>
-                      <th style="width: 22%;">Description</th>
-                      <th style="width: 12%;">Created By</th>
-                      <th style="width: 5%;" class="text-center">Action</th>
+                      <th style="width: 17%;">Description</th>
+                      <th style="width: 10%;">Created By</th>
+                      <th style="width: 10%;" class="text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -233,11 +234,19 @@
                           <span class="badge bg-warning text-dark">2nd Round</span>
                         {% endif %}
                       </td>
+                      <td>
+                        <div class="small fw-semibold">{{ period.signup_summary.total_students }} total</div>
+                        <div class="small text-success">{{ period.signup_summary.assigned_count }} assigned</div>
+                        <div class="small text-muted">{{ period.signup_summary.pending_count }} not assigned</div>
+                      </td>
                       <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
                       <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
                       <td><small>{{ period.description or '-' }}</small></td>
                       <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
                       <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal" data-bs-target="#examPeriodRoster{{ period.id }}" title="View Student Status">
+                          <i class="bi bi-people"></i>
+                        </button>
                         <form method="POST" action="{{ url_for('admin.delete_exam_period', period_id=period.id) }}" class="exam-delete-form" style="display:inline;">
                           <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                         </form>
@@ -249,6 +258,85 @@
               </div>
             </div>
           </div>
+
+          {% for period in sem_exam_periods %}
+          <div class="modal fade" id="examPeriodRoster{{ period.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#4a0e8f 0%,#1C0770 100%);">
+                  <div>
+                    <div class="fw-bold">
+                      Semester {{ period.semester }} -
+                      {% if period.period_type == 'final' %}Final Exam{% else %}2nd Round{% endif %}
+                    </div>
+                    <div class="small opacity-75">
+                      {{ period.signup_summary.total_students }} students · {{ period.signup_summary.assigned_count }} assigned · {{ period.signup_summary.pending_count }} not assigned
+                    </div>
+                  </div>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-4 fw-bold text-dark">{{ period.signup_summary.total_students }}</div>
+                        <small class="text-muted">Total Students</small>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-4 fw-bold text-success">{{ period.signup_summary.assigned_count }}</div>
+                        <small class="text-muted">Assigned / Signed Up</small>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-4 fw-bold text-muted">{{ period.signup_summary.pending_count }}</div>
+                        <small class="text-muted">Not Assigned</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Student</th>
+                          <th>ID</th>
+                          <th>Class</th>
+                          <th>Shift</th>
+                          <th>Status</th>
+                          <th>Exam Selections</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for student in period.signup_summary.students %}
+                        <tr>
+                          <td>{{ student.student_name }}</td>
+                          <td>{{ student.student_number or student.username }}</td>
+                          <td>{{ student.section or '-' }}</td>
+                          <td>{{ student.shift|title if student.shift else '-' }}</td>
+                          <td>
+                            {% if student.is_assigned %}
+                              <span class="badge bg-success">Assigned</span>
+                            {% else %}
+                              <span class="badge bg-secondary">Not Assigned</span>
+                            {% endif %}
+                          </td>
+                          <td>{{ student.signup_count }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                          <td colspan="6" class="text-center text-muted py-4">No students found for this semester.</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
         {% endif %}
       {% endfor %}
 

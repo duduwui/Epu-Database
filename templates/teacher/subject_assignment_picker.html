@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block title %}{{ subject_group.subject_name }} - Choose Class{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h2 class="mb-1 text-navy">
+                <i class="bi bi-diagram-3-fill me-2"></i>{{ subject_group.subject_name }}
+            </h2>
+            <p class="text-muted mb-0">{{ action_label }}</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('teacher.dashboard') if selected_action != 'moodle' else url_for('teacher.moodle') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="text-muted small">Semester</div>
+                    <div class="fw-semibold">Semester {{ subject_group.semester }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Assigned Classes</div>
+                    <div class="fw-semibold">{{ subject_group.class_count }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Students</div>
+                    <div class="fw-semibold">{{ subject_group.total_students }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if selected_action == 'moodle' %}
+    <div class="d-flex justify-content-end gap-2 flex-wrap mb-4">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#subjectAddRequestModal">
+            <i class="bi bi-clipboard-plus me-1"></i>New Request / Homework
+        </button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#subjectAddWeekModal">
+            <i class="bi bi-plus-lg me-1"></i>Add Week / Block
+        </button>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        {% for assignment in assignments %}
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100 shadow-sm border-0 border-top border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                            <h5 class="card-title mb-1 text-navy">Class {{ assignment.section }}</h5>
+                            <div class="text-muted small">
+                                Semester {{ assignment.semester }} · {{ assignment.shift|title }}
+                            </div>
+                        </div>
+                        <span class="badge bg-light text-dark border">{{ assignment.student_count }} students</span>
+                    </div>
+                    <a href="{{
+                        url_for('teacher.moodle_hub', subject_id=subject_group.subject_id, class_id=assignment.class_id)
+                        if selected_action == 'moodle' else
+                        url_for('teacher.add_grades', subject_id=subject_group.subject_id, class_id=assignment.class_id)
+                        if selected_action == 'grades' else
+                        url_for('teacher.take_attendance', subject_id=subject_group.subject_id, class_id=assignment.class_id)
+                    }}" class="btn btn-primary w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i>{{ action_button_label }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if selected_action == 'moodle' %}
+<div class="modal fade" id="subjectAddWeekModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('teacher.moodle_add_week_subject', subject_id=subject_group.subject_id) }}" method="POST">
+            <div class="modal-content">
+                <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                    <h5 class="modal-title text-white"><i class="bi bi-plus-circle me-2"></i>Add Week / Block</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Display Order</label>
+                        <input type="number" name="display_order" class="form-control" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Scope</label>
+                        <select class="form-select" name="apply_scope" id="subjectWeekScopeSelect" onchange="toggleSubjectTargetClass('subjectWeekScopeSelect','subjectWeekTargetClassWrap')">
+                            <option value="global">Global to all assigned classes</option>
+                            <option value="specific">Specific class only</option>
+                        </select>
+                    </div>
+                    <div class="mb-0 d-none" id="subjectWeekTargetClassWrap">
+                        <label class="form-label fw-bold">Target Class</label>
+                        <select class="form-select" name="target_class_id">
+                            {% for assignment in assignments %}
+                            <option value="{{ assignment.class_id }}">Class {{ assignment.section }} · {{ assignment.shift|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>Save Week</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="subjectAddRequestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('teacher.moodle_add_request_subject', subject_id=subject_group.subject_id) }}" method="POST" enctype="multipart/form-data">
+            <div class="modal-content">
+                <div class="modal-header border-0 shadow-sm" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                    <h5 class="modal-title text-white"><i class="bi bi-clipboard-plus me-2"></i>New Request / Homework</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Instructions / Description</label>
+                        <textarea name="description" class="form-control" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Attach File (Optional)</label>
+                        <input type="file" name="file" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Scope</label>
+                        <select class="form-select" name="apply_scope" id="subjectRequestScopeSelect" onchange="toggleSubjectTargetClass('subjectRequestScopeSelect','subjectRequestTargetClassWrap')">
+                            <option value="global">Global to all assigned classes</option>
+                            <option value="specific">Specific class only</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 d-none" id="subjectRequestTargetClassWrap">
+                        <label class="form-label fw-bold">Target Class</label>
+                        <select class="form-select" name="target_class_id">
+                            {% for assignment in assignments %}
+                            <option value="{{ assignment.class_id }}">Class {{ assignment.section }} · {{ assignment.shift|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Due Date & Time <span class="text-danger">*</span></label>
+                        <input type="datetime-local" name="due_at" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Create Request</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleSubjectTargetClass(selectId, wrapperId) {
+    const select = document.getElementById(selectId);
+    const wrapper = document.getElementById(wrapperId);
+    if (!select || !wrapper) return;
+    wrapper.classList.toggle('d-none', select.value !== 'specific');
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -76,19 +76,18 @@ def dashboard():
     student = db.get_student_by_user_id(session['user_id'])
 
     if not student:
-        flash('Student profile not found.', 'danger')
-        return redirect(url_for('auth.dashboard'))
+        lang = session.get('lang', 'en')
+        session.clear()
+        session['lang'] = lang
+        flash('Student profile not found. Please log in again.', 'warning')
+        return redirect(url_for('auth.login'))
 
-    grades = db.get_grades_by_student(student['id']) or []
-
-    homework = []
-    weekly_topics = []
-    schedule_data = None
     current_semester = None
-
-    if student['class_id']:
-        homework = db.get_homework_by_class(student['class_id']) or []
-        weekly_topics = db.get_weekly_topics_by_class(student['class_id']) or []
+    attendance_summary = []
+    attendance_log = []
+    recent_materials = []
+    pending_requests = []
+    schedule_data = None
 
     if student.get('semester') and student.get('shift') and student.get('section'):
         current_semester = student['semester']
@@ -99,16 +98,35 @@ def dashboard():
             major_id=session.get('major_id')
         )
 
-    attendance = db.get_attendance_by_student(student['id'], semester=current_semester) or []
+    attendance_summary = db.get_student_attendance_summary(student['id'], semester=current_semester) or []
+    attendance_log = db.get_student_attendance_log(student['id'], semester=current_semester, limit=8) or []
+    recent_materials = db.get_student_recent_moodle_materials(student['id'], semester=current_semester, limit=6) or []
+    pending_requests = db.get_student_pending_moodle_requests(student['id'], semester=current_semester, limit=6) or []
+
+    total_present = sum((row.get('present_count') or 0) for row in attendance_summary)
+    total_absent = sum((row.get('absent_count') or 0) for row in attendance_summary)
+    total_late = sum((row.get('late_count') or 0) for row in attendance_summary)
+    total_excused = sum((row.get('excused_count') or 0) for row in attendance_summary)
+    total_attendance_records = sum((row.get('total_records') or 0) for row in attendance_summary)
+    attendance_rate = round(
+        ((total_present + total_late + total_excused) / total_attendance_records) * 100, 1
+    ) if total_attendance_records else 0.0
 
     today = date.today().isoformat()
     return render_template('student/dashboard.html',
                            student=student,
-                           attendance=attendance,
-                           grades=grades,
-                           homework=homework,
-                           weekly_topics=weekly_topics,
+                           attendance_summary=attendance_summary,
+                           attendance_log=attendance_log,
+                           attendance_rate=attendance_rate,
+                           total_present=total_present,
+                           total_absent=total_absent,
+                           total_late=total_late,
+                           total_excused=total_excused,
+                           total_attendance_records=total_attendance_records,
+                           pending_requests=pending_requests,
+                           recent_materials=recent_materials,
                            schedule_data=schedule_data,
+                           current_semester=current_semester,
                            today=today)
 
 

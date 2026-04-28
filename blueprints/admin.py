@@ -1362,6 +1362,11 @@ def enrollment_periods():
     for p in exam_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now
+        p['signup_summary'] = db.get_exam_period_signup_summary(
+            p['semester'],
+            p['period_type'],
+            major_id=major_id
+        )
 
     return render_template('admin/enrollment_periods.html',
                            enroll_periods=enroll_periods,

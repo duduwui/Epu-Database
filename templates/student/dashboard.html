@@ -1,19 +1,23 @@
 ﻿{% extends 'base.html' %} {% block title %}Dashboard - Student{% endblock %} {% block content %}
 <div class="container" style="max-width: 100%; overflow-x: hidden">
   <!-- Welcome Header -->
-  <div class="row mb-3">
+  <div class="row mb-4">
     <div class="col-12">
-      <div class="card bg-primary text-white shadow-sm">
-        <div class="card-body py-3">
+      <div class="card bg-primary text-white shadow-sm border-0">
+        <div class="card-body py-3 py-md-4">
           <div class="row align-items-center">
             <div class="col">
-              <h5 class="mb-1">
+              <h5 class="mb-1 fw-bold">
                 <i class="bi bi-mortarboard me-2"></i>Welcome, {{ student.full_name }}!
               </h5>
-              <p class="mb-0 opacity-75" style="font-size: 0.85rem">
+              <p class="mb-0 opacity-75" style="font-size: 0.9rem">
                 <i class="bi bi-hash me-1"></i>{{ student.student_number or 'N/A' }}
-                <span class="mx-2">|</span>
-                <i class="bi bi-calendar3 me-1"></i>{% if student.semester %}Year {{ student.year or '?' }} - Sem {{ student.semester }}{% if student.section %} - Class {{ student.section }}{% endif %}{% if student.shift %} - {{ student.shift|capitalize }}{% endif %}{% else %}No Semester{% endif %}
+                <span class="mx-2">|</span><i class="bi bi-calendar3 me-1"></i>
+                {% if current_semester %}
+                  Current Semester {{ current_semester }}{% if student.section %} · Class {{ student.section }}{% endif %}{% if student.shift %} · {{ student.shift|capitalize }}{% endif %}
+                {% else %}
+                  No semester assigned
+                {% endif %}
               </p>
             </div>
           </div>
@@ -22,73 +26,130 @@
     </div>
   </div>
 
-  <!-- Quick Stats -->
-  <div class="row mb-3">
-    <div class="col-4 mb-2">
-      <div class="card shadow-sm h-100 border-0">
-        <div class="card-body text-center py-2">
-          <i class="bi bi-calendar-check text-success" style="font-size: 1.5rem"></i>
-          <h5 class="mb-0 mt-1">
-            {{ attendance|selectattr('status', 'equalto', 'present')|list|length }}
-          </h5>
-          <small class="text-muted" style="font-size: 0.7rem">Present</small>
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+      <div class="student-metric-card h-100">
+        <div class="student-metric-icon bg-success-subtle text-success"><i class="bi bi-graph-up-arrow"></i></div>
+        <div>
+          <div class="student-metric-label">Attendance Rate</div>
+          <div class="student-metric-value">{{ attendance_rate }}%</div>
+          <div class="student-metric-subtext">{{ total_attendance_records }} marked records this semester</div>
         </div>
       </div>
     </div>
-    <div class="col-4 mb-2">
-      <div class="card shadow-sm h-100 border-0">
-        <div class="card-body text-center py-2">
-          <i class="bi bi-journal-text text-warning" style="font-size: 1.5rem"></i>
-          <h5 class="mb-0 mt-1">{{ homework|length }}</h5>
-          <small class="text-muted" style="font-size: 0.7rem">Homework</small>
+    <div class="col-sm-6 col-xl-3">
+      <div class="student-metric-card h-100">
+        <div class="student-metric-icon bg-danger-subtle text-danger"><i class="bi bi-x-octagon"></i></div>
+        <div>
+          <div class="student-metric-label">Absences</div>
+          <div class="student-metric-value">{{ total_absent }}</div>
+          <div class="student-metric-subtext">Current semester</div>
         </div>
       </div>
     </div>
-    <div class="col-4 mb-2">
-      <div class="card shadow-sm h-100 border-0">
-        <div class="card-body text-center py-2">
-          <i class="bi bi-journal-bookmark-fill text-info" style="font-size: 1.5rem"></i>
-          <h5 class="mb-0 mt-1">{{ weekly_topics|length }}</h5>
-          <small class="text-muted" style="font-size: 0.7rem">Exam Notes</small>
+    <div class="col-sm-6 col-xl-3">
+      <div class="student-metric-card h-100">
+        <div class="student-metric-icon bg-warning-subtle text-warning"><i class="bi bi-alarm"></i></div>
+        <div>
+          <div class="student-metric-label">Late Records</div>
+          <div class="student-metric-value">{{ total_late }}</div>
+          <div class="student-metric-subtext">Current semester</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="student-metric-card h-100">
+        <div class="student-metric-icon bg-info-subtle text-info"><i class="bi bi-shield-check"></i></div>
+        <div>
+          <div class="student-metric-label">Excused Records</div>
+          <div class="student-metric-value">{{ total_excused }}</div>
+          <div class="student-metric-subtext">Current semester</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="row">
-    <!-- Left Column -->
-    <div class="col-lg-6">
-      <!-- Attendance -->
-      <div class="card shadow-sm mb-3 border-0">
-        <div class="card-header bg-white border-0 py-2">
-          <i class="bi bi-calendar-check me-2 text-primary"></i
-          ><strong style="font-size: 0.85rem">Attendance</strong>
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+          <div>
+            <i class="bi bi-calendar-check me-2 text-primary"></i><strong>Attendance Summary</strong>
+          </div>
+          <span class="badge bg-light text-dark">Current semester only</span>
         </div>
         <div class="card-body p-0">
-          {% if attendance %}
-          <div class="table-responsive" style="max-height: 200px; overflow-y: auto">
-            <table class="table table-hover mb-0">
+          {% if attendance_summary %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Subject</th>
+                  <th>Teacher</th>
+                  <th class="text-center">Present</th>
+                  <th class="text-center">Absent</th>
+                  <th class="text-center">Late</th>
+                  <th class="text-center">Excused</th>
+                  <th class="text-center">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in attendance_summary %}
+                {% set attended_count = (row.present_count or 0) + (row.late_count or 0) + (row.excused_count or 0) %}
+                {% set row_rate = ((attended_count / row.total_records) * 100) if row.total_records else 0 %}
+                <tr>
+                  <td class="fw-semibold text-navy">{{ row.subject_name }}</td>
+                  <td class="text-muted small">{{ row.teacher_name or 'Not assigned' }}</td>
+                  <td class="text-center"><span class="badge bg-success-subtle text-success border">{{ row.present_count or 0 }}</span></td>
+                  <td class="text-center"><span class="badge bg-danger-subtle text-danger border">{{ row.absent_count or 0 }}</span></td>
+                  <td class="text-center"><span class="badge bg-warning-subtle text-warning border">{{ row.late_count or 0 }}</span></td>
+                  <td class="text-center"><span class="badge bg-info-subtle text-info border">{{ row.excused_count or 0 }}</span></td>
+                  <td class="text-center fw-semibold">{{ row_rate|round(1) }}%</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-calendar-x fs-3"></i>
+            <p class="mb-0 mt-2">No attendance records for the current semester.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white border-0 py-3">
+          <i class="bi bi-clock-history me-2 text-primary"></i><strong>Recent Attendance Log</strong>
+        </div>
+        <div class="card-body p-0">
+          {% if attendance_log %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Date</th>
                   <th>Subject</th>
+                  <th>Teacher</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {% for record in attendance[:8] %}
+                {% for record in attendance_log %}
                 <tr>
                   <td>{{ record.date }}</td>
-                  <td>{{ record.subject_name }}</td>
+                  <td class="fw-medium">{{ record.subject_name }}</td>
+                  <td class="text-muted small">{{ record.teacher_name or 'Not assigned' }}</td>
                   <td>
                     {% if record.status == 'present' %}
-                    <span class="badge bg-success">Present</span>
+                    <span class="badge bg-success-subtle text-success border">Present</span>
                     {% elif record.status == 'absent' %}
-                    <span class="badge bg-danger">Absent</span>
+                    <span class="badge bg-danger-subtle text-danger border">Absent</span>
                     {% elif record.status == 'late' %}
-                    <span class="badge bg-warning text-dark">Late</span>
+                    <span class="badge bg-warning-subtle text-warning border">Late</span>
                     {% else %}
-                    <span class="badge bg-secondary">Excused</span>
+                    <span class="badge bg-info-subtle text-info border">Excused</span>
                     {% endif %}
                   </td>
                 </tr>
@@ -98,40 +159,68 @@
           </div>
           {% else %}
           <div class="text-center py-4 text-muted">
-            <i class="bi bi-calendar-x fs-3"></i>
-            <p class="mb-0 mt-2">No attendance records</p>
+            <i class="bi bi-journal-x fs-3"></i>
+            <p class="mb-0 mt-2">No attendance log entries yet.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-5">
+      <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+          <div>
+            <i class="bi bi-folder2-open me-2 text-primary"></i><strong>Pending Moodle Tasks</strong>
+          </div>
+          <span class="badge bg-danger">{{ pending_requests|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          {% if pending_requests %}
+          <div class="list-group list-group-flush">
+            {% for request in pending_requests %}
+            <a href="{{ url_for('student.moodle_view', subject_id=request.subject_id, class_id=student.class_id) }}" class="list-group-item list-group-item-action border-0 border-bottom py-3">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="fw-semibold text-navy">{{ request.title }}</div>
+                  <small class="text-muted d-block">{{ request.subject_name }}{% if request.week_title %} · {{ request.week_title }}{% endif %}</small>
+                </div>
+                {% set due_value = request.due_at if request.due_at else request.due_date %}
+                <span class="badge {% if due_value and due_value.isoformat() < today %}bg-danger{% else %}bg-primary{% endif %}">
+                  {{ request.due_at.strftime('%Y-%m-%d %H:%M') if request.due_at else request.due_date.strftime('%Y-%m-%d') if request.due_date else 'No due date' }}
+                </span>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-check2-circle fs-3"></i>
+            <p class="mb-0 mt-2">No pending Moodle tasks.</p>
           </div>
           {% endif %}
         </div>
       </div>
 
-      <!-- Homework -->
       <div class="card shadow-sm mb-4 border-0">
         <div class="card-header bg-white border-0 py-3">
-          <i class="bi bi-journal-text me-2 text-primary"></i><strong>Homework</strong>
+          <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i><strong>Recent Moodle Materials</strong>
         </div>
         <div class="card-body p-0">
-          {% if homework %}
+          {% if recent_materials %}
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto">
-            {% for hw in homework %}
-            <div class="list-group-item border-0 border-bottom">
-              <div class="d-flex justify-content-between">
+            {% for item in recent_materials %}
+            <div class="list-group-item border-0 border-bottom px-3 py-3">
+              <div class="d-flex align-items-start justify-content-between gap-2">
                 <div>
-                  <strong>{{ hw.title }}</strong>
-                  <small class="text-muted d-block">{{ hw.subject_name }}</small>
-                  {% if hw.filename %}
-                  <small class="text-success">
-                    <i class="bi bi-paperclip"></i>
-                    <a href="{{ url_for('teacher.download_homework_file', homework_id=hw.id) }}" target="_blank" class="text-decoration-none">
-                      {{ hw.filename }}
-                    </a>
-                  </small>
-                  {% endif %}
+                  <div class="fw-semibold" style="font-size:0.9rem;">{{ item.title or item.file_name or 'Untitled file' }}</div>
+                  <small class="text-muted d-block">{{ item.subject_name }}{% if item.week_title %} · {{ item.week_title }}{% endif %}</small>
+                  <small class="text-muted">{{ item.uploaded_at.strftime('%Y-%m-%d %H:%M') if item.uploaded_at else '-' }}</small>
                 </div>
-                {% if hw.due_date.isoformat() < today %}
-                <span class="badge bg-secondary align-self-center">Past</span>
+                {% if item.is_link %}
+                <a href="{{ item.link_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">Open</a>
                 {% else %}
-                <span class="badge bg-primary align-self-center">{{ hw.due_date }}</span>
+                <a href="{{ url_for('student.moodle_file_viewer', file_id=item.file_id) }}" class="btn btn-sm btn-outline-primary">Open</a>
                 {% endif %}
               </div>
             </div>
@@ -139,52 +228,8 @@
           </div>
           {% else %}
           <div class="text-center py-4 text-muted">
-            <i class="bi bi-journal-x fs-3"></i>
-            <p class="mb-0 mt-2">No homework</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Right Column -->
-    <div class="col-lg-6">
-      <!-- Weekly Topics -->
-      <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header bg-white border-0 py-2">
-          <i class="bi bi-journal-bookmark-fill me-2 text-primary"></i
-          ><strong style="font-size: 0.85rem">Exam &amp; Quiz Notes</strong>
-        </div>
-        <div class="card-body p-0">
-          {% if weekly_topics %}
-          <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto">
-            {% for note in weekly_topics %}
-            {% set type_icons  = {'exam': 'mortarboard-fill', 'quiz': 'pencil-fill', 'report': 'clipboard-data-fill', 'project': 'lightbulb-fill'} %}
-            {% set type_colors = {'exam': 'danger', 'quiz': 'warning', 'report': 'info', 'project': 'success'} %}
-            {% set type_labels = {'exam': 'Exam', 'quiz': 'Quiz', 'report': 'Report', 'project': 'Project'} %}
-            {% set tc_color = type_colors.get(note.note_type, 'secondary') %}
-            {% set tc_icon  = type_icons.get(note.note_type, 'journal-text') %}
-            {% set tc_label = type_labels.get(note.note_type, note.note_type|title if note.note_type else 'Note') %}
-            <div class="list-group-item border-0 border-bottom px-3 py-2">
-              <div class="d-flex align-items-start gap-2">
-                <span class="badge bg-{{ tc_color }} mt-1 flex-shrink-0"><i class="bi bi-{{ tc_icon }} me-1"></i>{{ tc_label }}</span>
-                <div>
-                  <div class="fw-semibold" style="font-size:0.85rem;">{{ note.topic }}</div>
-                  <small class="text-muted">{{ note.subject_name }}</small>
-                  {% if note.date_covered %}
-                  <div class="text-primary" style="font-size:0.78rem;">
-                    <i class="bi bi-calendar-event me-1"></i>{{ note.date_covered }}
-                  </div>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <div class="text-center py-4 text-muted">
-            <i class="bi bi-journal-bookmark fs-3"></i>
-            <p class="mb-0 mt-2">No upcoming exam notes</p>
+            <i class="bi bi-folder fs-3"></i>
+            <p class="mb-0 mt-2">No recent Moodle materials.</p>
           </div>
           {% endif %}
         </div>
@@ -305,6 +350,41 @@
   </div>
 
   <style>
+    .student-metric-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    .student-metric-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      flex-shrink: 0;
+    }
+    .student-metric-label {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .student-metric-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      line-height: 1;
+      color: #0f172a;
+    }
+    .student-metric-subtext {
+      font-size: 0.76rem;
+      color: #64748b;
+      margin-top: 5px;
+    }
     .scheduler-wrapper {
       background: #fff;
       border: 1px solid #e5e7eb;

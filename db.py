@@ -12,7 +12,7 @@ if os.path.isdir(_pg_bin) and _pg_bin not in os.environ.get("PATH", ""):
 import psycopg
 from psycopg_pool import ConnectionPool
 from config import config
-from datetime import datetime
+from datetime import date, datetime
 
 # =============================================
 # CONNECTION POOL
@@ -127,6 +127,124 @@ def execute_insert_returning(query, params=None):
 
 _results_schema_ready = False
 _moodle_assignment_schema_ready = False
+_teacher_assignment_schema_ready = False
+_file_metadata_schema_ready = False
+
+
+def ensure_teacher_assignment_support():
+    """Ensure teacher assignment table matches the current app contract."""
+    global _teacher_assignment_schema_ready
+    if _teacher_assignment_schema_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM teacher_assignments ta
+                USING teacher_assignments dup
+                WHERE ta.id < dup.id
+                  AND ta.teacher_id = dup.teacher_id
+                  AND ta.subject_id = dup.subject_id
+                  AND COALESCE(ta.class_id, -1) = COALESCE(dup.class_id, -1)
+            """)
+
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teacher_assignments_shift_check') THEN
+                        ALTER TABLE teacher_assignments DROP CONSTRAINT teacher_assignments_shift_check;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'students_shift_check') THEN
+                        ALTER TABLE students DROP CONSTRAINT students_shift_check;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_shift') THEN
+                        ALTER TABLE classes DROP CONSTRAINT check_shift;
+                    END IF;
+                END $$;
+            """)
+
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teacher_assignments_shift_check') THEN
+                        ALTER TABLE teacher_assignments
+                        ADD CONSTRAINT teacher_assignments_shift_check
+                        CHECK (shift IN ('morning', 'evening', 'night'));
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'students_shift_check') THEN
+                        ALTER TABLE students
+                        ADD CONSTRAINT students_shift_check
+                        CHECK (shift IN ('morning', 'evening', 'night'));
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_shift') THEN
+                        ALTER TABLE classes
+                        ADD CONSTRAINT check_shift
+                        CHECK (shift IN ('morning', 'evening', 'night'));
+                    END IF;
+                END $$;
+            """)
+
+            cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_teacher_assignments_teacher_subject_class
+                ON teacher_assignments (teacher_id, subject_id, class_id)
+            """)
+
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM pg_constraint
+                        WHERE conname = 'teacher_assignments_class_id_fkey'
+                    ) THEN
+                        ALTER TABLE teacher_assignments
+                        ADD CONSTRAINT teacher_assignments_class_id_fkey
+                        FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
+            """)
+
+        conn.commit()
+        _teacher_assignment_schema_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        return_connection(conn)
+
+
+def ensure_file_metadata_support():
+    """Ensure upload metadata columns are wide enough for real MIME types."""
+    global _file_metadata_schema_ready
+    if _file_metadata_schema_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("ALTER TABLE lecture_files ALTER COLUMN file_type TYPE VARCHAR(255)")
+            cur.execute("ALTER TABLE homework ALTER COLUMN file_type TYPE VARCHAR(255)")
+            cur.execute("ALTER TABLE homework_submissions ALTER COLUMN file_type TYPE VARCHAR(255)")
+        conn.commit()
+        _file_metadata_schema_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        return_connection(conn)
 
 
 def ensure_results_publication_support():
@@ -480,6 +598,55 @@ def get_active_exam_period(semester, period_type, major_id=None):
     if major_id: query += " AND u.major_id=%s"; params.append(major_id)
     return execute_query(query+" ORDER BY ep.created_at DESC LIMIT 1", tuple(params), fetch_one=True)
 
+
+def get_exam_period_signup_summary(semester, period_type, major_id=None):
+    """Summarize which students in a semester have signed up for at least one exam of a given type."""
+    query = """
+        WITH semester_students AS (
+            SELECT st.id AS student_id,
+                   u.full_name AS student_name,
+                   u.username,
+                   st.student_number,
+                   st.shift,
+                   st.section,
+                   c.name AS class_name
+            FROM students st
+            JOIN users u ON u.id = st.user_id
+            LEFT JOIN classes c ON c.id = st.class_id
+            WHERE st.semester = %s
+        ),
+        signup_counts AS (
+            SELECT es.student_id,
+                   COUNT(*) AS signup_count
+            FROM exam_signups es
+            JOIN subjects sub ON sub.id = es.subject_id
+            WHERE es.exam_type = %s
+              AND sub.semester = %s
+            GROUP BY es.student_id
+        )
+        SELECT ss.*,
+               COALESCE(sc.signup_count, 0) AS signup_count,
+               CASE WHEN COALESCE(sc.signup_count, 0) > 0 THEN TRUE ELSE FALSE END AS is_assigned
+        FROM semester_students ss
+        LEFT JOIN signup_counts sc ON sc.student_id = ss.student_id
+    """
+    params = [semester, period_type, semester]
+    if major_id is not None:
+        query = query.replace("WHERE st.semester = %s", "WHERE st.semester = %s AND u.major_id = %s")
+        params = [semester, major_id, period_type, semester]
+    query += " ORDER BY is_assigned DESC, ss.full_name"
+    rows = execute_query(query, tuple(params), fetch_all=True) or []
+    assigned = [row for row in rows if row.get('is_assigned')]
+    pending = [row for row in rows if not row.get('is_assigned')]
+    return {
+        'total_students': len(rows),
+        'assigned_count': len(assigned),
+        'pending_count': len(pending),
+        'assigned_students': assigned,
+        'pending_students': pending,
+        'students': rows,
+    }
+
 def delete_exam_period(period_id): return execute_query("DELETE FROM exam_periods WHERE id=%s", (period_id,))
 
 def get_student_midterm_score(student_id, subject_id):
@@ -671,6 +838,440 @@ def get_attendance_dates(subject_id):
         WHERE subject_id = %s ORDER BY date DESC
     """
     return execute_query(query, (subject_id,), fetch_all=True)
+
+
+def get_student_attendance_summary(student_id, semester=None):
+    """Get attendance summary by subject for a student, limited to the selected semester when provided."""
+    query = """
+        SELECT s.id AS subject_id,
+               s.name AS subject_name,
+               COALESCE((
+                   SELECT STRING_AGG(
+                       u.full_name || ' (' || INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                       ' / ' ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                   )
+                   FROM teacher_assignments ta
+                   JOIN teachers t ON ta.teacher_id = t.id
+                   JOIN users u ON t.user_id = u.id
+                   JOIN students st2 ON st2.id = a.student_id
+                   WHERE ta.subject_id = s.id
+                     AND ta.class_id = st2.class_id
+               ), '') AS teacher_name,
+               COUNT(*) AS total_records,
+               SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_count,
+               SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+               SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) AS late_count,
+               SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) AS excused_count
+        FROM attendance a
+        JOIN subjects s ON a.subject_id = s.id
+        WHERE a.student_id = %s
+    """
+    params = [student_id]
+    if semester is not None:
+        query += " AND s.semester = %s"
+        params.append(semester)
+    query += """
+        GROUP BY s.id, s.name
+        ORDER BY s.name
+    """
+    return execute_query(query, tuple(params), fetch_all=True) or []
+
+
+def get_student_attendance_log(student_id, semester=None, limit=10):
+    """Get recent attendance records with teacher/class context for a student."""
+    query = """
+        SELECT a.*,
+               s.name AS subject_name,
+               COALESCE((
+                   SELECT STRING_AGG(
+                       u.full_name || ' (' || INITCAP(COALESCE(ta.teacher_type, 'theoretical')) || ')',
+                       ' / ' ORDER BY COALESCE(ta.teacher_type, 'theoretical')
+                   )
+                   FROM teacher_assignments ta
+                   JOIN teachers t ON ta.teacher_id = t.id
+                   JOIN users u ON t.user_id = u.id
+                   JOIN students st2 ON st2.id = a.student_id
+                   WHERE ta.subject_id = s.id
+                     AND ta.class_id = st2.class_id
+               ), '') AS teacher_name
+        FROM attendance a
+        JOIN subjects s ON a.subject_id = s.id
+        WHERE a.student_id = %s
+    """
+    params = [student_id]
+    if semester is not None:
+        query += " AND s.semester = %s"
+        params.append(semester)
+    query += """
+        ORDER BY a.date DESC, a.id DESC
+        LIMIT %s
+    """
+    params.append(limit)
+    return execute_query(query, tuple(params), fetch_all=True) or []
+
+
+def get_teacher_dashboard_groups(teacher_id):
+    """Get teacher teaching groups with live student/component counts."""
+    query = """
+        SELECT ta.subject_id,
+               ta.class_id,
+               s.name AS subject_name,
+               s.credits,
+               c.name AS class_name,
+               c.year,
+               c.semester,
+               c.section,
+               c.shift,
+               COUNT(DISTINCT st.id) AS student_count,
+               COALESCE(gc.component_count, 0) AS component_count
+        FROM teacher_assignments ta
+        JOIN subjects s ON ta.subject_id = s.id
+        JOIN classes c ON ta.class_id = c.id
+        LEFT JOIN student_enrollments se ON se.subject_id = ta.subject_id
+        LEFT JOIN students st ON st.id = se.student_id AND st.class_id = ta.class_id
+        LEFT JOIN (
+            SELECT subject_id, COUNT(*) AS component_count
+            FROM grade_components
+            GROUP BY subject_id
+        ) gc ON gc.subject_id = s.id
+        WHERE ta.teacher_id = %s
+        GROUP BY ta.subject_id, ta.class_id, s.name, s.credits, c.name, c.year, c.semester, c.section, c.shift, gc.component_count
+        ORDER BY c.year, c.semester, c.shift, c.section, s.name
+    """
+    return execute_query(query, (teacher_id,), fetch_all=True) or []
+
+
+def get_teacher_subject_groups(teacher_id):
+    """Group a teacher's assignments by subject for dashboard and Moodle selection UIs."""
+    groups = get_teacher_dashboard_groups(teacher_id) or []
+    grouped = {}
+
+    for row in groups:
+        subject_id = row['subject_id']
+        entry = grouped.setdefault(subject_id, {
+            'subject_id': subject_id,
+            'subject_name': row.get('subject_name'),
+            'credits': row.get('credits'),
+            'semester': row.get('semester'),
+            'class_count': 0,
+            'total_students': 0,
+            'component_count': row.get('component_count') or 0,
+            'shifts': [],
+            'assignments': [],
+        })
+
+        shift_value = row.get('shift')
+        if shift_value and shift_value not in entry['shifts']:
+            entry['shifts'].append(shift_value)
+
+        assignment = {
+            'subject_id': subject_id,
+            'class_id': row.get('class_id'),
+            'class_name': row.get('class_name'),
+            'year': row.get('year'),
+            'semester': row.get('semester'),
+            'section': row.get('section'),
+            'shift': row.get('shift'),
+            'student_count': row.get('student_count') or 0,
+            'component_count': row.get('component_count') or 0,
+        }
+        entry['assignments'].append(assignment)
+        entry['class_count'] += 1
+        entry['total_students'] += assignment['student_count']
+
+    results = list(grouped.values())
+    for item in results:
+        item['assignments'].sort(key=lambda a: (
+            a.get('semester') or 0,
+            (a.get('shift') or ''),
+            (a.get('section') or '')
+        ))
+        item['shifts_label'] = ', '.join(shift.title() for shift in item['shifts']) if item['shifts'] else '-'
+
+    results.sort(key=lambda item: ((item.get('semester') or 0), item.get('subject_name') or ''))
+    return results
+
+
+def get_teacher_subject_assignments(teacher_id, subject_id):
+    """Get dashboard assignment rows for one subject assigned to the teacher."""
+    groups = get_teacher_dashboard_groups(teacher_id) or []
+    assignments = [row for row in groups if row.get('subject_id') == subject_id]
+    assignments.sort(key=lambda row: (
+        row.get('semester') or 0,
+        (row.get('shift') or ''),
+        (row.get('section') or '')
+    ))
+    return assignments
+
+
+def get_teacher_pending_grade_student_count(teacher_id):
+    """Count enrolled students assigned to this teacher who still have missing component grades."""
+    query = """
+        WITH assigned AS (
+            SELECT DISTINCT ta.subject_id, ta.class_id
+            FROM teacher_assignments ta
+            WHERE ta.teacher_id = %s
+              AND ta.class_id IS NOT NULL
+        ),
+        component_counts AS (
+            SELECT gc.subject_id, COUNT(*) AS component_count
+            FROM grade_components gc
+            GROUP BY gc.subject_id
+        ),
+        enrolled AS (
+            SELECT a.subject_id, a.class_id, st.id AS student_id
+            FROM assigned a
+            JOIN student_enrollments se ON se.subject_id = a.subject_id
+            JOIN students st ON st.id = se.student_id
+            WHERE st.class_id = a.class_id
+        ),
+        student_grade_counts AS (
+            SELECT e.subject_id,
+                   e.class_id,
+                   e.student_id,
+                   cc.component_count,
+                   COUNT(DISTINCT g.component_id) AS graded_component_count
+            FROM enrolled e
+            JOIN component_counts cc ON cc.subject_id = e.subject_id
+            LEFT JOIN grades g
+                ON g.subject_id = e.subject_id
+               AND g.student_id = e.student_id
+               AND g.component_id IS NOT NULL
+            GROUP BY e.subject_id, e.class_id, e.student_id, cc.component_count
+        )
+        SELECT COUNT(*) AS pending_count
+        FROM student_grade_counts
+        WHERE graded_component_count < component_count
+    """
+    result = execute_query(query, (teacher_id,), fetch_one=True)
+    return result['pending_count'] if result else 0
+
+
+def get_teacher_attendance_dashboard_summary(teacher_id, on_date=None):
+    """Summarize how many assigned teaching groups have attendance recorded on a given day."""
+    query = """
+        WITH assigned AS (
+            SELECT DISTINCT ta.subject_id, ta.class_id
+            FROM teacher_assignments ta
+            WHERE ta.teacher_id = %s
+              AND ta.class_id IS NOT NULL
+        ),
+        recorded AS (
+            SELECT DISTINCT a.subject_id, st.class_id
+            FROM attendance a
+            JOIN students st ON st.id = a.student_id
+            JOIN assigned ass ON ass.subject_id = a.subject_id AND ass.class_id = st.class_id
+            WHERE a.date = %s
+        )
+        SELECT (SELECT COUNT(*) FROM assigned) AS total_groups,
+               (SELECT COUNT(*) FROM recorded) AS recorded_groups
+    """
+    result = execute_query(query, (teacher_id, on_date or date.today().isoformat()), fetch_one=True) or {}
+    return {
+        'total_groups': result.get('total_groups', 0) or 0,
+        'recorded_groups': result.get('recorded_groups', 0) or 0,
+    }
+
+
+def get_teacher_pending_moodle_requests(teacher_id, limit=6):
+    """Get Moodle requests for a teacher ordered by due date with pending submission counts."""
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hw.id AS request_id,
+               hw.title,
+               hw.due_at,
+               hw.due_date,
+               s.id AS subject_id,
+               s.name AS subject_name,
+               c.id AS class_id,
+               c.section,
+               c.shift,
+               c.semester,
+               COALESCE(summary.submitted_count, 0) AS submitted_count,
+               COALESCE(summary.total_students, 0) AS total_students
+        FROM homework hw
+        JOIN subjects s ON hw.subject_id = s.id
+        JOIN classes c ON hw.class_id = c.id
+        LEFT JOIN LATERAL (
+            SELECT COUNT(hs.id) AS submitted_count,
+                   (
+                       SELECT COUNT(*)
+                       FROM student_enrollments se
+                       JOIN students st ON st.id = se.student_id
+                       WHERE se.subject_id = hw.subject_id
+                         AND st.class_id = hw.class_id
+                   ) AS total_students
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+        ) summary ON TRUE
+        WHERE hw.teacher_id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+        ORDER BY COALESCE(hw.due_at, hw.due_date::timestamp) ASC, hw.id ASC
+        LIMIT %s
+    """
+    rows = execute_query(query, (teacher_id, limit), fetch_all=True) or []
+    for row in rows:
+        row['remaining_count'] = max((row.get('total_students') or 0) - (row.get('submitted_count') or 0), 0)
+    return rows
+
+
+def get_teacher_pending_moodle_submission_count(teacher_id):
+    """Count remaining Moodle submissions across the teacher's open requests."""
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT COALESCE(SUM(GREATEST(summary.total_students - summary.submitted_count, 0)), 0) AS pending_submission_count
+        FROM homework hw
+        LEFT JOIN LATERAL (
+            SELECT COUNT(hs.id) AS submitted_count,
+                   (
+                       SELECT COUNT(*)
+                       FROM student_enrollments se
+                       JOIN students st ON st.id = se.student_id
+                       WHERE se.subject_id = hw.subject_id
+                         AND st.class_id = hw.class_id
+                   ) AS total_students
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+        ) summary ON TRUE
+        WHERE hw.teacher_id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+    """
+    result = execute_query(query, (teacher_id,), fetch_one=True)
+    return result['pending_submission_count'] if result else 0
+
+
+def get_teacher_recent_activity(teacher_id, days=7, limit=8):
+    """Get recent student Moodle activity and submissions for a teacher."""
+    ensure_student_engagement_support()
+    ensure_moodle_assignment_support()
+    query = """
+        WITH engagement AS (
+            SELECT 'engagement' AS activity_type,
+                   COALESCE(sess.ended_at, sess.last_ping_at, sess.started_at) AS occurred_at,
+                   u.full_name AS student_name,
+                   sub.name AS subject_name,
+                   c.section,
+                   c.shift,
+                   COALESCE(sess.resource_title, 'Subject Opened') AS item_title,
+                   sess.total_seconds,
+                   NULL::VARCHAR AS request_title
+            FROM student_engagement_sessions sess
+            JOIN students st ON sess.student_id = st.id
+            JOIN users u ON st.user_id = u.id
+            JOIN subjects sub ON sess.subject_id = sub.id
+            JOIN classes c ON sess.class_id = c.id
+            JOIN teacher_assignments ta
+              ON ta.subject_id = sess.subject_id
+             AND ta.class_id = sess.class_id
+            WHERE ta.teacher_id = %s
+              AND COALESCE(sess.ended_at, sess.last_ping_at, sess.started_at) >= CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')
+        ),
+        submissions AS (
+            SELECT 'submission' AS activity_type,
+                   hs.updated_at AS occurred_at,
+                   u.full_name AS student_name,
+                   sub.name AS subject_name,
+                   c.section,
+                   c.shift,
+                   hs.file_name AS item_title,
+                   NULL::INTEGER AS total_seconds,
+                   hw.title AS request_title
+            FROM homework_submissions hs
+            JOIN homework hw ON hs.homework_id = hw.id
+            JOIN students st ON hs.student_id = st.id
+            JOIN users u ON st.user_id = u.id
+            JOIN subjects sub ON hw.subject_id = sub.id
+            JOIN classes c ON hw.class_id = c.id
+            WHERE hw.teacher_id = %s
+              AND hs.updated_at >= CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')
+        )
+        SELECT *
+        FROM (
+            SELECT * FROM engagement
+            UNION ALL
+            SELECT * FROM submissions
+        ) activity
+        ORDER BY occurred_at DESC
+        LIMIT %s
+    """
+    return execute_query(query, (teacher_id, days, teacher_id, days, limit), fetch_all=True) or []
+
+
+def get_student_recent_moodle_materials(student_id, semester=None, limit=6):
+    """Get the latest Moodle files/links visible to a student in the current class/semester."""
+    query = """
+        SELECT lf.id AS file_id,
+               lf.title,
+               lf.file_name,
+               lf.file_type,
+               lf.is_link,
+               lf.link_url,
+               lf.uploaded_at,
+               sub.id AS subject_id,
+               sub.name AS subject_name,
+               mw.title AS week_title
+        FROM student_enrollments se
+        JOIN students st ON st.id = se.student_id
+        JOIN subjects sub ON sub.id = se.subject_id
+        JOIN lecture_files lf
+          ON lf.subject_id = se.subject_id
+         AND lf.class_id = st.class_id
+        LEFT JOIN moodle_weeks mw ON mw.id = lf.week_id
+        WHERE se.student_id = %s
+    """
+    params = [student_id]
+    if semester is not None:
+        query += " AND sub.semester = %s"
+        params.append(semester)
+    query += """
+        ORDER BY lf.uploaded_at DESC, lf.id DESC
+        LIMIT %s
+    """
+    params.append(limit)
+    return execute_query(query, tuple(params), fetch_all=True) or []
+
+
+def get_student_pending_moodle_requests(student_id, semester=None, limit=6):
+    """Get Moodle requests still awaiting the student's submission."""
+    ensure_moodle_assignment_support()
+    query = """
+        SELECT hw.id AS request_id,
+               hw.title,
+               hw.description,
+               hw.due_at,
+               hw.due_date,
+               sub.id AS subject_id,
+               sub.name AS subject_name,
+               mw.title AS week_title
+        FROM student_enrollments se
+        JOIN students st ON st.id = se.student_id
+        JOIN subjects sub ON sub.id = se.subject_id
+        JOIN homework hw
+          ON hw.subject_id = se.subject_id
+         AND hw.class_id = st.class_id
+        LEFT JOIN moodle_weeks mw ON mw.id = hw.week_id
+        LEFT JOIN LATERAL (
+            SELECT hs.id
+            FROM homework_submissions hs
+            WHERE hs.homework_id = hw.id
+              AND hs.student_id = st.id
+            ORDER BY hs.updated_at DESC, hs.id DESC
+            LIMIT 1
+        ) latest_submission ON TRUE
+        WHERE se.student_id = %s
+          AND COALESCE(hw.is_moodle_request, FALSE) = TRUE
+          AND latest_submission.id IS NULL
+    """
+    params = [student_id]
+    if semester is not None:
+        query += " AND sub.semester = %s"
+        params.append(semester)
+    query += """
+        ORDER BY COALESCE(hw.due_at, hw.due_date::timestamp) ASC, hw.id ASC
+        LIMIT %s
+    """
+    params.append(limit)
+    return execute_query(query, tuple(params), fetch_all=True) or []
 
 
 # =============================================
@@ -930,6 +1531,7 @@ def create_homework(class_id, subject_id, teacher_id, title, description, due_da
                     filename=None, file_path=None, file_type=None, file_size=None,
                     week_id=None, is_moodle_request=False, due_at=None):
     """Create a new homework assignment"""
+    ensure_file_metadata_support()
     ensure_moodle_assignment_support()
     filename = filename or ""
     file_path = file_path or ""
@@ -1521,6 +2123,7 @@ def get_timetable_by_teacher(teacher_id):
 
 def create_lecture_file(subject_id, teacher_id, class_id, title, description, file_name, file_path, file_size, file_type, week_number=None, week_id=None, is_link=False, link_url=None):
     """Upload a new lecture file or link"""
+    ensure_file_metadata_support()
     # Fix for links: database wants NOT NULL files, so supply a stub if empty
     if is_link:
         file_name = file_name or "Link"
@@ -1640,18 +2243,26 @@ def create_semester_subject(name, year, semester, description=None):
 
 def get_teacher_assignments(teacher_id):
     """Get all subject assignments for a teacher"""
+    ensure_teacher_assignment_support()
     query = """
-        SELECT ta.*, ss.name as subject_name, ss.year, ss.semester
+        SELECT ta.*,
+               s.name AS subject_name,
+               c.year,
+               c.semester,
+               c.section,
+               c.shift
         FROM teacher_assignments ta
-        JOIN semester_subjects ss ON ta.subject_id = ss.id
+        JOIN subjects s ON ta.subject_id = s.id
+        LEFT JOIN classes c ON ta.class_id = c.id
         WHERE ta.teacher_id = %s
-        ORDER BY ss.year, ss.semester, ta.shift
+        ORDER BY c.year NULLS LAST, c.semester NULLS LAST, c.section NULLS LAST, s.name
     """
     return execute_query(query, (teacher_id,), fetch_all=True)
 
 
 def assign_teacher_to_subject(teacher_id, subject_id, class_id, teacher_type='theoretical'):
     """Assign a teacher to teach a subject for a specific class"""
+    ensure_teacher_assignment_support()
     # Get shift from class
     class_info = execute_query(
         "SELECT shift FROM classes WHERE id = %s",
@@ -2395,6 +3006,45 @@ def create_moodle_week(class_id, subject_id, teacher_id, title, display_order=0)
     execute_query(query, (class_id, subject_id, teacher_id, title, display_order))
     return True
 
+
+def find_matching_moodle_week(class_id, subject_id, title, display_order, teacher_id=None):
+    """Find the latest Moodle week in the target class with the same title/order."""
+    query = """
+        SELECT *
+        FROM moodle_weeks
+        WHERE class_id = %s
+          AND subject_id = %s
+          AND title = %s
+          AND COALESCE(display_order, 0) = %s
+    """
+    params = [class_id, subject_id, title, display_order]
+    if teacher_id is not None:
+        query += " AND teacher_id = %s"
+        params.append(teacher_id)
+    query += " ORDER BY id DESC LIMIT 1"
+    return execute_query(query, tuple(params), fetch_one=True)
+
+
+def get_or_create_moodle_week(class_id, subject_id, teacher_id, title, display_order=0):
+    """Return a matching Moodle week for the class, creating it when absent."""
+    try:
+        display_order = int(display_order) if display_order and str(display_order).strip() else 0
+    except ValueError:
+        display_order = 0
+
+    existing = find_matching_moodle_week(class_id, subject_id, title, display_order, teacher_id=teacher_id)
+    if existing:
+        return existing
+
+    week_id = execute_insert_returning("""
+        INSERT INTO moodle_weeks (class_id, subject_id, teacher_id, title, display_order)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+    """, (class_id, subject_id, teacher_id, title, display_order))
+    if not week_id:
+        return None
+    return get_moodle_week_by_id(week_id)
+
 def delete_moodle_week(week_id, teacher_id):
     query = "DELETE FROM moodle_weeks WHERE id = %s AND teacher_id = %s"
     execute_query(query, (week_id, teacher_id))
@@ -2594,6 +3244,7 @@ def delete_moodle_requests_by_week(week_id):
 
 
 def upsert_moodle_request_submission(request_id, student_id, file_name, file_path, file_type=None, file_size=0):
+    ensure_file_metadata_support()
     ensure_moodle_assignment_support()
     query = """
         INSERT INTO homework_submissions (
@@ -2756,6 +3407,7 @@ def get_moodle_engagement_daily_details(subject_id, class_id):
 
 
 def update_lecture_file_asset(file_id, teacher_id, file_name, file_path, file_size, file_type):
+    ensure_file_metadata_support()
     query = """
         UPDATE lecture_files
         SET file_name = %s,
