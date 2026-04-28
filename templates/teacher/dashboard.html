@@ -93,17 +93,15 @@ content %}
                   </td>
                   <td class="d-none d-md-table-cell text-center fw-semibold">{{ group.total_students }}</td>
                   <td class="d-none d-lg-table-cell text-center">{{ group.component_count }}</td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}" class="btn btn-primary">Open</a>
-                      <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                        <span class="visually-hidden">Toggle dropdown</span>
+                  <td class="text-end text-nowrap">
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-primary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Actions
                       </button>
-                      <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}">Grades</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='attendance') }}">Attendance</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='moodle') }}">Moodle</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('teacher.view_exam_signups', subject_id=group.subject_id) }}">Signups</a></li>
+                      <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><a class="dropdown-item py-2" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}"><i class="bi bi-journal-check me-2 text-muted"></i>Grades</a></li>
+                        <li><a class="dropdown-item py-2" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='attendance') }}"><i class="bi bi-calendar-check me-2 text-muted"></i>Attendance</a></li>
+                        <li><a class="dropdown-item py-2" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='moodle') }}"><i class="bi bi-hdd-network me-2 text-muted"></i>Moodle</a></li>
                       </ul>
                     </div>
                   </td>
@@ -129,14 +127,20 @@ content %}
         </div>
         <div class="card-body p-0">
           {% if pending_requests %}
+          {% set SubjectGrouped = pending_requests | groupby('subject_name') %}
           <div class="list-group list-group-flush">
-            <button type="button" class="list-group-item list-group-item-action py-3 text-center" data-bs-toggle="modal" data-bs-target="#moodleWorkModal">
-              <div class="d-flex justify-content-center align-items-center mb-1">
-                <span class="fs-4 fw-bold text-danger me-2">{{ pending_submission_count }}</span>
-                <span class="text-dark fw-semibold">Pending Submissions</span>
+            {% for subj_name, reqs in SubjectGrouped %}
+            <button type="button" class="list-group-item list-group-item-action py-3 d-flex justify-content-between align-items-center" data-bs-toggle="modal" data-bs-target="#moodleWorkModal-{{ loop.index }}">
+              <div>
+                <div class="fs-6 fw-bold text-navy">{{ subj_name }}</div>
+                <div class="text-muted small">{{ reqs|length }} tasks across assigned classes</div>
               </div>
-              <div class="text-muted small">Across {{ pending_requests|length }} assigned classes. Click to view details grouped by shift.</div>
+              <div class="text-end">
+                <span class="fs-5 fw-bold text-danger me-2">{{ reqs|map(attribute='remaining_count')|sum }}</span>
+                <span class="text-muted small d-block" style="margin-top: -5px;">Pending</span>
+              </div>
             </button>
+            {% endfor %}
           </div>
           {% else %}
           <p class="text-muted text-center py-4 mb-0">No Moodle requests are waiting right now.</p>
@@ -889,42 +893,52 @@ content %}
   });
 </script>
 
-<!-- Moodle Work Modal -->
-<div class="modal fade" id="moodleWorkModal" tabindex="-1" aria-labelledby="moodleWorkModalLabel" aria-hidden="true">
+<!-- Moodle Work Modals per Subject -->
+{% if pending_requests %}
+{% set SubjectGrouped = pending_requests | groupby('subject_name') %}
+{% for subj_name, reqs in SubjectGrouped %}
+<div class="modal fade" id="moodleWorkModal-{{ loop.index }}" tabindex="-1" aria-labelledby="moodleWorkModalLabel-{{ loop.index }}" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title" id="moodleWorkModalLabel"><i class="bi bi-hourglass-split me-2"></i>Pending Moodle Work by Shift</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header d-flex flex-column align-items-start border-0 pb-0" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+        <div class="d-flex justify-content-between w-100">
+          <h5 class="modal-title text-white" id="moodleWorkModalLabel-{{ loop.index }}"><i class="bi bi-journal-bookmark-fill me-2"></i>{{ subj_name }}</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <p class="text-white-50 small mt-1 mb-3">Pending submissions grouped by shift and class</p>
       </div>
-      <div class="modal-body p-0">
-        {% if pending_requests %}
-        {% set grouped_requests = pending_requests | groupby('shift') %}
-        <div class="accordion accordion-flush" id="moodleAccordion">
-          {% for shift, reqs in grouped_requests %}
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="heading-shift-{{ loop.index }}">
-              <button class="accordion-button {{ 'collapsed' if not loop.first else '' }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-shift-{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse-shift-{{ loop.index }}">
-                <span class="fw-bold me-2">Shift {{ shift|title }}</span>
-                <span class="badge bg-danger rounded-pill">{{ reqs|length }} Requests</span>
-                {% set shift_total_pending = reqs|map(attribute='remaining_count')|sum %}
-                <span class="badge bg-danger-subtle text-danger border ms-2 rounded-pill">{{ shift_total_pending }} pending submissions</span>
+      <div class="modal-body p-0 bg-light">
+        {% set grouped_requests = reqs | groupby('shift') %}
+        <div class="accordion accordion-flush" id="moodleAccordion-{{ loop.index }}">
+          {% for shift, shift_reqs in grouped_requests %}
+          <div class="accordion-item bg-transparent border-bottom">
+            <h2 class="accordion-header" id="heading-subj{{ loop.index0 }}-shift{{ loop.index }}">
+              <button class="accordion-button bg-white {{ 'collapsed' if not loop.first else '' }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-subj{{ loop.index0 }}-shift{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse-subj{{ loop.index0 }}-shift{{ loop.index }}">
+                <div class="d-flex align-items-center w-100 pe-3">
+                  <span class="fw-bold me-auto">Shift {{ shift|title }}</span>
+                  <span class="badge bg-light text-dark border me-2">{{ shift_reqs|length }} Tasks</span>
+                  {% set shift_total_pending = shift_reqs|map(attribute='remaining_count')|sum %}
+                  <span class="badge bg-danger-subtle text-danger border rounded-pill px-3">{{ shift_total_pending }} pending</span>
+                </div>
               </button>
             </h2>
-            <div id="collapse-shift-{{ loop.index }}" class="accordion-collapse collapse {{ 'show' if loop.first else '' }}" aria-labelledby="heading-shift-{{ loop.index }}" data-bs-parent="#moodleAccordion">
-              <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                  {% for request in reqs %}
-                  <a href="{{ url_for('teacher.moodle_request_details', subject_id=request.subject_id, class_id=request.class_id, request_id=request.request_id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                    <div>
-                      <div class="fw-semibold text-navy">{{ request.title }}</div>
-                      <div class="small text-muted">
-                        {{ request.subject_name }} · Sem {{ request.semester }} · Class {{ request.section }}
-                        <br>
-                        Due: {{ request.due_at.strftime('%Y-%m-%d %H:%M') if request.due_at else request.due_date.strftime('%Y-%m-%d') }}
+            <div id="collapse-subj{{ loop.index0 }}-shift{{ loop.index }}" class="accordion-collapse collapse {{ 'show' if loop.first else '' }}" aria-labelledby="heading-subj{{ loop.index0 }}-shift{{ loop.index }}" data-bs-parent="#moodleAccordion-{{ loop.index0 }}">
+              <div class="accordion-body p-2">
+                <div class="list-group list-group-flush shadow-sm rounded-3">
+                  {% for request in shift_reqs %}
+                  <a href="{{ url_for('teacher.moodle_request_details', subject_id=request.subject_id, class_id=request.class_id, request_id=request.request_id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                    <div class="pe-3">
+                      <div class="fw-semibold text-dark">{{ request.title }}</div>
+                      <div class="small text-muted mt-1">
+                        <i class="bi bi-people me-1"></i>Class {{ request.section }} · 
+                        <i class="bi bi-calendar-event mx-1"></i>Due {{ request.due_at.strftime('%b %d, %H:%M') if request.due_at else request.due_date.strftime('%b %d, %Y') }}
                       </div>
                     </div>
-                    <span class="badge bg-danger-subtle text-danger border rounded-pill">{{ request.remaining_count }} pending</span>
+                    <div class="text-end">
+                      <span class="badge {% if request.remaining_count > 0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill fs-6 px-3">
+                        {{ request.remaining_count }} pending
+                      </span>
+                    </div>
                   </a>
                   {% endfor %}
                 </div>
@@ -933,12 +947,14 @@ content %}
           </div>
           {% endfor %}
         </div>
-        {% else %}
-        <div class="p-4 text-center text-muted">No pending Moodle work.</div>
-        {% endif %}
+      </div>
+      <div class="modal-footer bg-light border-0">
+        <button type="button" class="btn btn-secondary px-4 w-100" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
 </div>
+{% endfor %}
+{% endif %}
 
 {% endblock %}
