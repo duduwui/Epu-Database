@@ -101,7 +101,7 @@ def dashboard():
 
     teaching_groups = db.get_teacher_subject_groups(teacher['id']) or []
     pending_grade_students = db.get_teacher_pending_grade_student_count(teacher['id'])
-    pending_requests = db.get_teacher_pending_moodle_requests(teacher['id'], limit=6) or []
+    pending_requests = db.get_teacher_pending_moodle_requests(teacher['id'], limit=100) or []
     pending_submission_count = db.get_teacher_pending_moodle_submission_count(teacher['id'])
     attendance_summary = db.get_teacher_attendance_dashboard_summary(teacher['id'])
     recent_activity = db.get_teacher_recent_activity(teacher['id'], days=7, limit=8) or []
