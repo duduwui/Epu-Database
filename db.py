@@ -634,7 +634,7 @@ def get_exam_period_signup_summary(semester, period_type, major_id=None):
     if major_id is not None:
         query = query.replace("WHERE st.semester = %s", "WHERE st.semester = %s AND u.major_id = %s")
         params = [semester, major_id, period_type, semester]
-    query += " ORDER BY is_assigned DESC, ss.full_name"
+    query += " ORDER BY is_assigned DESC, ss.student_name"
     rows = execute_query(query, tuple(params), fetch_all=True) or []
     assigned = [row for row in rows if row.get('is_assigned')]
     pending = [row for row in rows if not row.get('is_assigned')]
@@ -682,7 +682,7 @@ def get_enrollment_period_signup_summary(semester, major_id=None):
     if major_id is not None:
         query = query.replace("WHERE st.semester = %s", "WHERE st.semester = %s AND u.major_id = %s")
         params = [semester, major_id, semester]
-    query += " ORDER BY is_assigned DESC, ss.full_name"
+    query += " ORDER BY is_assigned DESC, ss.student_name"
     rows = execute_query(query, tuple(params), fetch_all=True) or []
     assigned = [row for row in rows if row.get('is_assigned')]
     pending = [row for row in rows if not row.get('is_assigned')]
