@@ -53,55 +53,59 @@ content %}
 
   <div class="row">
     <div class="col-xl-8 mb-4">
-      <div class="card h-100">
+      <div class="card h-100 shadow-sm border-0">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-collection me-2"></i>My Teaching Groups</span>
+          <div>
+            <i class="bi bi-collection me-2"></i>My Teaching Groups
+          </div>
           <span class="badge bg-light text-dark">{{ teaching_groups|length }} subjects · {{ total_students }} students</span>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
           {% if teaching_groups %}
-          <div class="row g-3">
-            {% for group in teaching_groups %}
-            <div class="col-md-6">
-              <div class="teaching-group-card h-100">
-                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                  <div>
-                    <h5 class="group-title mb-1">{{ group.subject_name }}</h5>
-                    <div class="group-meta">
-                      Semester {{ group.semester }} · {{ group.class_count }} classes · {{ group.shifts_label }}
+          <div class="table-responsive">
+            <table class="table align-middle mb-0 teaching-groups-table">
+              <thead class="table-light">
+                <tr>
+                  <th>Subject</th>
+                  <th>Classes / Shifts</th>
+                  <th class="text-center">Students</th>
+                  <th class="text-center">Components</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for group in teaching_groups %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold text-navy">{{ group.subject_name }}</div>
+                    <div class="small text-muted">Semester {{ group.semester }} · {{ group.credits or 6 }} credits</div>
+                  </td>
+                  <td>
+                    <div class="d-flex flex-wrap gap-1">
+                      <span class="badge bg-light text-dark border">{{ group.class_count }} class{{ 'es' if group.class_count != 1 else '' }}</span>
+                      <span class="badge bg-light text-dark border">{{ group.shifts_label or '-' }}</span>
                     </div>
-                  </div>
-                  <span class="badge bg-secondary">{{ group.credits or 6 }} cr</span>
-                </div>
-                <div class="group-stats mb-3">
-                  <span><i class="bi bi-people me-1"></i>{{ group.total_students }} students</span>
-                  <span><i class="bi bi-list-check me-1"></i>{{ group.component_count }} grading components</span>
-                </div>
-                <div class="group-actions mb-3">
-                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}" class="btn btn-sm btn-primary">
-                    <i class="bi bi-clipboard-data me-1"></i>Grades
-                  </a>
-                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='attendance') }}" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-calendar-check me-1"></i>Attendance
-                  </a>
-                  <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='moodle') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-folder2-open me-1"></i>Moodle
-                  </a>
-                  <a href="{{ url_for('teacher.view_exam_signups', subject_id=group.subject_id) }}" class="btn btn-sm btn-outline-dark">
-                    <i class="bi bi-people me-1"></i>Signups
-                  </a>
-                </div>
-                <div class="assignment-preview-list">
-                  {% for assignment in group.assignments %}
-                  <div class="assignment-preview-item">
-                    <span class="badge bg-light text-dark border">Class {{ assignment.section }} · {{ assignment.shift|title }}</span>
-                    <span class="text-muted small">{{ assignment.student_count }} students</span>
-                  </div>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-            {% endfor %}
+                  </td>
+                  <td class="text-center fw-semibold">{{ group.total_students }}</td>
+                  <td class="text-center">{{ group.component_count }}</td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <a href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}" class="btn btn-primary">Open</a>
+                      <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Toggle dropdown</span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='grades') }}">Grades</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='attendance') }}">Attendance</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('teacher.subject_assignment_picker', subject_id=group.subject_id, action='moodle') }}">Moodle</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('teacher.view_exam_signups', subject_id=group.subject_id) }}">Signups</a></li>
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
           {% else %}
           <p class="text-muted text-center py-4 mb-0">No teaching groups assigned yet.</p>
@@ -111,73 +115,79 @@ content %}
     </div>
 
     <div class="col-xl-4 mb-4">
-      <div class="card mb-4">
+      {% set visible_requests = pending_requests[:4] %}
+      {% set visible_activity = recent_activity[:4] %}
+      <div class="card mb-4 shadow-sm border-0">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-hourglass-split me-2"></i>Pending Moodle Work</span>
+          <div><i class="bi bi-hourglass-split me-2"></i>Pending Moodle Work</div>
           <span class="badge bg-danger">{{ pending_submission_count }}</span>
         </div>
         <div class="card-body p-0">
-          {% if pending_requests %}
-          <div class="list-group list-group-flush">
-            {% for request in pending_requests %}
-            <a href="{{ url_for('teacher.moodle_request_details', subject_id=request.subject_id, class_id=request.class_id, request_id=request.request_id) }}" class="list-group-item list-group-item-action py-3">
+          {% if visible_requests %}
+          <div class="list-group list-group-flush compact-list">
+            {% for request in visible_requests %}
+            <a href="{{ url_for('teacher.moodle_request_details', subject_id=request.subject_id, class_id=request.class_id, request_id=request.request_id) }}" class="list-group-item list-group-item-action compact-item">
               <div class="d-flex justify-content-between align-items-start gap-2">
-                <div>
-                  <div class="fw-semibold text-navy">{{ request.title }}</div>
-                  <div class="small text-muted">
+                <div class="me-2">
+                  <div class="fw-semibold text-navy compact-item-title">{{ request.title }}</div>
+                  <div class="small text-muted compact-item-meta">
                     {{ request.subject_name }} · Sem {{ request.semester }} · Class {{ request.section }} · {{ request.shift|title }}
                   </div>
+                  <div class="small text-muted mt-1">
+                    Due {{ request.due_at.strftime('%Y-%m-%d %H:%M') if request.due_at else request.due_date.strftime('%Y-%m-%d') }}
+                  </div>
                 </div>
-                <span class="badge bg-danger-subtle text-danger border">{{ request.remaining_count }} pending</span>
-              </div>
-              <div class="small text-muted mt-2">
-                Due {{ request.due_at.strftime('%Y-%m-%d %H:%M') if request.due_at else request.due_date.strftime('%Y-%m-%d') }}
+                <span class="badge bg-danger-subtle text-danger border flex-shrink-0">{{ request.remaining_count }} pending</span>
               </div>
             </a>
             {% endfor %}
           </div>
+          {% if pending_requests|length > 4 %}
+          <div class="px-3 py-2 small text-muted text-center border-top">Showing latest 4 of {{ pending_requests|length }} requests</div>
+          {% endif %}
           {% else %}
           <p class="text-muted text-center py-4 mb-0">No Moodle requests are waiting right now.</p>
           {% endif %}
         </div>
       </div>
 
-      <div class="card">
+      <div class="card shadow-sm border-0">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-activity me-2"></i>Recent Student Activity</span>
+          <div><i class="bi bi-activity me-2"></i>Recent Student Activity</div>
           <span class="badge bg-light text-dark">{{ recent_activity_count }}</span>
         </div>
         <div class="card-body p-0">
-          {% if recent_activity %}
-          <div class="list-group list-group-flush">
-            {% for item in recent_activity %}
-            <div class="list-group-item py-3">
+          {% if visible_activity %}
+          <div class="list-group list-group-flush compact-list">
+            {% for item in visible_activity %}
+            <div class="list-group-item compact-item">
               <div class="d-flex justify-content-between align-items-start gap-2">
-                <div>
-                  <div class="fw-semibold text-navy">{{ item.student_name }}</div>
-                  <div class="small text-muted">
-                    {{ item.subject_name }} · Class {{ item.section }} · {{ item.shift|title }}
+                <div class="me-2">
+                  <div class="fw-semibold text-navy compact-item-title">{{ item.student_name }}</div>
+                  <div class="small text-muted compact-item-meta">{{ item.subject_name }} · Class {{ item.section }} · {{ item.shift|title }}</div>
+                  <div class="small mt-1">
+                    {% if item.activity_type == 'submission' %}
+                    <span class="fw-medium">{{ item.request_title }}</span>
+                    <span class="text-muted">· {{ item.item_title }}</span>
+                    {% else %}
+                    <span class="fw-medium">{{ item.item_title }}</span>
+                    {% if item.total_seconds %}
+                    <span class="text-muted">· {{ (item.total_seconds / 60)|round(1) }} min</span>
+                    {% endif %}
+                    {% endif %}
                   </div>
+                  <div class="small text-muted mt-1">{{ item.occurred_at.strftime('%Y-%m-%d %H:%M') if item.occurred_at else '-' }}</div>
                 </div>
-                <span class="badge {% if item.activity_type == 'submission' %}bg-success-subtle text-success{% else %}bg-info-subtle text-info{% endif %} border">
+                <span class="badge {% if item.activity_type == 'submission' %}bg-success-subtle text-success{% else %}bg-info-subtle text-info{% endif %} border flex-shrink-0">
                   {{ 'Submission' if item.activity_type == 'submission' else 'View' }}
                 </span>
               </div>
-              <div class="small mt-2">
-                {% if item.activity_type == 'submission' %}
-                <span class="fw-medium">{{ item.request_title }}</span>
-                <span class="text-muted">· {{ item.item_title }}</span>
-                {% else %}
-                <span class="fw-medium">{{ item.item_title }}</span>
-                {% if item.total_seconds %}
-                <span class="text-muted">· {{ (item.total_seconds / 60)|round(1) }} min</span>
-                {% endif %}
-                {% endif %}
-              </div>
-              <div class="small text-muted mt-1">{{ item.occurred_at.strftime('%Y-%m-%d %H:%M') if item.occurred_at else '-' }}</div>
             </div>
             {% endfor %}
           </div>
+          {% if recent_activity|length > 4 %}
+          <div class="px-3 py-2 small text-muted text-center border-top">Showing latest 4 of {{ recent_activity|length }} events</div>
+          {% endif %}
           {% else %}
           <p class="text-muted text-center py-4 mb-0">No recent Moodle activity in the last 7 days.</p>
           {% endif %}
@@ -298,45 +308,21 @@ content %}
     color: #64748b;
     margin-top: 5px;
   }
-  .teaching-group-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  .teaching-groups-table th,
+  .teaching-groups-table td {
+    padding: 14px 16px;
   }
-  .group-title {
-    color: #1C0770;
-    font-size: 1rem;
-    font-weight: 700;
+  .teaching-groups-table tbody tr:hover {
+    background: #fafafa;
   }
-  .group-meta,
-  .group-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 14px;
-    font-size: 0.82rem;
-    color: #64748b;
+  .compact-list .compact-item {
+    padding: 14px 16px;
   }
-  .group-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  .compact-item-title {
+    line-height: 1.2;
   }
-
-  .assignment-preview-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .assignment-preview-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    background: #f8f7ff;
+  .compact-item-meta {
+    line-height: 1.35;
   }
 
   .scheduler-wrapper {
