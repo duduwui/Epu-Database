@@ -1358,6 +1358,11 @@ def enrollment_periods():
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now
 
+    
+        p['signup_summary'] = db.get_enrollment_period_signup_summary(
+            p['semester'],
+            major_id=major_id
+        )
     exam_periods = db.get_all_exam_periods(major_id=major_id)
     for p in exam_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
