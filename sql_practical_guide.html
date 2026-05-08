@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practical SQL Lectures - Comprehensive Guide</title>
+    <!-- Using Bootstrap 5.3.2 to match our MIS standard style -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; }
+        .header-bg { background: linear-gradient(135deg, #1C0770 0%, #150558 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .keyword-card { margin-bottom: 2rem; border: none; border-left: 5px solid #1C0770; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .keyword-title { color: #1C0770; font-weight: bold; }
+        .sql-block { background-color: #282c34; color: #abb2bf; padding: 1rem; border-radius: 5px; font-family: Consolas, Monaco, 'Andale Mono', monospace; line-height: 1.5; overflow-x: auto; margin-bottom: 1rem; }
+        .sql-keyword { color: #c678dd; font-weight: bold; }
+        .sql-string { color: #98c379; }
+        .sql-number { color: #d19a66; }
+        .sql-comment { color: #7f848e; font-style: italic; }
+        .use-case-badge { background-color: #e9ecef; color: #495057; font-size: 0.85rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 500; display: inline-block; margin-bottom: 0.5rem; margin-right: 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <header class="header-bg text-center">
+        <div class="container">
+            <h1 class="display-4 fw-bold">SQL Practical Guide</h1>
+            <p class="lead">A complete reference for Database Management lectures.</p>
+            <p><small>Focusing on class examples: CREATE, SELECT, INSERT, LIKE, ALTER, CHECK, and DELETE.</small></p>
+        </div>
+    </header>
+
+    <div class="container pb-5">
+        
+        <!-- 1. Database Creation -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">1. CREATE DATABASE & USE</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> These commands are the starting point. <code>CREATE DATABASE</code> provisions a new empty database. <code>USE</code> tells the SQL engine that all subsequent commands should be executed inside that specific database.</p>
+                <div class="mb-3">
+                    <span class="use-case-badge">Setup Phase</span>
+                    <span class="use-case-badge">Context Switching</span>
+                </div>
+                <div class="sql-block">
+<span class="sql-comment">-- Create a new database named 'asos12'</span>
+<span class="sql-keyword">CREATE DATABASE</span> asos12;
+
+<span class="sql-comment">-- Select the database to run queries in it</span>
+<span class="sql-keyword">USE</span> asos12;
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Table Creation -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">2. CREATE TABLE & PRIMARY KEY</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> <code>CREATE TABLE</code> defines the structure of your data. You list the columns and their data types (like <code>int</code> for numbers, <code>varchar(20)</code> for text up to 20 characters). The <code>PRIMARY KEY</code> limits a column to only contain unique, non-null values, acting as the main identifier for the row.</p>
+                <div class="mb-3">
+                    <span class="use-case-badge">Defining Architecture</span>
+                    <span class="use-case-badge">Data Types: INT, VARCHAR</span>
+                </div>
+                <div class="sql-block">
+<span class="sql-comment">-- Create a table named 'akar' with four columns</span>
+<span class="sql-keyword">CREATE TABLE</span> akar (
+  id <span class="sql-keyword">int PRIMARY KEY</span>,  <span class="sql-comment">-- Unique identifier, cannot be null</span>
+  name <span class="sql-keyword">varchar</span>(<span class="sql-number">20</span>),  <span class="sql-comment">-- String up to 20 characters</span>
+  city <span class="sql-keyword">varchar</span>(<span class="sql-number">20</span>), 
+  age <span class="sql-keyword">int</span>
+);
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Inserting Data -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">3. INSERT INTO</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> <code>INSERT INTO</code> adds new rows of data to a table. You can insert data without specifying column names (if you provide a value for every single column in the correct order), or you can explicitly define the columns you are inserting into.</p>
+                
+                <h5>Use Case A: Implicit Column Insertion (Single Row)</h5>
+                <p>Provide values for all columns exactly as they are ordered in the table.</p>
+                <div class="sql-block">
+<span class="sql-keyword">INSERT INTO</span> akar <span class="sql-keyword">VALUES</span> (<span class="sql-number">5</span>, <span class="sql-string">'rean'</span>, <span class="sql-string">'dhuk'</span>, <span class="sql-number">22</span>);
+<span class="sql-keyword">INSERT INTO</span> akar <span class="sql-keyword">VALUES</span> (<span class="sql-number">1</span>, <span class="sql-string">'ahmad'</span>, <span class="sql-string">'hawler'</span>, <span class="sql-number">20</span>);
+                </div>
+
+                <h5>Use Case B: Explicit Column Insertion (Multiple Rows at Once)</h5>
+                <p>Specify the exact columns (e.g., <code>dbo.akar</code> indicates the schema 'dbo' and table 'akar'). You can chain multiple rows via comma separation to save lines.</p>
+                <div class="sql-block">
+<span class="sql-keyword">INSERT INTO</span> dbo.akar (id, name, city, age) 
+<span class="sql-keyword">VALUES</span> 
+    (<span class="sql-number">2</span>, <span class="sql-string">'layla'</span>, <span class="sql-string">'dhuk'</span>, <span class="sql-number">26</span>),
+    (<span class="sql-number">3</span>, <span class="sql-string">'dara'</span>, <span class="sql-string">'hawler'</span>, <span class="sql-number">24</span>);
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Retrieving Data -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">4. SELECT & WHERE</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> <code>SELECT *</code> grabs all columns from a table. The <code>WHERE</code> clause acts as a filter, allowing you to establish conditions. Only rows matching the condition are returned.</p>
+                
+                <h5>Use Case A: Retrieve Everything</h5>
+                <div class="sql-block">
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar;
+                </div>
+
+                <h5>Use Case B: Exact Match Filtering</h5>
+                <p>Used to find specific records using the equals (<code>=</code>) operator.</p>
+                <div class="sql-block">
+<span class="sql-comment">-- Find all details for 'ahmad'</span>
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar <span class="sql-keyword">WHERE</span> name = <span class="sql-string">'ahmad'</span>;
+
+<span class="sql-comment">-- Find all records from the city 'dhuk'</span>
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar <span class="sql-keyword">WHERE</span> city = <span class="sql-string">'dhuk'</span>;
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Pattern Matching -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">5. LIKE Operator (Pattern Matching)</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> Used inside a <code>WHERE</code> clause to search for a specified pattern in a column. The percent sign <code>%</code> represents zero, one, or multiple characters. Extremely useful for search functionalities.</p>
+                
+                <h5>Use Case A: Starting With a Letter</h5>
+                <div class="sql-block">
+<span class="sql-comment">-- Finds any name starting with 'a' (e.g., 'ahmad', 'ali', 'aso')</span>
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar <span class="sql-keyword">WHERE</span> name <span class="sql-keyword">LIKE</span> <span class="sql-string">'a%'</span>;
+                </div>
+
+                <h5>Use Case B: Containing a Letter Anywhere</h5>
+                <div class="sql-block">
+<span class="sql-comment">-- Finds any name with letter 'a' anywhere inside (e.g., 'rean', 'dara', 'layla')</span>
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar <span class="sql-keyword">WHERE</span> name <span class="sql-keyword">LIKE</span> <span class="sql-string">'%a%'</span>;
+                </div>
+                
+                <h5>Use Case C: Ending With a Letter (Extra Context)</h5>
+                <div class="sql-block">
+<span class="sql-comment">-- Finds any name ending with 'a' (e.g., 'dara', 'layla')</span>
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> akar <span class="sql-keyword">WHERE</span> name <span class="sql-keyword">LIKE</span> <span class="sql-string">'%a'</span>;
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Modifying Structure -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">6. ALTER TABLE & CHECK Constraint</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> <code>ALTER TABLE</code> changes an existing table's structure after it has been created without losing data. <code>ADD CONSTRAINT</code> adds rules to the table. A <code>CHECK</code> constraint ensures that all values in a column satisfy a specific condition.</p>
+                <div class="mb-3">
+                    <span class="use-case-badge">Data Integrity</span>
+                    <span class="use-case-badge">Logical Operators (AND / OR)</span>
+                </div>
+                <div class="sql-block">
+<span class="sql-comment">-- Modifies the 'akar' table. Adds a rule named 'chk_age'.</span>
+<span class="sql-comment">-- Now, the database will REJECT any insert or update where age is NOT between 1 and 99.</span>
+<span class="sql-keyword">ALTER TABLE</span> akar <span class="sql-keyword">ADD CONSTRAINT</span> chk_age <span class="sql-keyword">CHECK</span> (age > <span class="sql-number">0</span> <span class="sql-keyword">and</span> age < <span class="sql-number">100</span>);
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. Deletion & Modification -->
+        <div class="card keyword-card">
+            <div class="card-header bg-white">
+                <h3 class="keyword-title mb-0">7. DELETE & UPDATE (Important Additions)</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Explanation:</strong> Both <code>DELETE</code> and <code>UPDATE</code> are DML (Data Manipulation Language) commands. They change existing data. ⚠️ <em>Critical Rule</em>: Always use a <code>WHERE</code> clause with these, otherwise, you might affect the entire table accidentally!</p>
+
+                <h5>Use Case A: Deleting One Specific Row</h5>
+                <p>To safely delete a single row, always target the <strong>Primary Key</strong> (in this case, <code>id</code>), because it is guaranteed to be unique.</p>
+                <div class="sql-block">
+<span class="sql-comment">-- Deletes ONLY the record where ID is 5 ('rean')</span>
+<span class="sql-keyword">DELETE FROM</span> akar <span class="sql-keyword">WHERE</span> id = <span class="sql-number">5</span>;
+                </div>
+
+                <h5>Use Case B: Deleting Multiple Rows Based on a Condition</h5>
+                <div class="sql-block">
+<span class="sql-comment">-- Deletes everyone who lives in 'hawler'</span>
+<span class="sql-keyword">DELETE FROM</span> akar <span class="sql-keyword">WHERE</span> city = <span class="sql-string">'hawler'</span>;
+                </div>
+
+                <h5>Use Case C: Modifying Specific Data (Not deleting the entire row)</h5>
+                <p>If you want to clear out or change specific data in a row without deleting the row entirely, use <code>UPDATE</code>.</p>
+                <div class="sql-block">
+<span class="sql-comment">-- Change 'ahmad's city from 'hawler' to 'dhuk'</span>
+<span class="sql-keyword">UPDATE</span> akar 
+<span class="sql-keyword">SET</span> city = <span class="sql-string">'dhuk'</span> 
+<span class="sql-keyword">WHERE</span> id = <span class="sql-number">1</span>;
+
+<span class="sql-comment">-- Nullify a value (make it empty) instead of deleting the row</span>
+<span class="sql-keyword">UPDATE</span> akar 
+<span class="sql-keyword">SET</span> age = <span class="sql-keyword">NULL</span> 
+<span class="sql-keyword">WHERE</span> name = <span class="sql-string">'layla'</span>;
+                </div>
+
+                <h5>Use Case D: Deleting ALL Rows (Be careful!)</h5>
+                <div class="sql-block">
+<span class="sql-comment">-- Deletes all rows but keeps the table structure intact</span>
+<span class="sql-keyword">DELETE FROM</span> akar;
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info border-start border-info border-5">
+            <strong>Pro Tip for Exams:</strong> Always pay attention to strings vs. numbers. Strings (like names or cities) must be wrapped in single quotes (<code>'dhuk'</code>), while numbers (like id or age) are kept unquoted (<code>22</code>). When asked to write a query, ensure your spelling exactly matches the table creation statement!
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.css"></script>
+</body>
+</html>

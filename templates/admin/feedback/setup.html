@@ -1,0 +1,135 @@
+<div class="p-3">
+    <h4 class="mb-3">Draft New Feedback Form</h4>
+    <form id="feedbackSetupForm">
+        <div class="row mb-3">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Semester</label>
+                <select name="semester" class="form-select form-select-sm" required>
+                    <option value="1">Semester 1</option>
+                    <option value="2">Semester 2</option>
+                    <option value="3">Semester 3</option>
+                    <option value="4">Semester 4</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Rating Scale</label>
+                <select id="globalScaleSelect" name="global_scale" class="form-select form-select-sm" required>
+                    <option value="5">1 to 5 Scale</option>
+                    <option value="10">1 to 10 Scale</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start Date *</label>
+                <input type="hidden" id="start_date" name="start_date">
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control epu-cal-display-input" id="start_date_display"
+                         placeholder="Select start..." readonly required
+                         onclick="openEpuCalendar('start_date','start_date_display')">
+                  <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                         onclick="openEpuCalendar('start_date','start_date_display')">
+                    <i class="bi bi-calendar3"></i>
+                  </button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End Date *</label>
+                <input type="hidden" id="end_date" name="end_date">
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control epu-cal-display-input" id="end_date_display"
+                         placeholder="Select end..." readonly required
+                         onclick="openEpuCalendar('end_date','end_date_display')">
+                  <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                         onclick="openEpuCalendar('end_date','end_date_display')">
+                    <i class="bi bi-calendar3"></i>
+                  </button>
+                </div>
+            </div>
+        </div>
+
+        <h5 class="mt-4 form-label fw-semibold mb-2" style="font-size:.9rem;">Questions</h5>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="saveAsDefault" name="save_as_default">
+            <label class="form-check-label text-muted small" for="saveAsDefault">
+                Save these questions as default for future forms
+            </label>
+        </div>
+        <div id="questionsContainer">
+            {% if saved_qs %}
+                {% for q in saved_qs %}
+                <div class="input-group input-group-sm mb-2 question-row">
+                    <input type="text" class="form-control" name="questions[]" value="{{ q.text }}" required>
+                    <button type="button" class="btn btn-outline-danger" onclick="this.closest('.question-row').remove()"><i class="bi bi-trash"></i></button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="input-group input-group-sm mb-2 question-row">
+                    <input type="text" class="form-control" name="questions[]" placeholder="e.g. How engaging was the teacher?" required>
+                    <button type="button" class="btn btn-outline-danger" onclick="this.closest('.question-row').remove()"><i class="bi bi-trash"></i></button>
+                </div>
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addQuestion()"><i class="bi bi-plus"></i> Add Question</button>
+        <br>
+        <button type="button" class="btn btn-primary" onclick="saveFeedbackForm()">Save & Publish Form</button>
+    </form>
+</div>
+<script>
+function addQuestion() {
+    const container = document.getElementById('questionsContainer');
+    const newRow = document.createElement('div');
+    newRow.className = 'input-group mb-2 question-row';
+    newRow.innerHTML = `
+        <input type="text" class="form-control" name="questions[]" placeholder="New question..." required>
+        <select name="rating_scale[]" class="form-select" style="max-width: 150px;">
+            <option value="5">1 to 5 Scale</option>
+            <option value="10">1 to 10 Scale</option>
+        </select>
+        <button type="button" class="btn btn-danger" onclick="this.closest('.question-row').remove()"><i class="bi bi-trash"></i></button>
+    `;
+    container.appendChild(newRow);
+}
+
+function saveFeedbackForm() {
+    const form = document.getElementById('feedbackSetupForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    const formData = new FormData(form);
+    const questions = [];
+    const qInputs = form.querySelectorAll('input[name="questions[]"]');
+    const rInputs = form.querySelectorAll('select[name="rating_scale[]"]');
+    
+    for (let i = 0; i < qInputs.length; i++) {
+        questions.push({
+            text: qInputs[i].value,
+            scale: parseInt(rInputs[i].value)
+        });
+    }
+
+    const payload = {
+        title: formData.get('title'),
+        semester: formData.get('semester'),
+        start_date: formData.get('start_date'),
+        end_date: formData.get('end_date'),
+        questions: questions,
+        save_as_default: document.getElementById('saveAsDefault').checked
+    };
+
+    fetch('/admin/feedback/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(res => res.json()).then(data => {
+        if(data.success) {
+            alert('Form published!');
+            document.querySelector('.btn-close').click();
+        } else {
+            alert('Error saving form.');
+        }
+    }).catch(err => console.error(err));
+}
+</script>

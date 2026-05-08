@@ -20,7 +20,8 @@ Always read and follow these conventions before generating or editing any code.
 ## Project Structure
 
 ```
-app.py          — All Flask routes
+app.py          — Main application and Flask routing initialization (Blueprints)
+blueprints/     — Organized Flask Blueprints (admin.py, auth.py, student.py, teacher.py)
 db.py           — All database functions (NO SQL in app.py or templates)
 config.py       — DB connection config (reads from env vars)
 templates/
@@ -83,9 +84,9 @@ Always apply the correct decorator. Never serve one role's data to another.
 
 ---
 
-## Flask Routes (app.py)
+## Flask Routes (Blueprints)
 
-- All routes are in one file (`app.py`).
+- Routes are organized into Blueprints under the `blueprints/` directory (e.g., `admin.py`, `student.py`, `teacher.py`, `auth.py`).
 - Route functions call `db.*` functions — no business logic in templates.
 - Flash messages use Bootstrap alert categories: `success`, `danger`, `warning`, `info`.
 - JSON responses use `jsonify({"success": True/False, "message": "..."})`.

@@ -320,6 +320,52 @@ def grades():
 
     if selected_subject_id:
         if any(s['id'] == selected_subject_id for s in enrolled_subjects):
+            # --- FEEDBACK INTERCEPT LOGIC ---
+            active_form = db.execute_query('''
+                SELECT * FROM feedback_forms 
+                WHERE semester = %s::varchar 
+                  AND CURRENT_DATE BETWEEN start_date AND end_date
+                LIMIT 1
+            ''', (str(selected_semester),), fetch_one=True)
+
+            if active_form:
+                # Find if student has a specific teacher for this subject
+                teacher_for_subject = db.execute_query('''
+                    SELECT u.*, t.id as real_teacher_id FROM teacher_assignments ta
+                    JOIN teachers t ON ta.teacher_id = t.id
+                    JOIN users u ON u.id = t.user_id
+                    WHERE ta.subject_id = %s
+                      AND (ta.class_id IS NULL OR ta.class_id = %s)
+                    LIMIT 1
+                ''', (selected_subject_id, student.get('class_id', 0)), fetch_one=True)
+
+                if teacher_for_subject:
+                    already_submitted = db.execute_query('''
+                        SELECT 1 FROM feedback_responses
+                        WHERE form_id = %s AND student_id = %s AND subject_id = %s
+                    ''', (active_form['id'], student['id'], selected_subject_id), fetch_one=True)
+
+                    if not already_submitted:
+                        import json
+                        questions = active_form.get('questions', [])
+                        if isinstance(questions, str):
+                            try:
+                                questions = json.loads(questions)
+                            except:
+                                questions = []
+                        return render_template('student/feedback_intercept.html',
+                                               student=student,
+                                               form=active_form,
+                                               questions=questions,
+                                               teacher=teacher_for_subject,
+                                               subject_info=next(s for s in enrolled_subjects if s['id'] == selected_subject_id),
+                                               enrolled_subjects=enrolled_subjects,
+                                               selected_semester=selected_semester,
+                                               selected_subject_id=selected_subject_id,
+                                               available_semesters=available_semesters,
+                                               current_semester=current_semester)
+            # --- END FEEDBACK INTERCEPT LOGIC ---
+
             raw_grades = db.get_student_grades_for_subject(student['id'], selected_subject_id) or []
             subject_info = next((s for s in enrolled_subjects if s['id'] == selected_subject_id), None)
             # Exclude 'final' component — shown separately after exam
@@ -794,3 +840,83 @@ def api_ping_engagement():
         return jsonify({"success": True, "session_id": int(session_id)})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+@student_bp.route('/student/feedback')
+@student_required
+def student_feedback_list():
+    import db
+    student = db.get_student_by_user_id(session['user_id'])
+    sem = student['semester']
+    
+    forms = db.execute_query('''
+        SELECT f.* 
+        FROM feedback_forms f
+        WHERE f.semester = %s
+          AND CURRENT_DATE BETWEEN f.start_date AND f.end_date
+    ''', (sem,), fetch_all=True) or []
+    
+    return render_template('student/feedback_list.html', forms=forms)
+
+@student_bp.route('/student/feedback/<int:form_id>')
+@student_required
+def student_feedback_form(form_id):
+    import db
+    import json
+    student = db.get_student_by_user_id(session['user_id'])
+    
+    form = db.execute_query('SELECT * FROM feedback_forms WHERE id = %s', (form_id,), fetch_one=True)
+    if not form:
+        flash("Invalid form.", "danger")
+        return redirect('/student/feedback')
+        
+    teachers = db.execute_query('''
+        SELECT DISTINCT t.id as teacher_id, tu.full_name as teacher_name, sub.id as subject_id, sub.name as subject_name
+        FROM student_enrollments se
+        JOIN subjects sub ON se.subject_id = sub.id
+        JOIN teacher_assignments ta ON ta.subject_id = sub.id
+        JOIN teachers t ON ta.teacher_id = t.id
+        JOIN users tu ON t.user_id = tu.id
+        WHERE se.student_id = %s AND sub.semester = %s
+          AND (ta.class_id IS NULL OR ta.class_id = %s)
+    ''', (student['id'], form['semester'], student['class_id']), fetch_all=True) or []
+    
+    return render_template('student/feedback_form.html', form=form, teachers=teachers, questions=form['questions'])
+
+@student_bp.route('/student/feedback/submit/<int:form_id>', methods=['POST'])
+@student_required
+def student_feedback_submit(form_id):
+    import db
+    import json
+    student = db.get_student_by_user_id(session['user_id'])
+    form = db.execute_query('SELECT * FROM feedback_forms WHERE id = %s', (form_id,), fetch_one=True)
+    qs = form['questions'] if form else []
+    
+    submitted_pairs = set()
+    for key, val in request.form.items():
+        if key.startswith('rating_'):
+            parts = key.split('_')
+            sub_id = int(parts[1])
+            tch_id = int(parts[2])
+            
+            pair = (sub_id, tch_id)
+            if pair in submitted_pairs: continue
+            submitted_pairs.add(pair)
+            
+            ratings = []
+            for idx, q in enumerate(qs):
+                r_val = request.form.get(f'rating_{sub_id}_{tch_id}_{idx}')
+                ratings.append(int(r_val) if r_val else 1)
+                
+            comments = request.form.get(f'comments_{sub_id}_{tch_id}', '')
+            
+            db.execute_query('''
+                INSERT INTO feedback_responses (form_id, student_id, teacher_id, subject_id, ratings, comments)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (form_id, student['id'], tch_id, sub_id, json.dumps(ratings), comments))
+            
+    flash("Thank you! Feedback submitted successfully.", "success")
+    
+    if request.form.get('return_to_grades') == '1':
+        return redirect(url_for('student.grades', subject_id=request.form.get('ratings_subject_id'), semester=form['semester']))
+        
+    return redirect('/student/feedback')

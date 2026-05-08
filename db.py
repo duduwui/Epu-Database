@@ -3,6 +3,7 @@ Database connection and helper functions for MIS System
 """
 import os
 import sys
+import logging
 
 # Ensure PostgreSQL libpq is available for psycopg3
 _pg_bin = r"C:\Program Files\PostgreSQL\17\bin"
@@ -99,7 +100,7 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
         return_connection(conn)
         return result
     except Exception as e:
-        print(f"Query error: {e}")
+        logging.error("Database query failed", exc_info=True)
         try: conn.rollback()
         except Exception: pass
         return_connection(conn)
@@ -118,7 +119,7 @@ def execute_insert_returning(query, params=None):
         return_connection(conn)
         return result['id'] if result else None
     except Exception as e:
-        print(f"Insert error: {e}")
+        logging.error("Database query failed", exc_info=True)
         try: conn.rollback()
         except Exception: pass
         return_connection(conn)
@@ -579,6 +580,14 @@ def get_all_enrollment_periods(semester=None, major_id=None):
     if major_id: query += " AND u.major_id=%s"; params.append(major_id)
     return execute_query(query+" ORDER BY ep.semester, ep.created_at DESC", tuple(params) if params else None, fetch_all=True)
 
+def get_enrollment_period_by_id(period_id, major_id=None):
+    query = "SELECT ep.*, u.full_name as created_by_name FROM enrollment_periods ep LEFT JOIN users u ON ep.created_by=u.id WHERE ep.id=%s"
+    params = [period_id]
+    if major_id:
+        query += " AND u.major_id=%s"
+        params.append(major_id)
+    return execute_query(query, tuple(params), fetch_one=True)
+
 def is_enrollment_active(semester, major_id=None): return get_active_enrollment_period(semester, major_id) is not None
 def delete_enrollment_period(period_id): return execute_query("DELETE FROM enrollment_periods WHERE id=%s", (period_id,))
 
@@ -650,6 +659,7 @@ def get_exam_period_signup_summary(semester, period_type, major_id=None):
 
 def get_enrollment_period_signup_summary(semester, major_id=None):
     """Summarize which students in a semester have enrolled in at least one subject."""
+
     query = """
         WITH semester_students AS (
             SELECT st.id AS student_id,
@@ -658,6 +668,8 @@ def get_enrollment_period_signup_summary(semester, major_id=None):
                    st.student_number,
                    st.shift,
                    st.section,
+                   st.year,
+                   st.semester,
                    c.name AS class_name
             FROM students st
             JOIN users u ON u.id = st.user_id
@@ -901,9 +913,8 @@ def get_student_attendance_summary(student_id, semester=None):
                    FROM teacher_assignments ta
                    JOIN teachers t ON ta.teacher_id = t.id
                    JOIN users u ON t.user_id = u.id
-                   JOIN students st2 ON st2.id = a.student_id
                    WHERE ta.subject_id = s.id
-                     AND ta.class_id = st2.class_id
+                     AND (ta.class_id = st.class_id OR ta.class_id IS NULL)
                ), '') AS teacher_name,
                COUNT(*) AS total_records,
                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_count,
@@ -912,6 +923,7 @@ def get_student_attendance_summary(student_id, semester=None):
                SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) AS excused_count
         FROM attendance a
         JOIN subjects s ON a.subject_id = s.id
+        JOIN students st ON a.student_id = st.id
         WHERE a.student_id = %s
     """
     params = [student_id]
@@ -938,12 +950,12 @@ def get_student_attendance_log(student_id, semester=None, limit=10):
                    FROM teacher_assignments ta
                    JOIN teachers t ON ta.teacher_id = t.id
                    JOIN users u ON t.user_id = u.id
-                   JOIN students st2 ON st2.id = a.student_id
                    WHERE ta.subject_id = s.id
-                     AND ta.class_id = st2.class_id
+                     AND (ta.class_id = st.class_id OR ta.class_id IS NULL)
                ), '') AS teacher_name
         FROM attendance a
         JOIN subjects s ON a.subject_id = s.id
+        JOIN students st ON a.student_id = st.id
         WHERE a.student_id = %s
     """
     params = [student_id]

@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}My Grades - Pending Feedback{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 680px;">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card bg-primary text-white shadow-sm">
+        <div class="card-body py-3">
+          <div class="row align-items-center">
+            <div class="col">
+              <h5 class="mb-1">
+                <i class="bi bi-clipboard-data me-2"></i>My Grades
+              </h5>
+              <p class="mb-0 opacity-75" style="font-size: 0.9rem">
+                <i class="bi bi-person me-1"></i>{{ student.full_name }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-card-text me-1"></i>{{ student.student_number }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Semester & Subject Selection -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row align-items-end g-3">
+        <div class="col-md-4">
+          <label class="form-label mb-1 small fw-semibold" style="color:#1C0770;">
+            <i class="bi bi-calendar3 me-1"></i>Semester
+          </label>
+          <select class="form-select" id="semesterSelect" onchange="changeSemester()">
+            {% for sem in available_semesters %}
+            <option value="{{ sem }}" {% if selected_semester == sem %}selected{% endif %}>
+              Semester {{ sem }}{% if sem == current_semester %} (Current){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label mb-1 small fw-semibold" style="color:#1C0770;">
+            <i class="bi bi-funnel me-1"></i>Subject
+          </label>
+          <div class="position-relative">
+            <select class="form-select" id="subjectSelect" onchange="loadGrades()">
+              <option value="">-- Select a Subject --</option>
+              {% for s in enrolled_subjects %}
+              <option value="{{ s.id }}" {% if selected_subject_id == s.id %}selected{% endif %}>
+                {{ s.name }} - {{ s.credits }} Credits
+              </option>
+              {% endfor %}
+            </select>
+            <div id="filterSpinner" class="d-none position-absolute top-50 end-0 translate-middle-y me-3">
+              <div class="mis-loader mis-loader-sm">
+                <span class="loading-circle sp1">
+                  <span class="loading-circle sp2">
+                    <span class="loading-circle sp3"></span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gradesContent">
+    <div class="card border-0 shadow-sm border-top border-5 border-warning mb-4">
+      <div class="card-body p-4 text-center">
+        <div class="mb-3">
+          <i class="bi bi-chat-square-quote text-warning" style="font-size: 3rem;"></i>
+        </div>
+        <h4 class="fw-bold mb-2">Feedback Required</h4>
+        <p class="text-muted mb-0">Before you can view your grades for <strong>{{ subject_info.name }}</strong>, please complete the teacher feedback form below.</p>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-person-badge me-2 text-primary"></i>Evaluate Teacher: {{ teacher.full_name }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('student.student_feedback_submit', form_id=form.id) }}">
+          <!-- Send subject mapped to this form submission so backend can process it nicely -->
+          <input type="hidden" name="ratings_subject_id" value="{{ subject_info.id }}">
+            <input type="hidden" name="ratings_teacher_id" value="{{ teacher.real_teacher_id }}">
+            <input type="hidden" name="return_to_grades" value="1">
+
+            {% for q in questions %}
+            {% set q_idx = loop.index0 %}
+            {% set r_max = q.scale|int if q.scale else 5 %}
+            <div class="mb-4">
+              <p class="mb-2 fw-semibold" style="font-size: 1.1rem;">{{ loop.index }}. {{ q.text }}</p>
+              <div class="d-flex flex-wrap gap-2 rating-group" data-scale="{{ r_max }}">
+                {% for i in range(1, r_max + 1) %}
+                <div>
+                  <input class="btn-check rating-input" type="radio" name="rating_{{ subject_info.id }}_{{ teacher.real_teacher_id }}_{{ q_idx }}" id="r_{{ subject_info.id }}_{{ teacher.real_teacher_id }}_{{ q_idx }}_{{ i }}" value="{{ i }}" required>
+                  <label class="btn btn-outline-primary rounded-circle shadow-sm" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-width: 2px;" for="r_{{ subject_info.id }}_{{ teacher.real_teacher_id }}_{{ q_idx }}_{{ i }}">
+                    {{ i }}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="mt-2" style="min-height: 1.3rem;">
+                <span class="badge bg-primary rating-text" style="font-size: 0.85rem; display: none;"></span>
+              </div>
+            </div>
+            {% endfor %}
+
+            <div class="mb-4">
+              <label class="form-label fw-semibold">Any additional comments? (Optional)</label>
+              <textarea class="form-control" name="comments_{{ subject_info.id }}_{{ teacher.real_teacher_id }}" rows="3" placeholder="Share your thoughts..."></textarea>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle me-1"></i> Submit & View Grades
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BASE_URL = '{{ url_for("student.grades") }}';
+
+  function setLoading(on) {
+    document.getElementById('filterSpinner').classList.toggle('d-none', !on);
+    document.getElementById('subjectSelect').disabled = on;
+    document.getElementById('semesterSelect').disabled = on;
+  }
+
+  async function fetchGrades(url) {
+    setLoading(true);
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      const newSubjectSelect = doc.getElementById('subjectSelect');
+      if (newSubjectSelect) {
+        document.getElementById('subjectSelect').innerHTML = newSubjectSelect.innerHTML;
+      }
+
+      const newContent = doc.getElementById('gradesContent');
+      if (newContent) {
+        document.getElementById('gradesContent').innerHTML = newContent.innerHTML;
+      }
+
+      history.pushState(null, '', url);
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function changeSemester() {
+    const semester = document.getElementById('semesterSelect').value;
+    fetchGrades(`${BASE_URL}?semester=${semester}`);
+  }
+
+  function loadGrades() {
+    const subjectId = document.getElementById('subjectSelect').value;
+    const semester  = document.getElementById('semesterSelect').value;
+    const url = subjectId
+      ? `${BASE_URL}?semester=${semester}&subject_id=${subjectId}`
+      : `${BASE_URL}?semester=${semester}`;
+    fetchGrades(url);
+  }
+
+  window.addEventListener('popstate', () => {
+    fetchGrades(location.href);
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+      const texts5 = {
+          1: "Strongly Disagree",
+          2: "Disagree",
+          3: "Neutral",
+          4: "Agree",
+          5: "Strongly Agree"
+      };
+      const texts10 = {
+          1: "Absolutely Disagree",
+          2: "Strongly Disagree",
+          3: "Disagree",
+          4: "Leaning Negative",
+          5: "Neutral",
+          6: "Leaning Positive",
+          7: "Agree",
+          8: "Strongly Agree",
+          9: "Excellent",
+          10: "Outstanding"
+      };
+
+      document.querySelectorAll('.rating-input').forEach(input => {
+          input.addEventListener('change', function() {
+              const group = this.closest('.mb-4');
+              const scale = parseInt(group.querySelector('.rating-group').dataset.scale);
+              const val = parseInt(this.value);
+              const textContainer = group.querySelector('.rating-text');
+              
+              let text = "";
+              if (scale === 5) {
+                  text = texts5[val] || "";
+              } else if (scale >= 10) {
+                  text = texts10[val] || "";
+              } else {
+                  text = val + " / " + scale; // fallback
+              }
+
+              if(text) {
+                  textContainer.innerText = text;
+                  textContainer.style.display = 'inline-block';
+              }
+          });
+      });
+  });
+</script>
+{% endblock %}
