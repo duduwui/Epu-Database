@@ -1819,6 +1819,7 @@ def feedback_save():
     try:
         import db
         import json
+        import datetime
         from flask import request, session
         data = request.json
         title = data.get('title')
@@ -1827,6 +1828,10 @@ def feedback_save():
         e_date = data.get('end_date')
         qs = data.get('questions', [])
         save_as_default = data.get('save_as_default', False)
+        
+        now = datetime.date.today()
+        year = now.year if now.month >= 9 else now.year - 1
+        study_year = f"{year}-{year+1}"
         
         if save_as_default:
             db.execute_query("""
@@ -1838,9 +1843,9 @@ def feedback_save():
         
         user_id = session.get('user_id')
         db.execute_query('''
-            INSERT INTO feedback_forms (title, semester, questions, start_date, end_date, created_by)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (title, sem, json.dumps(qs), s_date, e_date, user_id))
+            INSERT INTO feedback_forms (title, semester, questions, start_date, end_date, created_by, study_year)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ''', (title, sem, json.dumps(qs), s_date, e_date, user_id, study_year))
         
         return {"success": True}
     except Exception as e:
@@ -1852,180 +1857,101 @@ def feedback_save():
 @admin_bp.route('/admin/feedback/results', methods=['GET'])
 @admin_required
 def feedback_results():
+    from flask import session, render_template
     import db
-    from flask import request
-    import json
     
-    semester = request.args.get('semester')
-    teacher_id = request.args.get('teacher_id')
-    class_id = request.args.get('class_id')
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
+    major_id = user.get('major_id') if user else None
     
-    # Base query for all results with joins
-    query = """
-        SELECT 
-            u.id as user_teacher_id, 
-            u.full_name as teacher_name,
-            r.id as raw_resp_id, 
-            r.ratings, 
-            r.comments
-        FROM feedback_responses r
-        JOIN teachers t ON r.teacher_id = t.id
-        JOIN users u ON t.user_id = u.id
-        WHERE 1=1
-    """
-    params = []
-    if semester:
-        # Join to subjects if filtering by semester
-        query = """
-        SELECT 
-            u.id as user_teacher_id, 
-            u.full_name as teacher_name,
-            r.id as raw_resp_id, 
-            r.ratings, 
-            r.comments
-        FROM feedback_responses r
-        JOIN teachers t ON r.teacher_id = t.id
-        JOIN users u ON t.user_id = u.id
-        JOIN subjects s ON r.subject_id = s.id
-        WHERE s.semester = %s
-        """
-        params.append(semester)
-    
-    if teacher_id:
-        if semester:
-            query += " AND u.id = %s "
-        else:
-            query += " AND u.id = %s "
-        params.append(teacher_id)
-        
-    query += " ORDER BY u.full_name"
-    rows = db.execute_query(query, tuple(params), fetch_all=True) or []
-    
-    # Process the rows into a summary dictionary grouped by teacher
-    grouped = {}
-    for r in rows:
-        key = r['user_teacher_id']
-        if key not in grouped:
-            grouped[key] = {
-                'teacher_id': r['user_teacher_id'],
-                'teacher_name': r['teacher_name'],
-                'raw_responses': [],
-                'response_count': 0,
-                'avg_rating': 0.0
-            }
-            
-        grp = grouped[key]
-        grp['response_count'] += 1
-        
-        cmts = r['comments']
-        rtgs = r['ratings']
-        
-        # Calculate sum for this response
-        if rtgs and isinstance(rtgs, dict):
-            # ratings might be dict mapping q_idx to score
-            total_score = sum(int(v) for v in rtgs.values() if str(v).isdigit())
-            count = len([v for v in rtgs.values() if str(v).isdigit()])
-            if count > 0:
-                avg_for_response = total_score / count
-                if 'total_avg_sum' not in grp:
-                    grp['total_avg_sum'] = 0.0
-                grp['total_avg_sum'] += avg_for_response
-        
-        grp['raw_responses'].append({
-            'id': r['raw_resp_id'],
-            'ratings': json.dumps(rtgs) if rtgs else "None",
-            'comments': cmts if cmts else ""
-        })
-
-    # Calculate final averages
-    for grp in grouped.values():
-        if 'total_avg_sum' in grp and grp['response_count'] > 0:
-            avg = grp['total_avg_sum'] / grp['response_count']
-            grp['avg_rating'] = round(avg, 2)
-        else:
-            grp['avg_rating'] = "N/A"
-
-    # Prepare Dropdowns
-    teachers = db.execute_query("SELECT id, full_name FROM users WHERE role='teacher' ORDER BY full_name", fetch_all=True) or []
-    
-    return render_template("admin/feedback/results.html", 
-                           summary=list(grouped.values()),
-                           all_teachers=teachers)
+    summary = db.get_feedback_summary(major_id)
+    return render_template("admin/feedback/results.html", summary=summary)
 
 @admin_bp.route('/admin/feedback/teacher/<int:teacher_id>', methods=['GET'])
 @admin_required
 def feedback_teacher_details(teacher_id):
+    from flask import request, flash, redirect, render_template, session
     import db
-    import json
     
-    # Fetch teacher name
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
+    major_id = user.get('major_id') if user else None
+
     teacher = db.execute_query("SELECT full_name FROM users WHERE id = %s", (teacher_id,), fetch_one=True)
     if not teacher:
-        from flask import flash, redirect, url_redirect
         flash("Teacher not found", "danger")
         return redirect('/admin/feedback/results')
         
-    query = """
-        SELECT 
-            s.semester,
-            s.id as subject_id, s.name as subject_name,
-            c.id as class_id, c.name as class_name,
-            r.id as raw_resp_id, r.ratings, r.comments
-        FROM feedback_responses r
-        JOIN teachers t ON r.teacher_id = t.id
-        JOIN subjects s ON r.subject_id = s.id
-        LEFT JOIN students st ON r.student_id = st.id
-        LEFT JOIN classes c ON st.class_id = c.id
-        WHERE t.user_id = %s
-        ORDER BY s.semester, s.name, c.name
-    """
-    rows = db.execute_query(query, (teacher_id,), fetch_all=True) or []
+    subjects = db.get_feedback_teacher_subjects(teacher_id)
     
-    # Group by Semester -> Subject -> Class
-    grouped = {}
-    for r in rows:
-        sem = r['semester']
-        subj = r['subject_name']
-        cls = r['class_name'] or 'No Class'
+    selected_subject_id = request.args.get('subject_id', type=int)
+    if not selected_subject_id and subjects:
+        selected_subject_id = subjects[0]['subject_id']
         
-        if sem not in grouped:
-            grouped[sem] = {}
-        if subj not in grouped[sem]:
-            grouped[sem][subj] = {}
-        if cls not in grouped[sem][subj]:
-            grouped[sem][subj][cls] = {
-                'responses': [],
-                'total_avg_sum': 0.0,
-                'count': 0
-            }
+    classes = []
+    selected_class_id = request.args.get('class_id', type=int)
+    
+    current_students = []
+    questions_list = []
+    
+    if selected_subject_id:
+        classes = db.get_feedback_teacher_classes(teacher_id, selected_subject_id, major_id)
+        if not selected_class_id and classes:
+            selected_class_id = classes[0]['class_id']
             
-        grp = grouped[sem][subj][cls]
-        grp['count'] += 1
-        
-        rtgs = r['ratings']
-        avg_for_response = 0.0
-        if rtgs and isinstance(rtgs, dict):
-            total_score = sum(int(v) for v in rtgs.values() if str(v).isdigit())
-            count = len([v for v in rtgs.values() if str(v).isdigit()])
-            if count > 0:
-                avg_for_response = total_score / count
-                grp['total_avg_sum'] += avg_for_response
-                
-        grp['responses'].append({
-            'avg_rating': round(avg_for_response, 2) if avg_for_response else "N/A",
-            'comments': r['comments'] or "No comment provided."
-        })
-        
-    # Calculate group averages
-    for sem, subjects in grouped.items():
-        for subj, classes in subjects.items():
-            for cls, data in classes.items():
-                data['avg_rating'] = round(data['total_avg_sum'] / data['count'], 2) if data['count'] > 0 else "N/A"
+        current_students, questions_list = db.get_feedback_teacher_detail_current(teacher_id, selected_subject_id, selected_class_id, major_id)
 
     return render_template("admin/feedback/teacher_details.html",
                            teacher_name=teacher['full_name'],
-                           grouped_data=grouped)
+                           teacher_id=teacher_id,
+                           subjects=subjects,
+                           selected_subject_id=selected_subject_id,
+                           classes=classes,
+                           selected_class_id=selected_class_id,
+                           current_students=current_students,
+                           questions_list=questions_list)
 
+@admin_bp.route('/admin/feedback/teacher/<int:teacher_id>/history', methods=['GET'])
+@admin_required
+def feedback_teacher_history(teacher_id):
+    from flask import request, flash, redirect, render_template
+    import db
+    
+    teacher = db.execute_query("SELECT full_name FROM users WHERE id = %s", (teacher_id,), fetch_one=True)
+    if not teacher:
+        flash("Teacher not found", "danger")
+        return redirect('/admin/feedback/results')
+        
+    subjects = db.get_feedback_teacher_subjects(teacher_id)
+    selected_subject_id = request.args.get('subject_id', type=int)
+    if not selected_subject_id and subjects:
+        selected_subject_id = subjects[0]['subject_id']
+        
+    history = []
+    if selected_subject_id:
+        history = db.get_feedback_teacher_history_by_year(teacher_id, selected_subject_id)
+        
+    return render_template("admin/feedback/teacher_history.html",
+                           teacher_name=teacher['full_name'],
+                           teacher_id=teacher_id,
+                           subjects=subjects,
+                           selected_subject_id=selected_subject_id,
+                           classes=classes,
+                           selected_class_id=selected_class_id,
+                           history=history)
+
+@admin_bp.route('/admin/feedback/analytics', methods=['GET'])
+@admin_required
+def feedback_analytics():
+    from flask import session, render_template
+    import db
+    
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
+    major_id = user.get('major_id') if user else None
+    
+    analytics_data, max_q = db.get_feedback_analytics_flat(major_id)
+    return render_template("admin/feedback/analytics.html", analytics_data=analytics_data, max_q=max_q)
 
 @admin_bp.route('/admin/users/add-ajax', methods=['POST'])
 @admin_required

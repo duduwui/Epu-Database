@@ -1,81 +1,113 @@
 {% extends "base.html" %}
-
-{% block title %}Feedback Details: {{ teacher_name }}{% endblock %}
+{% block title %}Teacher Feedback Details{% endblock %}
 
 {% block content %}
-<div class="row mb-3 align-items-center">
-    <div class="col-md-8">
-        <h4 class="text-navy mb-1">
-            <i class="bi bi-person-lines-fill me-2"></i> Feedback Details
-        </h4>
-        <p class="text-muted mb-0 fs-6">Showing detailed feedback grouped by class for <strong>{{ teacher_name }}</strong></p>
+<div class="mb-3">
+    <a href="/admin/feedback/results" class="text-decoration-none text-muted">
+        <i class="bi bi-arrow-left"></i> Back to Results
+    </a>
+</div>
+
+<div class="row align-items-center mb-3">
+    <div class="col-md-6">
+        <h2 class="h4 text-navy fw-bold mb-0">{{ teacher_name }}</h2>
+        <p class="text-muted small mb-0">Current Semester Focus View</p>
     </div>
-    <div class="col-md-4 text-md-end mt-2 mt-md-0">
-        <a href="{{ url_for('admin.feedback_results') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to Summary
+    <div class="col-md-6 text-end">
+        <a href="/admin/feedback/teacher/{{ teacher_id }}/history{% if selected_subject_id %}?subject_id={{ selected_subject_id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-clock-history"></i> Previous Years History
         </a>
     </div>
 </div>
 
-{% if not grouped_data %}
-<div class="card shadow-sm border-0">
-    <div class="card-body py-5 text-center text-muted">
-        <i class="bi bi-inbox fs-1 mb-3 d-block text-secondary opacity-50"></i>
-        <h5 class="fw-normal">No feedback data available for this teacher.</h5>
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light">
+        <form method="GET" class="row gx-2 gy-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-medium text-navy">Filter by Subject</label>
+                <select name="subject_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for subj in subjects %}
+                    <option value="{{ subj.subject_id }}" {% if subj.subject_id == selected_subject_id %}selected{% endif %}>
+                        {{ subj.subject_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            {% if classes %}
+            <div class="col-md-4">
+                <label class="form-label small fw-medium text-navy">Filter by Class</label>
+                <select name="class_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for cls in classes %}
+                    <option value="{{ cls.class_id }}" {% if cls.class_id == selected_class_id %}selected{% endif %}>
+                        {{ cls.class_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </form>
     </div>
 </div>
-{% else %}
 
-    {% for sem, subjects in grouped_data.items() %}
-    <div class="mb-4">
-        <h5 class="text-primary border-bottom pb-2 mb-3">Semester {{ sem }}</h5>
-        
-        {% for subj, classes in subjects.items() %}
-        <div class="mb-4 ps-3 border-start border-3 border-primary bg-light p-3 rounded">
-            <h6 class="fw-bold mb-3"><i class="bi bi-book me-2 text-secondary"></i>{{ subj }}</h6>
-            
-            <div class="row row-cols-1 row-cols-md-2 g-3">
-            {% for cls, data in classes.items() %}
-                <div class="col">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-header bg-white border-bottom">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-navy"><i class="bi bi-people-fill me-2"></i>{{ cls }}</span>
-                                <span class="badge {% if data.avg_rating != 'N/A' and data.avg_rating >= 4.0 %}bg-success{% elif data.avg_rating != 'N/A' and data.avg_rating >= 3.0 %}bg-primary{% elif data.avg_rating != 'N/A' and data.avg_rating >= 2.0 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                                    <i class="bi bi-star-fill me-1"></i> {{ data.avg_rating }}/5.0 
-                                </span>
-                            </div>
-                            <small class="text-muted">{{ data.count }} responses</small>
-                        </div>
-                        <div class="card-body bg-light pt-2" style="max-height: 250px; overflow-y: auto;">
-                            {% if data.responses %}
-                                <ul class="list-unstyled mb-0">
-                                {% for r in data.responses %}
-                                    <li class="mb-3 pb-3 border-bottom border-secondary-subtle last-child-no-border">
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <small class="text-muted"><i class="bi bi-person-circle me-1"></i>Anonymous</small>
-                                            <small class="fw-bold text-primary">{{ r.avg_rating }} / 5.0</small>
-                                        </div>
-                                        <div class="p-2 bg-white rounded border small">
-                                            <i class="bi bi-chat-left-quote text-secondary opacity-50 me-2"></i> 
-                                            {{ r.comments }}
-                                        </div>
-                                    </li>
-                                {% endfor %}
-                                </ul>
-                            {% else %}
-                                <div class="text-center text-muted small fst-italic py-3">No specific responses recorded.</div>
-                            {% endif %}
-                        </div>
-                    </div>
+<h5 class="h6 text-navy fw-bold mb-3">Current Semester Active Feedback</h5>
+
+{% if current_students %}
+<div class="accordion" id="studentsAccordion">
+    {% for student in current_students %}
+    <div class="accordion-item shadow-sm border-0 mb-2 rounded overflow-hidden">
+        <h2 class="accordion-header" id="heading{{ loop.index }}">
+            <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="false" aria-controls="collapse{{ loop.index }}">
+                <div class="d-flex justify-content-between align-items-center w-100 pe-3">
+                    <span class="fw-medium text-dark">{{ student.student_name }}</span>
+                    <span>
+                        <span class="badge bg-success bg-opacity-10 text-success px-2 py-1 border border-success border-opacity-25 rounded-pill me-2">
+                            Avg: {{ student.avg_rating }}
+                        </span>
+                        <small class="text-muted" style="font-size: 0.75rem;">{{ student.submitted_at.strftime('%Y-%m-%d') if student.submitted_at else '' }}</small>
+                    </span>
                 </div>
-            {% endfor %}
+            </button>
+        </h2>
+        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#studentsAccordion">
+            <div class="accordion-body bg-light border-top">
+                
+                <h6 class="text-navy fw-bold small text-uppercase mb-2">Question Breakdown</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-bordered bg-white rounded shadow-sm m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Question</th>
+                                <th class="text-center" width="100">Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ans in student.answers %}
+                            <tr>
+                                <td class="text-muted">{{ ans.question }}</td>
+                                <td class="text-center fw-medium text-dark">{{ ans.rating }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if student.comments %}
+                <h6 class="text-navy fw-bold small text-uppercase mb-2 mt-3">Student Note</h6>
+                <div class="p-3 bg-white border rounded text-dark fst-italic shadow-sm">
+                    "{{ student.comments }}"
+                </div>
+                {% endif %}
+
             </div>
         </div>
-        {% endfor %}
     </div>
     {% endfor %}
-
+</div>
+{% else %}
+<div class="alert alert-info border-0 shadow-sm">
+    <i class="bi bi-info-circle me-2"></i> No active feedback submitted by students for this class/subject currently.
+</div>
 {% endif %}
 
 {% endblock %}

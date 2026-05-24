@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Feedback Analytics Insights{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/admin/feedback/results" class="text-decoration-none text-muted">
+        <i class="bi bi-arrow-left"></i> Back to Feedback Results
+    </a>
+</div>
+
+<h2 class="h4 text-navy fw-bold mb-3">Global Feedback Analytics <i class="bi bi-bar-chart-fill ms-2 text-primary opacity-50"></i></h2>
+<p class="text-muted small">Flat data view for deep dive sorting and student note analysis across all teachers and studying periods.</p>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive" style="max-height: 70vh;">
+            <table class="table table-hover table-bordered align-middle mb-0 text-nowrap" id="analyticsTable">
+                <thead class="table-light text-navy position-sticky top-0 shadow-sm" style="z-index: 10;">
+                    <tr>
+                        <th role="button" onclick="sortTable(0)">Teacher <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                        <th role="button" onclick="sortTable(1)">Subject <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                        <th role="button" onclick="sortTable(2)">Student <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                        <th role="button" onclick="sortTable(3)">Study Year <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                        {% for i in range(max_q) %}
+                        <th class="text-center" role="button" onclick="sortTable({{ 4 + i }})">Q{{ i + 1 }} <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                        {% endfor %}
+                        <th>Student Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analytics_data %}
+                    <tr>
+                        <td class="fw-medium">{{ row.teacher }}</td>
+                        <td class="text-muted">{{ row.subject }}</td>
+                        <td>{{ row.student }}</td>
+                        <td>{{ row.study_year }}</td>
+                        {% for i in range(max_q) %}
+                        <td class="text-center fw-bold text-navy">{{ row['q' ~ (i+1)] if row['q' ~ (i+1)] is defined else '-' }}</td>
+                        {% endfor %}
+                        <td class="text-wrap" style="min-width: 250px; max-width: 400px;">
+                            {% if row.notes %}
+                                <span class="fst-italic text-muted">"{{ row.notes }}"</span>
+                            {% else %}
+                                <span class="text-muted opacity-50">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="100%" class="text-center py-4">No analytics data available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simple client side sorter for the analytics table
+function sortTable(n) {
+  var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+  table = document.getElementById("analyticsTable");
+  switching = true;
+  dir = "asc"; 
+  while (switching) {
+    switching = false;
+    rows = table.rows;
+    for (i = 1; i < (rows.length - 1); i++) {
+        shouldSwitch = false;
+        x = rows[i].getElementsByTagName("TD")[n];
+        y = rows[i + 1].getElementsByTagName("TD")[n];
+        
+        let xVal = x.innerHTML.toLowerCase().replace(/<[^>]*>?/gm, '');
+        let yVal = y.innerHTML.toLowerCase().replace(/<[^>]*>?/gm, '');
+        
+        if (!isNaN(parseFloat(xVal)) && !isNaN(parseFloat(yVal))) {
+            xVal = parseFloat(xVal);
+            yVal = parseFloat(yVal);
+        }
+
+        if (dir == "asc") {
+            if (xVal > yVal) { shouldSwitch = true; break; }
+        } else if (dir == "desc") {
+            if (xVal < yVal) { shouldSwitch = true; break; }
+        }
+    }
+    if (shouldSwitch) {
+        rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+        switching = true;
+        switchcount ++;
+    } else {
+        if (switchcount == 0 && dir == "asc") {
+            dir = "desc";
+            switching = true;
+        }
+    }
+  }
+}
+</script>
+{% endblock %}
