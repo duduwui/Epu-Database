@@ -257,7 +257,7 @@
     </div>
 
     {% if schedule_data %}
-    <div class="scheduler-grid-area">
+      <div class="scheduler-grid-area table-responsive">
       <table class="scheduler-table" id="scheduleTable">
         <thead>
           <tr>
@@ -392,6 +392,7 @@
       margin-bottom: 2rem;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
       overflow: hidden;
+      width: 100%;
     }
     .scheduler-header {
       display: flex;
@@ -451,6 +452,8 @@
       padding: 16px;
       background: #fff;
       overflow-x: auto;
+      max-width: 100%;
+      -webkit-overflow-scrolling: touch;
     }
     .scheduler-table {
       width: 100%;
@@ -553,6 +556,18 @@
     }
 
     @media (max-width: 768px) {
+      .scheduler-wrapper {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+      }
+      .scheduler-grid-area {
+        padding: 8px;
+      }
+      .filter-chip-group {
+        flex-direction: column;
+        align-items: flex-start;
+      }
       .scheduler-table th .day-full {
         display: none;
       }
