@@ -931,7 +931,7 @@ def get_student_attendance_summary(student_id, semester=None):
         query += " AND s.semester = %s"
         params.append(semester)
     query += """
-        GROUP BY s.id, s.name
+        GROUP BY s.id, s.name, st.class_id
         ORDER BY s.name
     """
     return execute_query(query, tuple(params), fetch_all=True) or []
@@ -3730,142 +3730,135 @@ def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, m
         
     return students, questions_list
 
-def get_feedback_teacher_history_by_year(teacher_id, subject_id):
-    """Get historical records grouped cleanly strictly by Study Year and Class"""
+def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
+    """Get historical records grouped cleanly strictly by Study Year and Class, including individual student responses"""
     import json
+    
     query = """
         SELECT 
-            f.study_year,
-            c.name as class_name, c.semester as class_semester,
-            COUNT(r.id) as response_count,
-            jsonb_agg(r.ratings) as all_ratings
+            f.study_year, f.questions,
+            c.id as class_id, c.name as class_name, c.semester as class_semester,
+            r.ratings, r.comments, r.submitted_at,
+            u.full_name as student_name
         FROM feedback_responses r
         JOIN feedback_forms f ON r.form_id = f.id
         LEFT JOIN classes c ON r.snapshot_class_id = c.id
+        LEFT JOIN students st ON r.student_id = st.id
+        LEFT JOIN users u ON st.user_id = u.id
         WHERE r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s)
           AND r.subject_id = %s
-        GROUP BY f.study_year, c.name, c.semester
-        ORDER BY f.study_year DESC, c.semester DESC
     """
-    rows = execute_query(query, (teacher_id, subject_id), fetch_all=True) or []
+    params = [teacher_id, subject_id]
+    
+    if class_id:
+        query += " AND c.id = %s "
+        params.append(class_id)
+        
+    query += " ORDER BY f.study_year DESC, c.semester DESC, c.name ASC, u.full_name ASC"
+    
+    rows = execute_query(query, tuple(params), fetch_all=True) or []
     
     history = {}
     for r in rows:
         sy = r['study_year'] or 'Unknown Year'
+        cn = r['class_name'] or 'Unknown Class'
+        c_sem = str(r['class_semester']) if r['class_semester'] else '?'
+        c_id = r['class_id']
+        cohort_name = f"{cn} (Sem {c_sem})"
+        
         if sy not in history:
             history[sy] = {
                 'study_year': sy,
                 'total_responses': 0,
-                'classes': [],
+                'classes': {},
                 'total_score': 0,
                 'total_ratings': 0
             }
             
         grp = history[sy]
-        grp['total_responses'] += r['response_count']
         
-        class_score = 0
-        class_rating_cnt = 0
+        if cohort_name not in grp['classes']:
+            grp['classes'][cohort_name] = {
+                'cohort_name': cohort_name,
+                'class_id': c_id,
+                'response_count': 0,
+                'class_score': 0,
+                'class_rating_cnt': 0,
+                'students': []
+            }
+            
+        cls_grp = grp['classes'][cohort_name]
         
-        all_rat = r.pop('all_ratings')
-        if all_rat:
-            for rtgs in all_rat:
-                if type(rtgs) == str:
-                    rtgs = json.loads(rtgs)
-                if rtgs and isinstance(rtgs, dict):
-                    for v in rtgs.values():
-                        if str(v).isdigit():
-                            class_score += int(v)
-                            class_rating_cnt += 1
-                elif rtgs and isinstance(rtgs, list):
-                    for v in rtgs:
-                        if str(v).isdigit():
-                            class_score += int(v)
-                            class_rating_cnt += 1
-                            
-        grp['total_score'] += class_score
-        grp['total_ratings'] += class_rating_cnt
+        # Parse questions
+        q_text_list = []
+        if r['questions']:
+            q_data = r['questions']
+            if type(q_data) == str:
+                q_data = json.loads(q_data)
+            if isinstance(q_data, list):
+                q_text_list = [q.get('text', str(q)) if isinstance(q, dict) else str(q) for q in q_data]
+                
+        # Parse ratings
+        student_score = 0
+        student_count = 0
+        rtgs = r['ratings']
+        answers = []
         
-        class_avg = round(class_score / class_rating_cnt, 2) if class_rating_cnt > 0 else "N/A"
+        if rtgs:
+            if type(rtgs) == str:
+                rtgs = json.loads(rtgs)
+            if isinstance(rtgs, dict):
+                for idx_str, v in rtgs.items():
+                    if str(v).isdigit():
+                        answers.append({'index': int(idx_str), 'value': int(v)})
+                        student_score += int(v)
+                        student_count += 1
+            elif isinstance(rtgs, list):
+                for idx, v in enumerate(rtgs):
+                    if str(v).isdigit():
+                        answers.append({'index': idx, 'value': int(v)})
+                        student_score += int(v)
+                        student_count += 1
+                        
+        avg_rating = round(student_score / student_count, 2) if student_count > 0 else "N/A"
         
-        grp['classes'].append({
-            'cohort_name': f"{r['class_name'] or 'Unknown Class'} (Sem {r['class_semester'] or '?'})",
-            'response_count': r['response_count'],
-            'class_avg': class_avg
+        display_answers = []
+        if q_text_list:
+            for idx, q_text in enumerate(q_text_list):
+                val = next((item['value'] for item in answers if item['index'] == idx), 'N/A')
+                display_answers.append({'question': q_text, 'rating': val})
+        else:
+            for pr in answers:
+                display_answers.append({'question': f"Question {pr['index']+1}", 'rating': pr['value']})
+                
+        cls_grp['students'].append({
+            'student_name': r['student_name'] or 'Unknown Student',
+            'submitted_at': r['submitted_at'],
+            'avg_rating': avg_rating,
+            'comments': r['comments'],
+            'answers': display_answers
         })
+        
+        cls_grp['response_count'] += 1
+        cls_grp['class_score'] += student_score
+        cls_grp['class_rating_cnt'] += student_count
+        
+        grp['total_responses'] += 1
+        grp['total_score'] += student_score
+        grp['total_ratings'] += student_count
         
     for grp in history.values():
         grp['overall_avg'] = round(grp['total_score'] / grp['total_ratings'], 2) if grp['total_ratings'] > 0 else "N/A"
+        # Convert classes dict to list and calc averages
+        cls_list = []
+        for c in grp['classes'].values():
+            c['class_avg'] = round(c['class_score'] / c['class_rating_cnt'], 2) if c['class_rating_cnt'] > 0 else "N/A"
+            cls_list.append(c)
+        grp['classes'] = sorted(cls_list, key=lambda x: x['cohort_name'])
         
-    return list(history.values())
-
-def get_feedback_analytics_flat(major_id=None):
-    """Raw analytics output bridging answers into table columns"""
-    import json
-    query = """
-        SELECT 
-            u_teacher.full_name as teacher_name,
-            s.name as subject_name,
-            u_student.full_name as student_name,
-            f.study_year,
-            r.ratings, r.comments,
-            f.questions
-        FROM feedback_responses r
-        JOIN teachers t ON r.teacher_id = t.id
-        JOIN users u_teacher ON t.user_id = u_teacher.id
-        JOIN subjects s ON r.subject_id = s.id
-        JOIN feedback_forms f ON r.form_id = f.id
-        LEFT JOIN students st ON r.student_id = st.id
-        LEFT JOIN users u_student ON st.user_id = u_student.id
-    """
-    params = []
-    if major_id:
-        query += " WHERE u_teacher.major_id = %s "
-        params.append(major_id)
-        
-    query += " ORDER BY teacher_name, subject_name, student_name"
-    rows = execute_query(query, tuple(params) if params else None, fetch_all=True) or []
-    
-    max_questions = 0
-    results = []
-    
-    for r in rows:
-        rtgs = r['ratings']
-        if type(rtgs) == str:
-             rtgs = json.loads(rtgs)
-             
-        answers = []
-        if isinstance(rtgs, dict):
-            for idx_str, v in rtgs.items():
-                if str(v).isdigit():
-                    answers.append({'i': int(idx_str), 'v': int(v)})
-        elif isinstance(rtgs, list):
-            for idx, v in enumerate(rtgs):
-                if str(v).isdigit():
-                    answers.append({'i': idx, 'v': int(v)})
-                    
-        # find max index to ensure we have headers
-        for a in answers:
-            if a['i'] >= max_questions:
-                max_questions = a['i'] + 1
-        
-        ans_dict = {f"q{a['i'] + 1}": a['v'] for a in answers}
-        
-        row_data = {
-            'teacher': r['teacher_name'],
-            'subject': r['subject_name'],
-            'student': r['student_name'] or 'Anonymous',
-            'study_year': r['study_year'],
-            'notes': r['comments'] or '',
-        }
-        row_data.update(ans_dict)
-        results.append(row_data)
-        
-    return results, max_questions
+    return sorted(list(history.values()), key=lambda x: x['study_year'], reverse=True)
 
 
-
-# =============================================
 
 def get_feedback_study_years(major_id=None):
     """Get list of distinct study years from feedback forms, optionally filtered by major.

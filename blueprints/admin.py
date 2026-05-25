@@ -1927,9 +1927,22 @@ def feedback_teacher_history(teacher_id):
     if not selected_subject_id and subjects:
         selected_subject_id = subjects[0]['subject_id']
         
+    classes = []
+    if selected_subject_id:
+        classes = db.execute_query("""
+            SELECT DISTINCT c.id as class_id, c.name as class_name 
+            FROM feedback_responses r 
+            JOIN classes c ON r.snapshot_class_id = c.id 
+            WHERE r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s) 
+              AND r.subject_id = %s
+            ORDER BY c.name
+        """, (teacher_id, selected_subject_id), fetch_all=True) or []
+        
+    selected_class_id = request.args.get('class_id', type=int)
+    
     history = []
     if selected_subject_id:
-        history = db.get_feedback_teacher_history_by_year(teacher_id, selected_subject_id)
+        history = db.get_feedback_teacher_history_by_year(teacher_id, selected_subject_id, selected_class_id)
         
     return render_template("admin/feedback/teacher_history.html",
                            teacher_name=teacher['full_name'],
@@ -1940,18 +1953,6 @@ def feedback_teacher_history(teacher_id):
                            selected_class_id=selected_class_id,
                            history=history)
 
-@admin_bp.route('/admin/feedback/analytics', methods=['GET'])
-@admin_required
-def feedback_analytics():
-    from flask import session, render_template
-    import db
-    
-    user_id = session.get('user_id')
-    user = db.get_user_by_id(user_id)
-    major_id = user.get('major_id') if user else None
-    
-    analytics_data, max_q = db.get_feedback_analytics_flat(major_id)
-    return render_template("admin/feedback/analytics.html", analytics_data=analytics_data, max_q=max_q)
 
 @admin_bp.route('/admin/users/add-ajax', methods=['POST'])
 @admin_required

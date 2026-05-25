@@ -183,7 +183,7 @@ class_info.section }}{% endblock %} {% block content %}
     <div class="meta-item">Enrolled<strong>${count} Students</strong></div>
   </div>
   
-  <table>
+  <div class="table-responsive">\n<table>
     <thead>
       <tr>
         <th style="width:40px;text-align:center;">#</th>
@@ -196,7 +196,7 @@ class_info.section }}{% endblock %} {% block content %}
     <tbody>
       ${tableRows}
     </tbody>
-  </table>
+  </table>\n</div>
   
   <div class="footer">
     <span>EPU \u2014 MIS Department</span>
