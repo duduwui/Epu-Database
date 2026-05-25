@@ -3754,14 +3754,24 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
         query += " AND c.id = %s "
         params.append(class_id)
         
-    query += " ORDER BY f.study_year DESC, c.semester DESC, c.name ASC, u.full_name ASC"
+    query += " ORDER BY f.study_year DESC, c.semester DESC, c.name ASC, u.full_name ASC, r.submitted_at DESC"
     
     rows = execute_query(query, tuple(params), fetch_all=True) or []
     
     history = {}
+    seen_responses = set()
+    
     for r in rows:
+        # Deduplicate student responses per cohort (study_year, class, student)
+        c_id = r['class_id']
+        st_name = r['student_name']
         sy = r['study_year'] or 'Unknown Year'
         cn = r['class_name'] or 'Unknown Class'
+        
+        uniq_key = (sy, c_id, st_name)
+        if uniq_key in seen_responses:
+            continue
+        seen_responses.add(uniq_key)
         c_sem = str(r['class_semester']) if r['class_semester'] else '?'
         c_id = r['class_id']
         cohort_name = f"{cn} (Sem {c_sem})"
