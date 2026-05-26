@@ -111,7 +111,7 @@ def dashboard():
         0
     )
 
-    total_students = sum(group.get('total_students') or 0 for group in teaching_groups)
+    total_students = db.get_teacher_unique_student_count(teacher['id'])
     return render_template('teacher/dashboard.html',
                            teacher=teacher,
                            teaching_groups=teaching_groups,

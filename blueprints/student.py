@@ -910,9 +910,9 @@ def student_feedback_submit(form_id):
             comments = request.form.get(f'comments_{sub_id}_{tch_id}', '')
             
             db.execute_query('''
-                INSERT INTO feedback_responses (form_id, student_id, teacher_id, subject_id, ratings, comments)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (form_id, student['id'], tch_id, sub_id, json.dumps(ratings), comments))
+                INSERT INTO feedback_responses (form_id, student_id, teacher_id, subject_id, ratings, comments, snapshot_class_id)
+                VALUES (%s, %s, %s, %s, %s, %s, (SELECT class_id FROM students WHERE id = %s))
+            ''', (form_id, student['id'], tch_id, sub_id, json.dumps(ratings), comments, student['id']))
             
     flash("Thank you! Feedback submitted successfully.", "success")
     

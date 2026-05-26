@@ -2091,3 +2091,24 @@ def upgrade_execute(semester):
         flash(f'Error during upgrade: {str(e)}', 'danger')
 
     return redirect(url_for('.dashboard'))
+
+
+@admin_bp.route('/admin/top-students', methods=['GET'])
+@admin_required
+def top_students():
+    semester = request.args.get('semester', type=int)
+    class_id = request.args.get('class_id', type=int)
+    shift = request.args.get('shift', '')
+    
+    classes = db.get_all_classes() or []
+    
+    # Always fetch results to populate the default view
+    results = db.get_top_students_results(semester=semester, class_id=class_id, shift=shift)
+        
+    return render_template('admin/top_students.html', 
+                            results=results,
+                            classes=classes,
+                            selected_semester=semester,
+                            selected_class_id=class_id,
+                            selected_shift=shift)
+

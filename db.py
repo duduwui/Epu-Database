@@ -970,6 +970,19 @@ def get_student_attendance_log(student_id, semester=None, limit=10):
     return execute_query(query, tuple(params), fetch_all=True) or []
 
 
+
+def get_teacher_unique_student_count(teacher_id):
+    """Get the number of unique students taught by a teacher across all subjects & classes."""
+    query = """
+        SELECT COUNT(DISTINCT st.id) AS unique_students
+        FROM teacher_assignments ta
+        JOIN student_enrollments se ON se.subject_id = ta.subject_id
+        JOIN students st ON st.id = se.student_id AND st.class_id = ta.class_id
+        WHERE ta.teacher_id = %s
+    """
+    res = execute_query(query, (teacher_id,), fetch_one=True)
+    return res['unique_students'] if res else 0
+
 def get_teacher_dashboard_groups(teacher_id):
     """Get teacher teaching groups with live student/component counts."""
     query = """
@@ -3517,7 +3530,7 @@ def get_latest_feedback_period(major_id=None):
     if major_id:
         query += " WHERE created_by IN (SELECT id FROM users WHERE major_id = %s)"
         params.append(major_id)
-    query += " ORDER BY study_year DESC, semester DESC LIMIT 1"
+    query += " ORDER BY created_at DESC LIMIT 1"
     
     row = execute_query(query, tuple(params) if params else None, fetch_one=True)
     if row:
@@ -3615,18 +3628,26 @@ def get_feedback_teacher_classes(teacher_id, subject_id, major_id=None):
     curr_sem = period.get('semester')
 
     query = '''
-        SELECT DISTINCT c.id as class_id, c.name as class_name
-        FROM feedback_responses r
-        JOIN classes c ON r.snapshot_class_id = c.id
-        JOIN feedback_forms f ON r.form_id = f.id
-        WHERE r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s)
-          AND r.subject_id = %s
-          AND f.study_year = %s
-          AND cast(f.semester as text) = cast(%s as text)
-        ORDER BY c.name
+        SELECT class_id, class_name FROM (
+            SELECT c.id as class_id, c.name as class_name
+            FROM feedback_responses r
+            JOIN classes c ON r.snapshot_class_id = c.id
+            JOIN feedback_forms f ON r.form_id = f.id
+            WHERE r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s)
+              AND r.subject_id = %s
+              AND f.study_year = %s
+              AND cast(f.semester as text) = cast(%s as text)
+            UNION
+            SELECT c.id as class_id, c.name as class_name
+            FROM student_enrollments se
+            JOIN students st ON se.student_id = st.id
+            JOIN classes c ON st.class_id = c.id
+            WHERE se.subject_id = %s
+        ) as combined
+        ORDER BY class_name
     '''
     
-    return execute_query(query, (teacher_id, subject_id, curr_year, str(curr_sem)), fetch_all=True) or []
+    return execute_query(query, (teacher_id, subject_id, curr_year, str(curr_sem), subject_id), fetch_all=True) or []
 
 def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, major_id=None):
     """Get student details for teacher/subject/class specifically for the currently active period (includes unenrolled)"""
@@ -3641,7 +3662,7 @@ def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, m
     if major_id:
         query_form += " AND created_by IN (SELECT id FROM users WHERE major_id = %s) "
         params_form.append(major_id)
-    query_form += " ORDER BY study_year DESC, created_at DESC LIMIT 1"
+    query_form += " ORDER BY created_at DESC LIMIT 1"
     
     period = execute_query(query_form, tuple(params_form), fetch_one=True)
     if period:
@@ -3653,7 +3674,7 @@ def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, m
         curr_sem = period.get('semester')
     
     query = """
-        SELECT 
+        SELECT DISTINCT ON (u.full_name)
             u.full_name as student_name, 
             r.ratings, r.comments, r.submitted_at,
             (SELECT questions FROM feedback_forms WHERE study_year = %s AND cast(semester as text) = cast(%s as text) LIMIT 1) as questions
@@ -3664,15 +3685,15 @@ def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, m
              AND r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s)
              AND r.subject_id = %s
              AND r.form_id IN (SELECT id FROM feedback_forms WHERE study_year = %s AND cast(semester as text) = cast(%s as text))
-        WHERE se.subject_id = %s
+        WHERE se.subject_id = %s AND cast(st.semester as text) = cast(%s as text)
     """
-    params = [curr_year, str(curr_sem) if curr_sem else None, teacher_id, subject_id, curr_year, str(curr_sem) if curr_sem else None, subject_id]
+    params = [curr_year, str(curr_sem) if curr_sem else None, teacher_id, subject_id, curr_year, str(curr_sem) if curr_sem else None, subject_id, subj_sem]
     
     if class_id:
         query += " AND st.class_id = %s "
         params.append(class_id)
         
-    query += " ORDER BY u.full_name ASC "
+    query += " ORDER BY u.full_name ASC, r.submitted_at DESC NULLS LAST "
     
     rows = execute_query(query, tuple(params), fetch_all=True) or []
     
@@ -3699,7 +3720,12 @@ def get_feedback_teacher_detail_current(teacher_id, subject_id, class_id=None, m
             if isinstance(rtgs, dict):
                 for idx_str, v in rtgs.items():
                     if str(v).isdigit():
-                        answers.append({'index': int(idx_str), 'value': int(v)})
+                        idx_val = -1
+                        st_idx = str(idx_str)
+                        if st_idx.isdigit(): idx_val = int(st_idx)
+                        elif st_idx.startswith('q') and st_idx[1:].isdigit(): idx_val = int(st_idx[1:]) - 1
+                        else: idx_val = 0
+                        answers.append({'index': idx_val, 'value': int(v)})
                         student_score += int(v)
                         student_count += 1
             elif isinstance(rtgs, list):
@@ -3736,7 +3762,7 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
     
     query = """
         SELECT 
-            f.study_year, f.questions,
+            f.study_year, f.questions, f.semester as form_semester,
             c.id as class_id, c.name as class_name, c.semester as class_semester,
             r.ratings, r.comments, r.submitted_at,
             u.full_name as student_name
@@ -3754,7 +3780,7 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
         query += " AND c.id = %s "
         params.append(class_id)
         
-    query += " ORDER BY f.study_year DESC, c.semester DESC, c.name ASC, u.full_name ASC, r.submitted_at DESC"
+    query += " ORDER BY f.study_year DESC, f.semester DESC NULLS LAST, c.semester DESC, c.name ASC, u.full_name ASC, r.submitted_at DESC NULLS LAST"
     
     rows = execute_query(query, tuple(params), fetch_all=True) or []
     
@@ -3762,33 +3788,40 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
     seen_responses = set()
     
     for r in rows:
-        # Deduplicate student responses per cohort (study_year, class, student)
+        # Deduplicate student responses per cohort (study_year, form_semester, class, student)
         c_id = r['class_id']
         st_name = r['student_name']
         sy = r['study_year'] or 'Unknown Year'
+        fs = str(r['form_semester']) if r.get('form_semester') is not None else '?'
         cn = r['class_name'] or 'Unknown Class'
         
-        uniq_key = (sy, c_id, st_name)
+        uniq_key = (sy, fs, c_id, st_name)
         if uniq_key in seen_responses:
             continue
         seen_responses.add(uniq_key)
-        c_sem = str(r['class_semester']) if r['class_semester'] else '?'
-        c_id = r['class_id']
-        cohort_name = f"{cn} (Sem {c_sem})"
+        cohort_name = f"{cn}"
         
         if sy not in history:
             history[sy] = {
                 'study_year': sy,
                 'total_responses': 0,
-                'classes': {},
+                'semesters': {},
                 'total_score': 0,
                 'total_ratings': 0
             }
             
-        grp = history[sy]
+        grp_yr = history[sy]
         
-        if cohort_name not in grp['classes']:
-            grp['classes'][cohort_name] = {
+        if fs not in grp_yr['semesters']:
+            grp_yr['semesters'][fs] = {
+                'semester': fs,
+                'classes': {}
+            }
+            
+        grp_sem = grp_yr['semesters'][fs]
+        
+        if cohort_name not in grp_sem['classes']:
+            grp_sem['classes'][cohort_name] = {
                 'cohort_name': cohort_name,
                 'class_id': c_id,
                 'response_count': 0,
@@ -3797,7 +3830,7 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
                 'students': []
             }
             
-        cls_grp = grp['classes'][cohort_name]
+        cls_grp = grp_sem['classes'][cohort_name]
         
         # Parse questions
         q_text_list = []
@@ -3820,7 +3853,12 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
             if isinstance(rtgs, dict):
                 for idx_str, v in rtgs.items():
                     if str(v).isdigit():
-                        answers.append({'index': int(idx_str), 'value': int(v)})
+                        idx_val = -1
+                        st_idx = str(idx_str)
+                        if st_idx.isdigit(): idx_val = int(st_idx)
+                        elif st_idx.startswith('q') and st_idx[1:].isdigit(): idx_val = int(st_idx[1:]) - 1
+                        else: idx_val = 0
+                        answers.append({'index': idx_val, 'value': int(v)})
                         student_score += int(v)
                         student_count += 1
             elif isinstance(rtgs, list):
@@ -3853,22 +3891,24 @@ def get_feedback_teacher_history_by_year(teacher_id, subject_id, class_id=None):
         cls_grp['class_score'] += student_score
         cls_grp['class_rating_cnt'] += student_count
         
-        grp['total_responses'] += 1
-        grp['total_score'] += student_score
-        grp['total_ratings'] += student_count
+        grp_yr['total_score'] += student_score
+        grp_yr['total_ratings'] += student_count
+        grp_yr['total_responses'] += 1
         
-    for grp in history.values():
-        grp['overall_avg'] = round(grp['total_score'] / grp['total_ratings'], 2) if grp['total_ratings'] > 0 else "N/A"
-        # Convert classes dict to list and calc averages
-        cls_list = []
-        for c in grp['classes'].values():
-            c['class_avg'] = round(c['class_score'] / c['class_rating_cnt'], 2) if c['class_rating_cnt'] > 0 else "N/A"
-            cls_list.append(c)
-        grp['classes'] = sorted(cls_list, key=lambda x: x['cohort_name'])
+    for grp_yr in history.values():
+        grp_yr['overall_avg'] = round(grp_yr['total_score'] / grp_yr['total_ratings'], 2) if grp_yr['total_ratings'] > 0 else "N/A"
+        
+        sem_list = []
+        for sem_info in grp_yr['semesters'].values():
+            cls_list = []
+            for c in sem_info['classes'].values():
+                c['class_avg'] = round(c['class_score'] / c['class_rating_cnt'], 2) if c['class_rating_cnt'] > 0 else "N/A"
+                cls_list.append(c)
+            sem_info['classes'] = sorted(cls_list, key=lambda x: x['cohort_name'])
+            sem_list.append(sem_info)
+        grp_yr['semesters'] = sorted(sem_list, key=lambda x: x['semester'])
         
     return sorted(list(history.values()), key=lambda x: x['study_year'], reverse=True)
-
-
 
 def get_feedback_study_years(major_id=None):
     """Get list of distinct study years from feedback forms, optionally filtered by major.
@@ -4011,7 +4051,11 @@ def get_feedback_teacher_detail(teacher_id, subject_id, study_year):
             if isinstance(rtgs, dict):
                 for idx_str, v in rtgs.items():
                     if str(v).isdigit():
-                        idx = int(idx_str)
+                        idx = -1
+                        st_idx = str(idx_str)
+                        if st_idx.isdigit(): idx = int(st_idx)
+                        elif st_idx.startswith('q') and st_idx[1:].isdigit(): idx = int(st_idx[1:]) - 1
+                        else: idx = 0
                         val = int(v)
                         student_score_sum += val
                         student_rating_count += 1
@@ -4145,3 +4189,80 @@ def get_feedback_teacher_history(teacher_id, subject_id):
         grp['overall_avg'] = round(grp['total_score'] / grp['total_ratings'], 2) if grp['total_ratings'] > 0 else "N/A"
         
     return list(history.values())
+
+def get_top_students_results(semester=None, class_id=None, shift=None):
+    """Calculate total published results for all students based on filters."""
+    query = """
+        SELECT s.id as student_id, u.full_name as student_name, c.name as class_name, 
+               s.shift, c.semester as class_semester, s.class_id
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN classes c ON s.class_id = c.id
+        WHERE 1=1
+    """
+    params = []
+    if class_id:
+        query += " AND s.class_id = %s"
+        params.append(class_id)
+    if shift:
+        query += " AND s.shift = %s"
+        params.append(shift)
+        
+    students = execute_query(query, tuple(params), fetch_all=True) or []
+    
+    results = []
+    for st in students:
+        # Get enrolled subjects for the student
+        sub_query = """
+            SELECT sub.id, sub.name, sub.credits, sub.semester
+            FROM student_enrollments se
+            JOIN subjects sub ON se.subject_id = sub.id
+            WHERE se.student_id = %s AND sub.results_published = TRUE
+        """
+        published_subjects = execute_query(sub_query, (st['student_id'],), fetch_all=True) or []
+        
+        if not published_subjects:
+            continue
+            
+        sem_weighted = 0
+        sem_credits_possible = 0
+        cum_weighted = 0
+        cum_credits_possible = 0
+        
+        for subj in published_subjects:
+            grades_data = get_student_result_grades_for_subject(st['student_id'], subj['id']) or []
+            if not grade_rows_have_scores(grades_data):
+                continue
+                
+            total_score, total_max = _calc_grade_totals(grades_data)
+            percentage = (total_score / total_max * 100) if total_max > 0 else 0
+            
+            credits = subj.get('credits') or 0
+            weighted_score = percentage * credits / 100
+            
+            # Cumulative score
+            cum_weighted += weighted_score
+            cum_credits_possible += credits
+            
+            # Semester specific
+            if not semester or str(subj['semester']) == str(semester):
+                sem_weighted += weighted_score
+                sem_credits_possible += credits
+                
+        # We include the student if they have any published subjects (in the target semester, if specified)
+        if (semester and sem_credits_possible > 0) or (not semester and cum_credits_possible > 0):
+            results.append({
+                'student_id': st['student_id'],
+                'student_name': st['student_name'],
+                'shift': st['shift'],
+                'class_name': st['class_name'],
+                'semester': semester if semester else st['class_semester'],
+                'total_weighted_score': round(sem_weighted, 3),
+                'total_credits': sem_credits_possible,
+                'cumulative_weighted_score': round(cum_weighted, 3),
+                'cumulative_credits': cum_credits_possible
+            })
+            
+    # Sort students by highest total weighted score
+    results.sort(key=lambda x: x['total_weighted_score'], reverse=True)
+    return results

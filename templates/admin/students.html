@@ -32,6 +32,9 @@
                 <p>Manage all students in the MIS program</p>
             </div>
             <div class="col-12 col-md-auto d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                <a href="{{ url_for('admin.top_students') }}" class="btn btn-outline-success">
+                    <i class="bi bi-trophy me-1"></i>Top Students Results
+                </a>
                 <a href="{{ url_for('admin.assign_sections') }}" class="btn btn-outline-primary">
                     <i class="bi bi-diagram-3 me-1"></i>Assign Classes
                 </a>
@@ -55,32 +58,16 @@
     <div class="card mb-3">
         <div class="card-body py-2">
             <form method="GET" id="filterForm" class="row g-2 align-items-end">
-                <div class="col-6 col-md-2">
-                    <label class="form-label mb-1" style="font-size:0.8rem;">Year</label>
-                    <select name="year" id="filterYear" class="form-select form-select-sm" onchange="updateSemesterFilter(); applyFilters()">
-                        <option value="">All Years</option>
-                        <option value="1" {{ 'selected' if request.args.get('year') == '1' }}>Year 1</option>
-                        <option value="2" {{ 'selected' if request.args.get('year') == '2' }}>Year 2</option>
-                    </select>
-                </div>
+                <!-- Year filter removed -->
                 <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Semester</label>
                     <select name="semester" id="filterSemester" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Semesters</option>
-                        {% set sel_year = request.args.get('year', '') %}
                         {% set sel_sem = request.args.get('semester', '') %}
-                        {% if sel_year == '1' %}
-                        <option value="1" {{ 'selected' if sel_sem == '1' }}>Sem 1</option>
-                        <option value="2" {{ 'selected' if sel_sem == '2' }}>Sem 2</option>
-                        {% elif sel_year == '2' %}
-                        <option value="3" {{ 'selected' if sel_sem == '3' }}>Sem 3</option>
-                        <option value="4" {{ 'selected' if sel_sem == '4' }}>Sem 4</option>
-                        {% else %}
                         <option value="1" {{ 'selected' if sel_sem == '1' }}>Sem 1</option>
                         <option value="2" {{ 'selected' if sel_sem == '2' }}>Sem 2</option>
                         <option value="3" {{ 'selected' if sel_sem == '3' }}>Sem 3</option>
                         <option value="4" {{ 'selected' if sel_sem == '4' }}>Sem 4</option>
-                        {% endif %}
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
