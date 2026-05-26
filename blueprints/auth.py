@@ -99,8 +99,7 @@ def login():
 
         user = db.get_user_by_email(email)
 
-        if user and (check_password_hash(user['password_hash'], password) or
-                     (user.get('plain_password') and user['plain_password'] == password)):
+        if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['full_name'] = user['full_name']
