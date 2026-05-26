@@ -1854,6 +1854,25 @@ def feedback_save():
         return {"success": False, "msg": str(e)}
 
 
+@admin_bp.route('/admin/feedback/end', methods=['POST'])
+@admin_required
+def end_active_feedback():
+    from flask import request, flash, redirect, url_for
+    import db
+    feedback_id = request.form.get('feedback_id')
+    if feedback_id:
+        try:
+            db.execute_query('''
+                UPDATE feedback_forms 
+                SET end_date = CURRENT_DATE - INTERVAL '1 day'
+                WHERE id = %s
+            ''', (feedback_id,))
+            flash('Active feedback form has been ended successfully.', 'success')
+        except Exception as e:
+            flash(f'Error ending feedback form: {str(e)}', 'danger')
+    return redirect(url_for('admin.users'))
+
+
 @admin_bp.route('/admin/feedback/results', methods=['GET'])
 @admin_required
 def feedback_results():

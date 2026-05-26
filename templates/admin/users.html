@@ -30,6 +30,12 @@
           <i class="bi bi-stopwatch text-danger me-1"></i>
           Active Form: <strong class="ms-1" id="feedbackTimer">--:--:--</strong>
         </span>
+        <form action="{{ url_for('admin.end_active_feedback') }}" method="POST" class="d-inline-flex ms-1 align-items-center mb-0">
+            <input type="hidden" name="feedback_id" value="{{ active_feedback.id }}">
+            <button type="submit" class="btn btn-outline-danger shadow-sm d-flex align-items-center justify-content-center" style="height: 31px; font-size: 0.85rem;" title="End Feedback Now" onclick="return confirm('Are you sure you want to end this Active Feedback immediately?');">
+                <i class="bi bi-x-circle-fill me-1"></i> End
+            </button>
+        </form>
         <script>
           document.addEventListener("DOMContentLoaded", function() {
               const endTime = new Date("{{ active_feedback.end_time }}").getTime();
