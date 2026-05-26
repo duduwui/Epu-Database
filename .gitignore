@@ -14,3 +14,4 @@ database/emergency_mis_system_*.dump
 database/mis_system_pre_*.dump
 database/mis_system_recovery_*.dump
 database/mis_system_restored_live_*.dump
+dev_scripts/archive/mis-home-page-temp
