@@ -273,30 +273,30 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="adminTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="adminTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {% for user in admins %}
                 <tr id="user-row-{{ user.id }}">
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-danger me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-danger me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"
@@ -366,13 +366,13 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="teacherTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="teacherTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,18 +385,18 @@
                   data-sections="{{ teacher_sections | join(',') | upper }}"
                   data-subjects="{{ teacher_subjects | join(',') | lower }}"
                 >
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-primary me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-primary me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"
@@ -465,13 +465,13 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="studentTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="studentTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -484,18 +484,18 @@
                   data-shift="{{ student_info.get('shift', '') | lower }}"
                   data-section="{{ student_info.get('section', '') }}"
                 >
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-success me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-success me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"

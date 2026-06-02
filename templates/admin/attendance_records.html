@@ -109,8 +109,10 @@
       </div>
       <div class="card-body collapse" id="details-{{ loop.index }}">
         <h6 class="mb-3">Student Attendance Details</h6>
+        
+        <!-- Table View -->
         <div class="table-responsive">
-          <table class="table table-sm table-striped">
+          <table class="table table-sm table-striped responsive-card-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -122,9 +124,9 @@
             <tbody>
               {% for student in submission.students %}
               <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ student.student_name }}</td>
-                <td>
+                <td data-label="#">{{ loop.index }}</td>
+                <td data-label="Student Name">{{ student.student_name }}</td>
+                <td data-label="Status">
                   {% if student.status == 'present' %}
                   <span class="status-badge status-present">Present</span>
                   {% elif student.status == 'absent' %}
@@ -135,12 +137,13 @@
                   <span class="status-badge status-excused">Excused</span>
                   {% endif %}
                 </td>
-                <td>{{ student.notes or '-' }}</td>
+                <td data-label="Notes">{{ student.notes or '-' }}</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
+
       </div>
     </div>
     {% endfor %} {% else %}

@@ -1,4 +1,6 @@
 ﻿from .core import *
+from .core import _cache_get, _cache_set, _cache_delete, CACHE_TTL_LONG
+from .upgrade import ensure_moodle_assignment_support
 
 def get_all_classes(major_id=None):
     if major_id: return execute_query("SELECT * FROM classes WHERE major_id=%s ORDER BY year, semester, section, shift", (major_id,), fetch_all=True)

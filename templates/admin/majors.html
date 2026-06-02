@@ -62,13 +62,13 @@
   <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0" id="majorsTable">
+        <table class="table table-sm table-hover mb-0 responsive-card-table" id="majorsTable">
           <thead style="background:linear-gradient(135deg,#1C0770 0%,#150558 100%);color:#fff">
             <tr>
               <th style="width:30%">College</th>
               <th style="width:35%">Major Name</th>
               <th class="text-center" style="width:15%">Status</th>
-              <th class="text-center" style="width:20%">Action</th>
+              <th class="text-center no-print" style="width:20%">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -76,18 +76,18 @@
             <!-- College group header -->
             <tr class="college-header" data-college="{{ college_name }}">
               <td colspan="4" class="py-2 px-3 fw-bold small"
-                  style="background:#eee8ff;color:#1C0770;border-top:2px solid #1C0770;">
+                  style="background:#eee8ff;color:#1C0770;border-top:2px solid #1C0770;" data-label="College Header">
                 <i class="bi bi-building me-1"></i>{{ college_name }}
                 <span class="badge ms-2" style="background:#1C0770;font-weight:500">{{ majors_list | length }}</span>
               </td>
             </tr>
             {% for m in majors_list %}
             <tr data-college="{{ college_name }}" data-status="{{ 'has-admin' if m.admin_count and m.admin_count > 0 else 'no-admin' }}">
-              <td class="text-muted small align-middle">{{ college_name }}</td>
-              <td class="fw-medium align-middle">{{ m.name }}</td>
-              <td class="text-center align-middle">
+              <td class="text-muted small align-middle" data-label="College">{{ college_name }}</td>
+              <td class="fw-medium align-middle" data-label="Major Name">{{ m.name }}</td>
+              <td class="text-center align-middle" data-label="Status">
                 {% if m.admin_count and m.admin_count > 0 %}
-                  <span class="badge bg-success">
+                  <span class="badge" style="background-color: #1C0770; color: white;">
                     <i class="bi bi-check-circle me-1"></i>{{ m.admin_count }} admin{{ 's' if m.admin_count > 1 else '' }}
                   </span>
                 {% else %}
@@ -96,7 +96,7 @@
                   </span>
                 {% endif %}
               </td>
-              <td class="text-center align-middle">
+              <td class="text-center align-middle no-print" data-label="Action">
                 <a href="{{ url_for('admin.add_major_admin', major_id=m.id) }}"
                    class="btn btn-sm btn-outline-primary"
                    data-bs-toggle="tooltip" data-bs-placement="top" title="Add admin for this major">

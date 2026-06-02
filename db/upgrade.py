@@ -1,5 +1,8 @@
 ﻿from .core import *
 
+_file_metadata_schema_ready = False
+_moodle_assignment_schema_ready = False
+
 def ensure_file_metadata_support():
     """Ensure upload metadata columns are wide enough for real MIME types."""
     global _file_metadata_schema_ready

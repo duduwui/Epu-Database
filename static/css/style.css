@@ -504,7 +504,6 @@ body {
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 0.5px;
-  white-space: nowrap;
 }
 
 .table tbody td {
@@ -535,7 +534,8 @@ body {
 .table-responsive {
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .table-responsive .table {
@@ -551,7 +551,7 @@ body {
 }
 
 .table-responsive::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
+  background: var(--primary-color);
   border-radius: 4px;
 }
 
@@ -2354,6 +2354,13 @@ optgroup {
     padding: 40px 16px;
   }
 
+  /* Make grade inputs touch-friendly on mobile */
+  .grade-input {
+    min-height: 48px;
+    font-size: 1.1rem;
+    padding: 8px 12px;
+  }
+
   .empty-state i {
     font-size: 3rem;
   }
@@ -2422,5 +2429,94 @@ optgroup {
   .progress[style*='width: 200px'],
   .progress[style*='width:200px'] {
     width: 100% !important;
+  }
+}
+
+/* Responsive Card Table - applied to any table with this class */
+@media (max-width: 767.98px) {
+  .responsive-card-table thead {
+    display: none;
+  }
+  .responsive-card-table tbody,
+  .responsive-card-table td {
+    display: block;
+    width: 100%;
+  }
+  .responsive-card-table tr {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 0;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+  .responsive-card-table td {
+    text-align: right;
+    padding-left: 45% !important;
+    position: relative;
+    border: none;
+    border-bottom: 1px solid #f8f9fa;
+    min-height: 2.7em;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  .responsive-card-table td:last-child {
+    border-bottom: 0;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    text-align: center;
+    justify-content: center;
+    padding-left: 0 !important;
+    display: block;
+  }
+  .responsive-card-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0.5rem;
+    width: 40%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 700;
+    color: #1c0770; /* Primary Blue from EPU */
+    font-size: 0.85em;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .responsive-card-table td.no-print::before {
+    display: none;
+  }
+  /* Make the primary identifier row larger (usually name) and pull to top */
+  .responsive-card-table td[data-label='Full Name'],
+  .responsive-card-table td[data-label='Name'],
+  .responsive-card-table td[data-label='User'],
+  .responsive-card-table td[data-label='Teacher'] {
+    order: -1;
+    font-size: 1.15em;
+    font-weight: bold;
+    background-color: #f8f9fa;
+    color: #1c0770;
+    border-bottom: 2px solid #e9ecef;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+  .responsive-card-table td[data-label='#'] {
+    order: -2;
+    background-color: #1c0770;
+    color: white;
+    text-align: left;
+    justify-content: flex-start;
+    padding-left: 1rem !important;
+    font-weight: bold;
+  }
+  .responsive-card-table td[data-label='#']::before {
+    display: none;
   }
 }

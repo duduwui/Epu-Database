@@ -1,4 +1,8 @@
 ﻿from .core import *
+from .upgrade import ensure_moodle_assignment_support
+from .students import ensure_student_engagement_support
+
+_teacher_assignment_schema_ready = False
 
 def ensure_teacher_assignment_support():
     """Ensure teacher assignment table matches the current app contract."""

@@ -9,3 +9,4 @@ from .classes import *
 from .attendance import *
 from .moodle import *
 from .feedback import *
+from .profile import *

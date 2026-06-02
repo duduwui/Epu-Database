@@ -21,7 +21,7 @@ _conninfo = psycopg.conninfo.make_conninfo(
     user=config.DB_USER,
     password=config.DB_PASSWORD,
 )
-_pool = ConnectionPool(conninfo=_conninfo, min_size=2, max_size=20, max_idle=300, open=True)
+_pool = ConnectionPool(conninfo=_conninfo, min_size=2, max_size=20, max_idle=300, open=False)
 _redis = None
 try:
     _redis = _redis_lib.Redis(host='localhost', port=6379, db=0, decode_responses=True,
@@ -59,6 +59,8 @@ def _cache_delete(*keys):
 
 def get_db_connection():
     try:
+        if _pool.closed:
+            _pool.open(wait=False)
         conn = _pool.getconn()
         conn.autocommit = False
         return conn
@@ -120,6 +122,9 @@ def execute_insert_returning(query, params=None):
         except Exception: pass
         return_connection(conn)
         return None
+
+def _safe_grade_number(value):
+    return float(value or 0)
 
 def _summarize_component_rows(rows, force_sum=False):
     items = list(rows or [])

@@ -128,7 +128,7 @@
                 </nav>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover" id="studentsTable">
+                <table class="table table-hover responsive-card-table" id="studentsTable">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -148,24 +148,24 @@
                             data-student-name="{{ student.full_name|lower }}" 
                             data-student-id="{{ (student.student_number or '')|lower }}"
                             id="student-row-{{ student.id }}">
-                            <td class="row-number">{{ loop.index }}</td>
-                            <td><strong>{{ student.student_number or '-' }}</strong></td>
-                            <td>{{ student.full_name }}</td>
-                            <td>
+                            <td class="row-number" data-label="#">{{ loop.index }}</td>
+                            <td data-label="Student No."><strong>{{ student.student_number or '-' }}</strong></td>
+                            <td data-label="Full Name">{{ student.full_name }}</td>
+                            <td data-label="Year">
                                 {% if student.year %}
                                 <span class="badge bg-primary">Year {{ student.year }}</span>
                                 {% else %}
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Semester">
                                 {% if student.semester %}
                                 <span class="badge bg-info text-dark">Sem {{ student.semester }}</span>
                                 {% else %}
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Shift">
                                 {% if student.shift == 'morning' %}
                                 <span class="badge bg-warning text-dark"><i class="bi bi-sun"></i> Morning</span>
                                 {% elif student.shift == 'night' %}
@@ -174,15 +174,15 @@
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Class">
                                 {% if student.section %}
                                 <span class="badge bg-success">Class {{ student.section }}</span>
                                 {% else %}
                                 <span class="badge bg-danger">Not Assigned</span>
                                 {% endif %}
                             </td>
-                            <td>{{ student.email or '-' }}</td>
-                            <td class="no-print">
+                            <td data-label="Email">{{ student.email or '-' }}</td>
+                            <td class="no-print" data-label="Actions">
                                 <button type="button" class="btn btn-sm btn-outline-primary edit-student-btn" 
                                         title="Edit"
                                         data-id="{{ student.id }}"

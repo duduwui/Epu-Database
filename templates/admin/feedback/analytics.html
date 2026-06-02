@@ -14,30 +14,30 @@
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
         <div class="table-responsive" style="max-height: 70vh;">
-            <table class="table table-hover table-bordered align-middle mb-0 text-nowrap" id="analyticsTable">
-                <thead class="table-light text-navy position-sticky top-0 shadow-sm" style="z-index: 10;">
-                    <tr>
-                        <th role="button" onclick="sortTable(0)">Teacher <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
-                        <th role="button" onclick="sortTable(1)">Subject <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
-                        <th role="button" onclick="sortTable(2)">Student <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
-                        <th role="button" onclick="sortTable(3)">Study Year <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
-                        {% for i in range(max_q) %}
-                        <th class="text-center" role="button" onclick="sortTable({{ 4 + i }})">Q{{ i + 1 }} <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
-                        {% endfor %}
-                        <th>Student Note</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in analytics_data %}
-                    <tr>
-                        <td class="fw-medium">{{ row.teacher }}</td>
-                        <td class="text-muted">{{ row.subject }}</td>
-                        <td>{{ row.student }}</td>
-                        <td>{{ row.study_year }}</td>
-                        {% for i in range(max_q) %}
-                        <td class="text-center fw-bold text-navy">{{ row['q' ~ (i+1)] if row['q' ~ (i+1)] is defined else '-' }}</td>
-                        {% endfor %}
-                        <td class="text-wrap" style="min-width: 250px; max-width: 400px;">
+              <table class="table table-hover table-bordered align-middle mb-0 text-nowrap responsive-card-table" id="analyticsTable">
+                  <thead class="table-light text-navy position-sticky top-0 shadow-sm" style="z-index: 10;">
+                      <tr>
+                          <th role="button" onclick="sortTable(0)">Teacher <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                          <th role="button" onclick="sortTable(1)">Subject <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                          <th role="button" onclick="sortTable(2)">Student <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                          <th role="button" onclick="sortTable(3)">Study Year <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                          {% for i in range(max_q) %}
+                          <th class="text-center" role="button" onclick="sortTable({{ 4 + i }})">Q{{ i + 1 }} <i class="bi bi-arrow-down-up small opacity-50 ms-1"></i></th>
+                          {% endfor %}
+                          <th>Student Note</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {% for row in analytics_data %}
+                      <tr>
+                          <td class="fw-medium" data-label="Teacher">{{ row.teacher }}</td>
+                          <td class="text-muted" data-label="Subject">{{ row.subject }}</td>
+                          <td data-label="Student">{{ row.student }}</td>
+                          <td data-label="Study Year">{{ row.study_year }}</td>
+                          {% for i in range(max_q) %}
+                          <td class="text-center fw-bold text-navy" data-label="Q{{ i + 1 }}">{{ row['q' ~ (i+1)] if row['q' ~ (i+1)] is defined else '-' }}</td>
+                          {% endfor %}
+                          <td class="text-wrap" style="min-width: 250px; max-width: 400px;" data-label="Student Note">
                             {% if row.notes %}
                                 <span class="fst-italic text-muted">"{{ row.notes }}"</span>
                             {% else %}

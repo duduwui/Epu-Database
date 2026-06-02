@@ -1,0 +1,79 @@
+{% macro profile_sidebar(active='dashboard') %}
+<aside class="profile-module-sidebar">
+  <div class="profile-side-brand">
+    <img src="{{ url_for('static', filename='images/epu-logo.png') }}?v=5" alt="EPU" onerror="this.style.display='none'">
+    <div>
+      <div class="fw-bold">EPU MIS</div>
+      <small>Academic Staff</small>
+    </div>
+  </div>
+
+  <a class="profile-side-link {{ 'active' if active == 'dashboard' else '' }}" href="{{ url_for('profile.dashboard') }}">
+    <i class="bi bi-grid-1x2"></i><span>Dashboard</span>
+  </a>
+
+  <button class="profile-side-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#profileQualification" aria-expanded="{{ 'true' if active == 'qualification' else 'false' }}">
+    <span><i class="bi bi-award"></i>Qualification</span><i class="bi bi-chevron-right"></i>
+  </button>
+  <div class="collapse {{ 'show' if active == 'qualification' else '' }}" id="profileQualification">
+    <a class="profile-side-sublink" href="{{ url_for('profile.scientific_titles') }}">Scientific Titles</a>
+  </div>
+
+  <button class="profile-side-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#profileCad" aria-expanded="{{ 'true' if active == 'cad' else 'false' }}">
+    <span><i class="bi bi-briefcase"></i>CAD</span><i class="bi bi-chevron-right"></i>
+  </button>
+  <div class="collapse {{ 'show' if active == 'cad' else '' }}" id="profileCad">
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='seminar') }}">Seminars</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='workshop') }}">Workshop</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='conference') }}">Conferences</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='training') }}">Trainings</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='committee') }}">Committees</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='research-evaluation') }}">Research Evaluations</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='activity') }}">Activities</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.cad_section', section='evaluation-committee') }}">Evaluation Committee</a>
+  </div>
+
+  <button class="profile-side-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#profilePortfolio" aria-expanded="{{ 'true' if active == 'portfolio' else 'false' }}">
+    <span><i class="bi bi-folder2-open"></i>Portfolio</span><i class="bi bi-chevron-right"></i>
+  </button>
+  <div class="collapse {{ 'show' if active == 'portfolio' else '' }}" id="profilePortfolio">
+    <a class="profile-side-sublink" href="{{ url_for('profile.portfolio_section', section='teaching') }}">Courses</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.portfolio_section', section='supervision') }}">Supervision</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.portfolio_section', section='acknowledgement') }}">Acknowledgments</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.portfolio_section', section='membership') }}">Memberships</a>
+  </div>
+
+  <button class="profile-side-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#profileResearches" aria-expanded="{{ 'true' if active == 'researches' else 'false' }}">
+    <span><i class="bi bi-journal-richtext"></i>Researches</span><i class="bi bi-chevron-right"></i>
+  </button>
+  <div class="collapse {{ 'show' if active == 'researches' else '' }}" id="profileResearches">
+    <a class="profile-side-sublink" href="#">Researches</a>
+    <a class="profile-side-sublink" href="#">Books</a>
+    <a class="profile-side-sublink" href="#">Grants</a>
+  </div>
+
+  <a class="profile-side-link" href="#"><i class="bi bi-clipboard2-check"></i><span>QAP Results</span></a>
+  <a class="profile-side-link" href="#"><i class="bi bi-chat-square-text"></i><span>Appeals</span></a>
+</aside>
+{% endmacro %}
+
+{% macro profile_module_css() %}
+<style>
+  .profile-module-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1.5rem; }
+  .profile-module-sidebar { position: sticky; top: 88px; align-self: start; background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); padding: 1rem; }
+  .profile-side-brand { display: flex; align-items: center; gap: .75rem; padding: .5rem .5rem 1rem; border-bottom: 1px solid #e5e7eb; margin-bottom: .75rem; }
+  .profile-side-brand img { width: 42px; height: 42px; object-fit: contain; }
+  .profile-side-brand small { color: #64748b; }
+  .profile-side-link, .profile-side-toggle, .profile-side-sublink { width: 100%; display: flex; align-items: center; gap: .65rem; border: 0; background: transparent; color: #334155; text-decoration: none; padding: .72rem .8rem; border-radius: 8px; font-weight: 700; }
+  .profile-side-toggle { justify-content: space-between; }
+  .profile-side-toggle span { display: flex; align-items: center; gap: .65rem; }
+  .profile-side-link:hover, .profile-side-toggle:hover, .profile-side-sublink:hover, .profile-side-link.active { background: #eef6ff; color: #0f4c81; }
+  .profile-side-sublink { margin-left: 1.7rem; width: calc(100% - 1.7rem); font-size: .9rem; font-weight: 600; color: #64748b; }
+  .profile-topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); padding: 1rem; margin-bottom: 1rem; }
+  .profile-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #e2e8f0; display: grid; place-items: center; color: #64748b; }
+  @media (max-width: 991.98px) {
+    .profile-module-layout { grid-template-columns: 1fr; }
+    .profile-module-sidebar { position: static; }
+  }
+</style>
+{% endmacro %}

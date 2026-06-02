@@ -38,10 +38,12 @@
   {% endif %}
 {%- endmacro %}
 
-<html lang="{{ current_lang }}" dir="ltr">
+<html lang="{{ current_lang }}" dir="{{ 'rtl' if is_rtl else 'ltr' }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1c0770">
     <title>{% block title %}MIS System{% endblock %}</title>
     <!-- Preconnect to CDN domains so browser opens sockets before CSS is parsed -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -96,6 +98,14 @@
                 <span>{{ current_user.full_name }}</span>
               </a>
               <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                {% if current_user.role == 'teacher' %}
+                <li>
+                  <a class="dropdown-item fw-semibold" href="{{ url_for('profile.dashboard') }}">
+                    <i class="bi bi-person-lines-fill me-2"></i>{{ t('Profile') }}
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                {% endif %}
                 <li><h6 class="dropdown-header">{{ t('Language') }}</h6></li>
                 {{ render_language_links('dropdown-item d-flex justify-content-between align-items-center', 'li') }}
                 <li><hr class="dropdown-divider"></li>
@@ -135,6 +145,13 @@
           <div class="mobile-sidebar-section-title">{{ t('Navigation') }}</div>
           <ul class="navbar-nav mobile-sidebar-nav">
             {{ render_primary_nav('mobile-sidebar-link', 'mobile-sidebar-item') }}
+            {% if current_user.role == 'teacher' %}
+            <li class="mobile-sidebar-item">
+              <a class="mobile-sidebar-link" href="{{ url_for('profile.dashboard') }}">
+                <i class="bi bi-person-lines-fill"></i><span>{{ t('Profile') }}</span>
+              </a>
+            </li>
+            {% endif %}
           </ul>
         </div>
         <div class="mobile-sidebar-section">
@@ -301,8 +318,8 @@
       // Auto-show loading on form submissions
       document.addEventListener('DOMContentLoaded', function () {
         document.documentElement.lang = window.MIS_I18N.lang || 'en';
-        document.documentElement.dir = 'ltr';
-        document.body.style.direction = 'ltr';
+        document.documentElement.dir = window.MIS_I18N.rtl ? 'rtl' : 'ltr';
+        document.body.style.direction = window.MIS_I18N.rtl ? 'rtl' : 'ltr';
         applyMisTranslations(document.body);
 
         // Handle all forms with data-loading attribute or by default
@@ -1097,6 +1114,18 @@
         });
       });
     })();
+    </script>
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/static/sw.js').then(registration => {
+            console.log('SW registered: ', registration.scope);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
     </script>
   </body>
 </html>

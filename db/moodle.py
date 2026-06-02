@@ -1,4 +1,6 @@
 ﻿from .core import *
+from .upgrade import ensure_file_metadata_support, ensure_moodle_assignment_support
+from .students import ensure_student_engagement_support
 
 def create_weekly_topic(class_id, subject_id, teacher_id, week_number, topic, description=None, date_covered=None):
     """Create a weekly topic"""

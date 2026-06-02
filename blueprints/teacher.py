@@ -105,6 +105,8 @@ def dashboard():
     pending_submission_count = db.get_teacher_pending_moodle_submission_count(teacher['id'])
     attendance_summary = db.get_teacher_attendance_dashboard_summary(teacher['id'])
     recent_activity = db.get_teacher_recent_activity(teacher['id'], days=7, limit=8) or []
+    profile_stats = db.get_teacher_profile_stat_counts(session['user_id'])
+    announcements = db.get_active_announcements(limit=8)
 
     attendance_pending_groups = max(
         (attendance_summary.get('total_groups') or 0) - (attendance_summary.get('recorded_groups') or 0),
@@ -120,6 +122,8 @@ def dashboard():
                            pending_submission_count=pending_submission_count,
                            recent_activity=recent_activity,
                            recent_activity_count=len(recent_activity),
+                           profile_stats=profile_stats,
+                           announcements=announcements,
                            total_students=total_students,
                            attendance_summary=attendance_summary,
                            attendance_pending_groups=attendance_pending_groups)

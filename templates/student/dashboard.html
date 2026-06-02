@@ -81,7 +81,7 @@
         <div class="card-body p-0">
           {% if attendance_summary %}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 responsive-card-table">
               <thead class="table-light">
                 <tr>
                   <th>Subject</th>
@@ -98,13 +98,13 @@
                 {% set attended_count = (row.present_count or 0) + (row.late_count or 0) + (row.excused_count or 0) %}
                 {% set row_rate = ((attended_count / row.total_records) * 100) if row.total_records else 0 %}
                 <tr>
-                  <td class="fw-semibold text-navy">{{ row.subject_name }}</td>
-                  <td class="text-muted small">{{ row.teacher_name or 'Not assigned' }}</td>
-                  <td class="text-center"><span class="badge bg-success-subtle text-success border">{{ row.present_count or 0 }}</span></td>
-                  <td class="text-center"><span class="badge bg-danger-subtle text-danger border">{{ row.absent_count or 0 }}</span></td>
-                  <td class="text-center"><span class="badge bg-warning-subtle text-warning border">{{ row.late_count or 0 }}</span></td>
-                  <td class="text-center"><span class="badge bg-info-subtle text-info border">{{ row.excused_count or 0 }}</span></td>
-                  <td class="text-center fw-semibold">{{ row_rate|round(1) }}%</td>
+                  <td class="fw-semibold text-navy" data-label="Subject">{{ row.subject_name }}</td>
+                  <td class="text-muted small" data-label="Teacher">{{ row.teacher_name or 'Not assigned' }}</td>
+                  <td class="text-center" data-label="Present"><span class="badge bg-success-subtle text-success border">{{ row.present_count or 0 }}</span></td>
+                  <td class="text-center" data-label="Absent"><span class="badge bg-danger-subtle text-danger border">{{ row.absent_count or 0 }}</span></td>
+                  <td class="text-center" data-label="Late"><span class="badge bg-warning-subtle text-warning border">{{ row.late_count or 0 }}</span></td>
+                  <td class="text-center" data-label="Excused"><span class="badge bg-info-subtle text-info border">{{ row.excused_count or 0 }}</span></td>
+                  <td class="text-center fw-semibold" data-label="Rate">{{ row_rate|round(1) }}%</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -126,7 +126,7 @@
         <div class="card-body p-0">
           {% if attendance_log %}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 responsive-card-table">
               <thead class="table-light">
                 <tr>
                   <th>Date</th>
@@ -138,10 +138,10 @@
               <tbody>
                 {% for record in attendance_log %}
                 <tr>
-                  <td>{{ record.date }}</td>
-                  <td class="fw-medium">{{ record.subject_name }}</td>
-                  <td class="text-muted small">{{ record.teacher_name or 'Not assigned' }}</td>
-                  <td>
+                  <td data-label="Date">{{ record.date }}</td>
+                  <td class="fw-medium" data-label="Subject">{{ record.subject_name }}</td>
+                  <td class="text-muted small" data-label="Teacher">{{ record.teacher_name or 'Not assigned' }}</td>
+                  <td data-label="Status">
                     {% if record.status == 'present' %}
                     <span class="badge bg-success-subtle text-success border">Present</span>
                     {% elif record.status == 'absent' %}

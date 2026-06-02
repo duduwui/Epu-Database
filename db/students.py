@@ -1,4 +1,8 @@
 ﻿from .core import *
+from .upgrade import ensure_moodle_assignment_support
+from .grades import ensure_results_publication_support, grade_rows_have_scores, _calc_grade_totals
+
+_student_engagement_schema_ready = False
 
 def get_students_by_year_shift_section(year, shift, section):
     return execute_query("SELECT s.*, u.full_name, u.username, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.year=%s AND s.shift=%s AND s.section=%s ORDER BY u.full_name", (year, shift, section), fetch_all=True)
@@ -873,7 +877,7 @@ def get_top_students_results(semester=None, class_id=None, shift=None):
     """Calculate total published results for all students based on filters."""
     query = """
         SELECT s.id as student_id, u.full_name as student_name, c.name as class_name, 
-               s.shift, c.semester as class_semester, s.class_id
+               c.section as class_section, s.shift, c.semester as class_semester, s.class_id
         FROM students s
         JOIN users u ON s.user_id = u.id
         LEFT JOIN classes c ON s.class_id = c.id
@@ -935,6 +939,7 @@ def get_top_students_results(semester=None, class_id=None, shift=None):
                 'student_name': st['student_name'],
                 'shift': st['shift'],
                 'class_name': st['class_name'],
+                'class_section': st['class_section'],
                 'semester': semester if semester else st['class_semester'],
                 'total_weighted_score': round(sem_weighted, 3),
                 'total_credits': sem_credits_possible,

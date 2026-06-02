@@ -1,4 +1,8 @@
 ﻿from .core import *
+from .core import _cache_delete, _summarize_component_rows
+from .upgrade import ensure_file_metadata_support, ensure_moodle_assignment_support
+
+_results_schema_ready = False
 
 def ensure_results_publication_support():
     """Ensure result-publication snapshot columns exist."""
@@ -315,7 +319,7 @@ def build_grade_summary(rows):
         component_type = group['component_type']
         subtotal_score, subtotal_max = _summarize_component_rows(
             group['rows'],
-            force_sum=component_type in _SUM_GRADE_TYPES
+            force_sum=component_type in {'midterm'}
         )
 
         total_score += subtotal_score

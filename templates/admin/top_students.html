@@ -33,8 +33,8 @@
                 <label class="form-label small fw-medium text-navy">Shift:</label>
                 <select name="shift" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">-- All Shifts --</option>
-                    <option value="Morning" {% if selected_shift == 'Morning' %}selected{% endif %}>Morning</option>
-                    <option value="Evening" {% if selected_shift == 'Evening' %}selected{% endif %}>Evening</option>
+                    <option value="morning" {% if selected_shift == 'morning' %}selected{% endif %}>Morning</option>
+                    <option value="night" {% if selected_shift == 'night' %}selected{% endif %}>Night</option>
                 </select>
             </div>
             
@@ -56,8 +56,10 @@
 
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+          
+          <!-- Table View -->
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 responsive-card-table">
                 <thead class="text-white" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
                     <tr>
                         <th class="py-3 px-4 border-0">#</th>
@@ -74,35 +76,38 @@
                     {% if results %}
                         {% for r in results %}
                         <tr>
-                            <td class="px-4 fw-bold text-muted">{{ loop.index }}</td>
-                            <td class="fw-bold text-navy">{{ r.student_name }}</td>
-                            <td><span class="badge bg-secondary">Sem {{ r.semester }}</span></td>
-                            <td>
+                            <td class="px-4 fw-bold text-muted" data-label="#">{{ loop.index }}</td>
+                            <td class="fw-bold text-navy" data-label="Student Name">
+                                <span class="d-md-none fs-5">{{ r.student_name }}</span>
+                                <span class="d-none d-md-inline">{{ r.student_name }}</span>
+                            </td>
+                            <td data-label="Semester"><span class="badge" style="background:#1C0770;">Sem {{ r.semester }}</span></td>
+                            <td data-label="Shift">
                                 {% set shift_val = (r.shift or '') | lower %}
                                 {% if shift_val == 'morning' %}
-                                    <span class="badge bg-light text-dark border"><i class="bi bi-brightness-high me-1"></i>Morning</span>
-                                {% elif shift_val == 'evening' %}
-                                    <span class="badge bg-dark"><i class="bi bi-moon-stars me-1"></i>Evening</span>
+                                    <span class="badge bg-light text-dark border"><i class="bi bi-brightness-high me-1" style="color:#1C0770;"></i>Morning</span>
+                                {% elif shift_val == 'night' or shift_val == 'evening' %}
+                                    <span class="badge" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
                                 {% else %}
                                     <span class="text-muted">N/A</span>
                                 {% endif %}
                             </td>
-                            <td><span class="badge bg-primary">{{ r.class_name or 'N/A' }}</span></td>
-                            <td>{{ r.total_credits }}</td>
-                            <td class="text-end fw-bold fs-5 
+                            <td data-label="Class"><span class="badge bg-primary">Class {{ r.class_section or 'N/A' }}</span></td>
+                            <td data-label="Total Credits">{{ r.total_credits }}</td>
+                            <td class="text-end fw-bold 
                                 {% if r.total_weighted_score >= 25 %}text-success
                                 {% elif r.total_weighted_score >= 15 %}text-primary
-                                {% else %}text-danger{% endif %}">
+                                {% else %}text-danger{% endif %}" data-label="Sem. Results (Max 30)">
                                 {{ r.total_weighted_score }}
                             </td>
-                            <td class="px-4 text-end fw-bold fs-5 text-secondary">
+                            <td class="px-4 text-end fw-bold" style="color:#1C0770;" data-label="Cum. Results (Total)">
                                 {{ r.cumulative_weighted_score }}
                             </td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                                 No published results found for the selected filters.
                             </td>
@@ -110,7 +115,10 @@
                     {% endif %}
                 </tbody>
             </table>
-        </div>
-    </div>
+          </div>
+
+          <!-- Removed redundant mobile view as responsive-card-table takes care of it -->
+      </div>
+  </div>
 </div>
 {% endblock %}

@@ -158,7 +158,7 @@
     <!-- Roster Table -->
     <div class="card-body p-0">
       <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
-        <table class="table table-hover table-sm mb-0 align-middle" id="enrollRosterTable">
+        <table class="table table-hover table-sm mb-0 align-middle responsive-card-table" id="enrollRosterTable">
           <thead class="table-light shadow-sm position-sticky top-0 z-10">
             <tr>
               <th class="ps-3 text-muted small text-uppercase">Number</th>
@@ -172,10 +172,10 @@
             {% if period.signup_summary.all_rows %}
               {% for student in period.signup_summary.all_rows %}
               <tr class="student-row bg-white border-bottom">
-                <td class="ps-3"><span class="badge bg-light text-dark border">{{ student.student_number }}</span></td>
-                <td class="student-name fw-medium text-navy">{{ student.student_name }}</td>
-                <td class="d-none student-shift">{{ student.shift|lower }}</td>
-                <td>
+                <td class="ps-3" data-label="Number"><span class="badge bg-light text-dark border">{{ student.student_number }}</span></td>
+                <td class="student-name fw-medium text-navy" data-label="Name">{{ student.student_name }}</td>
+                <td class="d-none student-shift" data-label="Shift">{{ student.shift|lower }}</td>
+                <td data-label="Class">
                   {% if student.section %}
                     <span class="badge border border-secondary text-dark px-2" title="Year {{ student.year }} - {{ student.shift|capitalize }}">{{ student.section }}</span>
                   {% else %}
@@ -184,14 +184,14 @@
                     <span class="badge border border-secondary text-dark px-2">{{ class_letter }}</span>
                   {% endif %}
                 </td>
-                <td class="student-status" data-status="{{ 'assigned' if student.is_assigned else 'pending' }}">
+                <td class="student-status" data-label="Status" data-status="{{ 'assigned' if student.is_assigned else 'pending' }}">
                   {% if student.is_assigned %}
                     <span class="badge bg-success-subtle text-success border border-success ps-2 pe-3 py-1 rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Enrolled</span>
                   {% else %}
                     <span class="badge bg-warning-subtle text-warning border border-warning ps-2 pe-3 py-1 rounded-pill"><i class="bi bi-exclamation-circle-fill me-1"></i>Pending</span>
                   {% endif %}
                 </td>
-                <td class="text-end pe-3">
+                <td class="text-end pe-3" data-label="Subjects">
                   <span class="badge {% if student.signup_count > 0 %}bg-primary{% else %}bg-light text-muted border{% endif %} rounded-pill fs-7 px-3 py-1">
                     {{ student.signup_count }}
                   </span>

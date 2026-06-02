@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% from 'profile/_sidebar.html' import profile_sidebar, profile_module_css %}
+{% block title %}Scientific Title List{% endblock %}
+
+{% block content %}
+<div class="container profile-shell" style="max-width: 1180px; margin: 0 auto;">
+  {{ profile_module_css() }}
+  <div class="profile-module-layout">
+    {{ profile_sidebar('qualification') }}
+    <section>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-2">
+          <li class="breadcrumb-item"><a href="{{ url_for('profile.dashboard') }}">Dashboard</a></li>
+          <li class="breadcrumb-item">Scientific Title</li>
+          <li class="breadcrumb-item active" aria-current="page">Scientific Title List</li>
+        </ol>
+      </nav>
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 fw-bold text-navy mb-0">Scientific Title List</h1>
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#scientificTitleModal" id="addRecordBtn">
+          <i class="bi bi-plus-lg me-2"></i>Add Record
+        </button>
+      </div>
+
+      <div id="recordAlert"></div>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+            <label class="small text-muted">Show
+              <select class="form-select form-select-sm d-inline-block w-auto mx-1" id="pageSize">
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
+              </select>
+              entries
+            </label>
+            <input class="form-control form-control-sm" id="tableSearch" style="max-width: 260px;" placeholder="Search">
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="recordsTable">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 70px;">#</th>
+                  <th>Scientific Title</th>
+                  <th>University</th>
+                  <th style="width: 160px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in records %}
+                <tr data-id="{{ record.id }}" data-title="{{ record.scientific_title }}" data-university="{{ record.university }}">
+                  <td>{{ loop.index }}</td>
+                  <td>{{ record.scientific_title }}</td>
+                  <td>{{ record.university }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-success" type="button" data-action="edit">Edit</button>
+                    <button class="btn btn-sm btn-danger" type="button" data-action="delete">Delete</button>
+                  </td>
+                </tr>
+                {% else %}
+                <tr data-empty="1"><td colspan="4" class="text-center text-muted py-4">No records yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="prevPage">Previous</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="nextPage">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="modal fade" id="scientificTitleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content border-0 shadow" id="recordForm" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Add Record</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="recordId">
+        <div class="mb-3">
+          <label class="form-label">Scientific Title*</label>
+          <input class="form-control" name="scientific_title" id="scientificTitleInput" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">University*</label>
+          <input class="form-control" name="university" id="universityInput" required>
+        </div>
+        <div>
+          <label class="form-label">Choose Files</label>
+          <input class="form-control" type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png,.docx">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const modalEl = document.getElementById('scientificTitleModal');
+  const recordModal = new bootstrap.Modal(modalEl);
+  const form = document.getElementById('recordForm');
+  const tbody = document.querySelector('#recordsTable tbody');
+  let currentPage = 1;
+
+  function showMessage(message, type = 'success') {
+    document.getElementById('recordAlert').innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    setTimeout(() => document.getElementById('recordAlert').innerHTML = '', 2500);
+  }
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('recordId').value = '';
+    document.getElementById('modalTitle').textContent = 'Add Record';
+  }
+
+  function renumberRows() {
+    [...tbody.querySelectorAll('tr:not([data-empty])')].forEach((row, index) => row.children[0].textContent = index + 1);
+  }
+
+  function applyTableControls() {
+    const search = document.getElementById('tableSearch').value.toLowerCase();
+    const pageSize = parseInt(document.getElementById('pageSize').value, 10);
+    const rows = [...tbody.querySelectorAll('tr:not([data-empty])')];
+    const visible = rows.filter(row => row.textContent.toLowerCase().includes(search));
+    const maxPage = Math.max(1, Math.ceil(visible.length / pageSize));
+    currentPage = Math.min(currentPage, maxPage);
+    rows.forEach(row => row.style.display = 'none');
+    visible.slice((currentPage - 1) * pageSize, currentPage * pageSize).forEach(row => row.style.display = '');
+  }
+
+  document.getElementById('addRecordBtn').addEventListener('click', resetForm);
+  document.getElementById('tableSearch').addEventListener('input', () => { currentPage = 1; applyTableControls(); });
+  document.getElementById('pageSize').addEventListener('change', () => { currentPage = 1; applyTableControls(); });
+  document.getElementById('prevPage').addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); applyTableControls(); });
+  document.getElementById('nextPage').addEventListener('click', () => { currentPage += 1; applyTableControls(); });
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    const id = document.getElementById('recordId').value;
+    const url = id ? `{{ url_for('profile.update_scientific_title', item_id=0) }}`.replace('/0', `/${id}`) : `{{ url_for('profile.add_scientific_title') }}`;
+    const response = await fetch(url, { method: 'POST', body: new FormData(form) });
+    const data = await response.json();
+    if (!data.ok) {
+      showMessage(data.error || 'Request failed', 'danger');
+      return;
+    }
+    if (id) {
+      const row = tbody.querySelector(`tr[data-id="${id}"]`);
+      row.dataset.title = data.item.scientific_title;
+      row.dataset.university = data.item.university;
+      row.children[1].textContent = data.item.scientific_title;
+      row.children[2].textContent = data.item.university;
+    } else {
+      tbody.querySelector('[data-empty="1"]')?.remove();
+      tbody.insertAdjacentHTML('afterbegin', `<tr data-id="${data.item.id}" data-title="${data.item.scientific_title}" data-university="${data.item.university}"><td></td><td>${data.item.scientific_title}</td><td>${data.item.university}</td><td><button class="btn btn-sm btn-success" type="button" data-action="edit">Edit</button> <button class="btn btn-sm btn-danger" type="button" data-action="delete">Delete</button></td></tr>`);
+    }
+    renumberRows();
+    applyTableControls();
+    recordModal.hide();
+    showMessage(data.message || 'The Record Added');
+  });
+
+  document.addEventListener('click', async event => {
+    const button = event.target.closest('[data-action]');
+    if (!button) return;
+    const row = button.closest('tr');
+    const id = row.dataset.id;
+    if (button.dataset.action === 'edit') {
+      document.getElementById('recordId').value = id;
+      document.getElementById('scientificTitleInput').value = row.dataset.title;
+      document.getElementById('universityInput').value = row.dataset.university;
+      document.getElementById('modalTitle').textContent = 'Edit Record';
+      recordModal.show();
+      return;
+    }
+    if (!confirm('Delete this record?')) return;
+    const response = await fetch(`{{ url_for('profile.delete_scientific_title', item_id=0) }}`.replace('/0', `/${id}`), { method: 'DELETE' });
+    const data = await response.json();
+    if (!data.ok) {
+      showMessage(data.error || 'Request failed', 'danger');
+      return;
+    }
+    row.remove();
+    renumberRows();
+    applyTableControls();
+    showMessage(data.message || 'The Record Deleted');
+  });
+
+  applyTableControls();
+</script>
+{% endblock %}

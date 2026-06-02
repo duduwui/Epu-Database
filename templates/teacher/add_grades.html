@@ -209,6 +209,8 @@ content %}
                   <td class="text-center align-middle">
                     <input
                       type="number"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
                       name="component_{{ item.id }}"
                       class="form-control text-center grade-input"
                       data-component-id="{{ item.id }}"

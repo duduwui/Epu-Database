@@ -141,7 +141,7 @@
     </div>
     <div class="card-body p-0" id="passedBody" style="display:none;">
       <div class="table-responsive">
-        <table class="table table-hover mb-0" id="passedTable">
+        <table class="table table-hover mb-0 responsive-card-table" id="passedTable">
           <thead class="table-light">
             <tr>
               <th style="width:5%">#</th>
@@ -149,24 +149,24 @@
               <th>ID</th>
               <th>Shift</th>
               <th>Class</th>
-              <th>Subjects</th>
+              <th class="no-print">Subjects</th>
             </tr>
           </thead>
           <tbody>
             {% for stu in preview.passed %}
             <tr data-shift="{{ stu.shift }}" data-class="{{ stu.section }}" data-name="{{ stu.full_name|lower }}">
-              <td>{{ loop.index }}</td>
-              <td class="fw-semibold">{{ stu.full_name }}</td>
-              <td><code>{{ stu.student_number }}</code></td>
-              <td>
+              <td data-label="#">{{ loop.index }}</td>
+              <td class="fw-semibold" data-label="Full Name">{{ stu.full_name }}</td>
+              <td data-label="ID"><code>{{ stu.student_number }}</code></td>
+              <td data-label="Shift">
                 {% if stu.shift == 'morning' %}
                 <span class="badge text-white" style="background:#1C0770;"><i class="bi bi-sun me-1"></i>Morning</span>
                 {% else %}
                 <span class="badge text-white" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
                 {% endif %}
               </td>
-              <td>{{ stu.section or '-' }}</td>
-              <td>
+              <td data-label="Class">{{ stu.section or '-' }}</td>
+              <td class="no-print" data-label="Subjects">
                 {% for subj in stu.subjects %}
                 <span class="badge bg-success bg-opacity-75 me-1 mb-1" title="{{ subj.percentage }}%">
                   {{ subj.name }} <small>({{ subj.percentage }}%)</small>
@@ -201,7 +201,7 @@
     </div>
     <div class="card-body p-0" id="failedBody" style="display:none;">
       <div class="table-responsive">
-        <table class="table table-hover mb-0" id="failedTable">
+        <table class="table table-hover mb-0 responsive-card-table" id="failedTable">
           <thead class="table-light">
             <tr>
               <th style="width:5%">#</th>
@@ -209,24 +209,24 @@
               <th>ID</th>
               <th>Shift</th>
               <th>Class</th>
-              <th>Subjects / Reason</th>
+              <th class="no-print">Subjects / Reason</th>
             </tr>
           </thead>
           <tbody>
             {% for stu in preview.failed %}
             <tr data-shift="{{ stu.shift }}" data-class="{{ stu.section }}" data-name="{{ stu.full_name|lower }}">
-              <td>{{ loop.index }}</td>
-              <td class="fw-semibold">{{ stu.full_name }}</td>
-              <td><code>{{ stu.student_number }}</code></td>
-              <td>
+              <td data-label="#">{{ loop.index }}</td>
+              <td class="fw-semibold" data-label="Full Name">{{ stu.full_name }}</td>
+              <td data-label="ID"><code>{{ stu.student_number }}</code></td>
+              <td data-label="Shift">
                 {% if stu.shift == 'morning' %}
                 <span class="badge text-white" style="background:#1C0770;"><i class="bi bi-sun me-1"></i>Morning</span>
                 {% else %}
                 <span class="badge text-white" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
                 {% endif %}
               </td>
-              <td>{{ stu.section or '-' }}</td>
-              <td>
+              <td data-label="Class">{{ stu.section or '-' }}</td>
+              <td class="no-print" data-label="Subjects / Reason">
                 {% if stu.reason %}
                   <span class="badge bg-warning text-dark">{{ stu.reason }}</span>
                 {% endif %}

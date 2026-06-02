@@ -132,11 +132,13 @@ def create_app():
     from blueprints.admin import admin_bp
     from blueprints.teacher import teacher_bp
     from blueprints.student import student_bp
+    from blueprints.profile import profile_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(teacher_bp)
     app.register_blueprint(student_bp)
+    app.register_blueprint(profile_bp)
 
     return app
 

@@ -1,4 +1,7 @@
 ﻿from .core import *
+from .core import _cache_get, _cache_set, _cache_delete, CACHE_TTL, CACHE_TTL_LONG
+from .grades import ensure_results_publication_support
+from .upgrade import get_current_cycle
 
 def get_semester_for_year(year, cycle=None):
     if cycle is None: cycle = get_current_cycle()
@@ -343,6 +346,9 @@ def get_semester_upgrade_preview(semester, major_id=None):
         params.append(major_id)
     students_query += " ORDER BY u.full_name"
     students = execute_query(students_query, tuple(params), fetch_all=True) or []
+
+    from .students import get_student_grades_for_subject, get_student_result_grades_for_subject
+    from .grades import grade_rows_have_scores, _calc_grade_totals
 
     passed = []
     failed = []
