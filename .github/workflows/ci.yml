@@ -145,7 +145,18 @@ jobs:
             --cov-report=xml:coverage.xml \
             --ignore=.venv \
             --ignore=dev_scripts \
-            || true
+            --ignore=align_center.py \
+            --ignore=fix_db.py \
+            --ignore=fix_css.py \
+            --ignore=fix_base.py \
+            --ignore=fix_liquid.py \
+            --ignore=fix_public_route.py \
+            --ignore=fix_qap_routes.py \
+            --ignore=fix_sidebar.py \
+            --ignore=fix_sidebar_links.py \
+            --ignore=fix_staff_id.py \
+            --ignore=fix_teacher_dash.py \
+            --ignore=fix_topbar.py
 
       # ── 10. Upload coverage artifact ──────────────────────────────
       - name: Upload coverage report

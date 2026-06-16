@@ -1,11 +1,11 @@
-﻿from .core import *
+from .core import *
 from .upgrade import ensure_moodle_assignment_support
 from .students import ensure_student_engagement_support
+from .feedback import get_latest_feedback_period
 
 _teacher_assignment_schema_ready = False
 
 def ensure_teacher_assignment_support():
-    """Ensure teacher assignment table matches the current app contract."""
     global _teacher_assignment_schema_ready
     if _teacher_assignment_schema_ready:
         return
