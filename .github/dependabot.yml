@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────
+#  Dependabot – automatic dependency update PRs
+#  Checks weekly for outdated/vulnerable packages in requirements.txt
+#  and for outdated GitHub Actions versions in .github/workflows/
+# ─────────────────────────────────────────────────────────────────
+version: 2
+
+updates:
+  # 1. Python pip dependencies (requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"                    # location of requirements.txt
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Baghdad"        # UTC+3 — adjust to your timezone
+    open-pull-requests-limit: 5       # max open PRs at a time
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # 2. GitHub Actions versions (.github/workflows/*.yml)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Baghdad"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
