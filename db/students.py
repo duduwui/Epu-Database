@@ -1,8 +1,46 @@
-﻿from .core import *
+from .core import *
 from .upgrade import ensure_moodle_assignment_support
 from .grades import ensure_results_publication_support, grade_rows_have_scores, _calc_grade_totals
 
 _student_engagement_schema_ready = False
+_enrollment_status_ready = False
+
+
+def ensure_enrollment_status_support():
+    """Ensure student_enrollments has a status col ('enrolled'|'dropped') and action_taken_at."""
+    global _enrollment_status_ready
+    if _enrollment_status_ready:
+        return
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            ALTER TABLE student_enrollments
+            ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'enrolled'
+        """)
+        cursor.execute("""
+            ALTER TABLE student_enrollments
+            ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """)
+        cursor.execute("""
+            UPDATE student_enrollments
+            SET action_taken_at = COALESCE(action_taken_at, enrolled_at, CURRENT_TIMESTAMP)
+            WHERE action_taken_at IS NULL
+        """)
+        conn.commit()
+        cursor.close()
+        return_connection(conn)
+        _enrollment_status_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
+        raise
+
 
 def get_students_by_year_shift_section(year, shift, section):
     return execute_query("SELECT s.*, u.full_name, u.username, u.email FROM students s JOIN users u ON s.user_id = u.id WHERE s.year=%s AND s.shift=%s AND s.section=%s ORDER BY u.full_name", (year, shift, section), fetch_all=True)
@@ -85,23 +123,35 @@ def get_students_filtered(year=None, class_id=None):
     return execute_query(query, tuple(params) if params else None, fetch_all=True)
 
 def get_available_subjects_for_student(student_id, semester=None):
+    """Get all subjects for a semester with enrollment status flags (is_enrolled, is_dropped)."""
+    ensure_enrollment_status_support()
     if semester is None:
         result = execute_query("SELECT semester FROM students WHERE id=%s", (student_id,), fetch_one=True)
         if result and result['semester']: semester = result['semester']
     if semester is None: return []
     major_row = execute_query("SELECT u.major_id FROM students s JOIN users u ON s.user_id=u.id WHERE s.id=%s", (student_id,), fetch_one=True)
     major_id = major_row['major_id'] if major_row else None
-    base = """SELECT s.*, CASE WHEN se.id IS NOT NULL THEN true ELSE false END as is_enrolled,
-        (SELECT STRING_AGG(u.full_name||' ('||INITCAP(COALESCE(ta.teacher_type,'theoretical'))||')',' / ' ORDER BY COALESCE(ta.teacher_type,'theoretical'))
-         FROM teacher_assignments ta JOIN teachers t ON ta.teacher_id=t.id JOIN users u ON t.user_id=u.id WHERE ta.subject_id=s.id) as teacher_names
-        FROM subjects s LEFT JOIN student_enrollments se ON se.student_id=%s AND se.subject_id=s.id WHERE s.semester=%s"""
+    base = """SELECT s.*,
+        CASE WHEN se.id IS NOT NULL AND se.status = 'enrolled' THEN true ELSE false END as is_enrolled,
+        CASE WHEN se.id IS NOT NULL AND se.status = 'dropped'  THEN true ELSE false END as is_dropped,
+        se.status as enrollment_status,
+        (SELECT STRING_AGG(u.full_name||' ('||INITCAP(COALESCE(ta.teacher_type,'theoretical'))||')',' / '
+                ORDER BY COALESCE(ta.teacher_type,'theoretical'))
+         FROM teacher_assignments ta JOIN teachers t ON ta.teacher_id=t.id
+         JOIN users u ON t.user_id=u.id WHERE ta.subject_id=s.id) as teacher_names
+        FROM subjects s LEFT JOIN student_enrollments se
+          ON se.student_id=%s AND se.subject_id=s.id
+        WHERE s.semester=%s"""
     if major_id: return execute_query(base+" AND s.major_id=%s ORDER BY s.name", (student_id, semester, major_id), fetch_all=True)
     return execute_query(base+" ORDER BY s.name", (student_id, semester), fetch_all=True)
 
 def get_enrolled_subjects_for_student(student_id):
+    """Get subjects the student is actively enrolled in (status='enrolled' only)."""
+    ensure_enrollment_status_support()
     query = """
         SELECT s.*,
                se.enrolled_at,
+               se.status AS enrollment_status,
                st.class_id,
                c.name AS class_name,
                COALESCE((
@@ -120,24 +170,124 @@ def get_enrolled_subjects_for_student(student_id):
         JOIN students st ON st.id = se.student_id
         LEFT JOIN classes c ON c.id = st.class_id
         WHERE se.student_id = %s
+          AND se.status = 'enrolled'
         ORDER BY s.name
     """
     return execute_query(query, (student_id,), fetch_all=True)
 
 def enroll_student_in_subject(student_id, subject_id):
-    if execute_query("SELECT id FROM student_enrollments WHERE student_id=%s AND subject_id=%s", (student_id, subject_id), fetch_one=True): return False
-    result = execute_query("INSERT INTO student_enrollments (student_id, subject_id) VALUES (%s,%s) RETURNING id", (student_id, subject_id), fetch_one=True)
+    """Enroll student in a subject. Re-activates a dropped enrollment if one exists."""
+    ensure_enrollment_status_support()
+    existing = execute_query(
+        "SELECT id, status FROM student_enrollments WHERE student_id=%s AND subject_id=%s",
+        (student_id, subject_id), fetch_one=True
+    )
+    if existing:
+        if existing['status'] == 'enrolled':
+            return False  # already enrolled
+        # Re-activate a previously dropped enrollment
+        execute_query(
+            """UPDATE student_enrollments
+               SET status='enrolled', action_taken_at=CURRENT_TIMESTAMP
+               WHERE student_id=%s AND subject_id=%s""",
+            (student_id, subject_id)
+        )
+        return True
+    result = execute_query(
+        """INSERT INTO student_enrollments (student_id, subject_id, status, action_taken_at)
+           VALUES (%s, %s, 'enrolled', CURRENT_TIMESTAMP) RETURNING id""",
+        (student_id, subject_id), fetch_one=True
+    )
     return result is not None
 
-def unenroll_student_from_subject(student_id, subject_id):
-    execute_query("DELETE FROM student_enrollments WHERE student_id=%s AND subject_id=%s", (student_id, subject_id))
+
+def drop_student_from_subject(student_id, subject_id):
+    """Drop student from a subject — sets status='dropped'. Keeps row for admin audit trail."""
+    ensure_enrollment_status_support()
+    execute_query(
+        """UPDATE student_enrollments
+           SET status='dropped', action_taken_at=CURRENT_TIMESTAMP
+           WHERE student_id=%s AND subject_id=%s""",
+        (student_id, subject_id)
+    )
     return True
 
+
+def unenroll_student_from_subject(student_id, subject_id):
+    """Backward-compatible alias — now calls drop_student_from_subject."""
+    return drop_student_from_subject(student_id, subject_id)
+
 def get_enrolled_students_for_subject(subject_id, class_id=None):
-    query = "SELECT s.*, u.full_name, u.username, u.email, c.name as class_name, se.enrolled_at FROM student_enrollments se JOIN students s ON se.student_id=s.id JOIN users u ON s.user_id=u.id LEFT JOIN classes c ON s.class_id=c.id WHERE se.subject_id=%s"
+    """Get students actively enrolled in a subject (status='enrolled' only)."""
+    ensure_enrollment_status_support()
+    query = """SELECT s.*, u.full_name, u.username, u.email, c.name as class_name,
+                      se.enrolled_at, se.status as enrollment_status
+               FROM student_enrollments se
+               JOIN students s ON se.student_id=s.id
+               JOIN users u ON s.user_id=u.id
+               LEFT JOIN classes c ON s.class_id=c.id
+               WHERE se.subject_id=%s AND se.status='enrolled'"""
     params = [subject_id]
     if class_id: query += " AND s.class_id=%s"; params.append(class_id)
     return execute_query(query+" ORDER BY u.full_name", tuple(params), fetch_all=True)
+
+
+def get_enrollment_signup_log(semester, major_id=None):
+    """Return full enrollment action log for admin: enrolled, dropped, and pending students."""
+    ensure_enrollment_status_support()
+    query = """
+        WITH semester_students AS (
+            SELECT st.id AS student_id,
+                   u.full_name AS student_name,
+                   u.username,
+                   st.student_number,
+                   st.shift,
+                   st.section,
+                   st.semester,
+                   c.name AS class_name
+            FROM students st
+            JOIN users u ON u.id = st.user_id
+            LEFT JOIN classes c ON c.id = st.class_id
+            WHERE st.semester = %s
+    """
+    params = [semester]
+    if major_id is not None:
+        query += " AND u.major_id = %s"
+        params.append(major_id)
+    query += """
+        ),
+        enrollment_actions AS (
+            SELECT se.student_id,
+                   sub.name AS subject_name,
+                   se.status,
+                   se.action_taken_at
+            FROM student_enrollments se
+            JOIN subjects sub ON sub.id = se.subject_id
+            WHERE sub.semester = %s
+        )
+        SELECT ss.*,
+               ea.subject_name,
+               ea.status AS action_status,
+               ea.action_taken_at
+        FROM semester_students ss
+        LEFT JOIN enrollment_actions ea ON ea.student_id = ss.student_id
+        ORDER BY ss.student_name, ea.action_taken_at DESC
+    """
+    params.append(semester)
+    rows = execute_query(query, tuple(params), fetch_all=True) or []
+    enrolled  = [r for r in rows if r.get('action_status') == 'enrolled']
+    dropped   = [r for r in rows if r.get('action_status') == 'dropped']
+    pending   = [r for r in rows if r.get('action_status') is None]
+    return {
+        'total_students': len({r['student_id'] for r in rows}),
+        'enrolled_count': len({r['student_id'] for r in enrolled}),
+        'dropped_count':  len({r['student_id'] for r in dropped}),
+        'pending_count':  len({r['student_id'] for r in pending}),
+        'enrolled': enrolled,
+        'dropped':  dropped,
+        'pending':  pending,
+        'all_rows': rows,
+    }
 
 def create_enrollment_period(semester, start_date, end_date, description, created_by): return execute_insert_returning("INSERT INTO enrollment_periods (semester, start_date, end_date, description, created_by) VALUES (%s,%s,%s,%s,%s) RETURNING id", (semester, start_date, end_date, description, created_by))
 

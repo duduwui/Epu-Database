@@ -1393,13 +1393,15 @@ def enrollment_roster(period_id):
     if not period:
         flash('Enrollment period not found.', 'danger')
         return redirect(url_for('.enrollment_periods'))
-        
+
     now = datetime.now()
     period['is_active'] = period['start_date'] <= now <= period['end_date']
     period['is_upcoming'] = period['start_date'] > now
-    period['signup_summary'] = db.get_enrollment_period_signup_summary(period['semester'], major_id=major_id)
-    
-    return render_template('admin/enrollment_roster.html', period=period)
+
+    # 3-way log: enrolled / dropped / pending
+    signup_log = db.get_enrollment_signup_log(period['semester'], major_id=major_id)
+
+    return render_template('admin/enrollment_roster.html', period=period, signup_log=signup_log)
 
 @admin_bp.route('/admin/enrollment-periods/add', methods=['POST'])
 @admin_required

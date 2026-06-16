@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Period Management - MIS System{% endblock %}
 {% block content %}
 <div class="container">
@@ -240,8 +240,9 @@
                       </td>
                       <td data-label="Students">
                         <div class="small fw-semibold">{{ period.signup_summary.total_students }} total</div>
-                        <div class="small text-success">{{ period.signup_summary.assigned_count }} assigned</div>
-                        <div class="small text-muted">{{ period.signup_summary.pending_count }} not assigned</div>
+                        <div class="small text-success">{{ period.signup_summary.enrolled_count }} enrolled</div>
+                        <div class="small text-danger">{{ period.signup_summary.dropped_count }} dropped</div>
+                        <div class="small text-warning">{{ period.signup_summary.pending_count }} pending</div>
                       </td>
                       <td data-label="Start Date"><i class="bi bi-calendar-check me-1" style="color:#1C0770;"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
                       <td data-label="End Date"><i class="bi bi-calendar-x me-1" style="color:#1C0770;"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
@@ -274,29 +275,35 @@
                       {% if period.period_type == 'final' %}Final Exam{% else %}2nd Round{% endif %}
                     </div>
                     <div class="small opacity-75">
-                      {{ period.signup_summary.total_students }} students · {{ period.signup_summary.assigned_count }} assigned · {{ period.signup_summary.pending_count }} not assigned
+                      {{ period.signup_summary.total_students }} students · {{ period.signup_summary.enrolled_count }} enrolled · {{ period.signup_summary.dropped_count }} dropped · {{ period.signup_summary.pending_count }} pending
                     </div>
                   </div>
                   <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                   <div class="row g-3 mb-3">
-                    <div class="col-md-4">
+                    <div class="col-3 col-md-3">
                       <div class="card border-0 bg-light text-center py-3">
-                        <div class="fs-4 fw-bold text-dark">{{ period.signup_summary.total_students }}</div>
-                        <small class="text-muted">Total Students</small>
+                        <div class="fs-5 fw-bold text-dark">{{ period.signup_summary.total_students }}</div>
+                        <small class="text-muted">Total</small>
                       </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-3 col-md-3">
                       <div class="card border-0 bg-light text-center py-3">
-                        <div class="fs-4 fw-bold text-success">{{ period.signup_summary.assigned_count }}</div>
-                        <small class="text-muted">Assigned / Signed Up</small>
+                        <div class="fs-5 fw-bold text-success">{{ period.signup_summary.enrolled_count }}</div>
+                        <small class="text-muted">Enrolled</small>
                       </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-3 col-md-3">
                       <div class="card border-0 bg-light text-center py-3">
-                        <div class="fs-4 fw-bold text-muted">{{ period.signup_summary.pending_count }}</div>
-                        <small class="text-muted">Not Assigned</small>
+                        <div class="fs-5 fw-bold text-danger">{{ period.signup_summary.dropped_count }}</div>
+                        <small class="text-muted">Dropped</small>
+                      </div>
+                    </div>
+                    <div class="col-3 col-md-3">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-5 fw-bold text-warning">{{ period.signup_summary.pending_count }}</div>
+                        <small class="text-muted">Pending</small>
                       </div>
                     </div>
                   </div>
@@ -312,8 +319,9 @@
                     <div class="col-md-4">
                       <select class="form-select form-select-sm" id="statusFilter{{ period.id }}" onchange="filterRoster({{ period.id }})">
                         <option value="all">All Statuses</option>
-                        <option value="assigned">Assigned</option>
-                        <option value="not_assigned">Not Assigned</option>
+                        <option value="enrolled">Enrolled</option>
+                        <option value="dropped">Dropped</option>
+                        <option value="pending">Pending</option>
                       </select>
                     </div>
                     <div class="col-md-4">
@@ -344,14 +352,19 @@
                           <td data-label="ID">{{ student.student_number or student.username }}</td>
                           <td data-label="Class">{{ student.section or '-' }}</td>
                           <td data-label="Shift">{{ student.shift|title if student.shift else '-' }}</td>
-                          <td data-label="Status">
-                            {% if student.is_assigned %}
-                              <span class="badge bg-success">Assigned</span>
+                          <td data-label="Status" class="student-status" data-status="{{ student.signup_status }}">
+                            {% if student.signup_status == 'enrolled' %}
+                              <span class="badge bg-success">Enrolled</span>
+                            {% elif student.signup_status == 'dropped' %}
+                              <span class="badge bg-danger">Dropped</span>
                             {% else %}
-                              <span class="badge" style="background:#1C0770;">Not Assigned</span>
+                              <span class="badge" style="background:#1C0770;">Pending</span>
                             {% endif %}
                           </td>
-                          <td data-label="Exam Selections">{{ student.signup_count }}</td>
+                          <td data-label="Exam Selections">
+                            <span class="badge bg-success-subtle text-success border border-success">{{ student.enrolled_count }} enrolled</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger">{{ student.dropped_count }} dropped</span>
+                          </td>
                         </tr>
                         {% else %}
                         <tr>
@@ -662,10 +675,12 @@ function filterRoster(periodId) {
 
     const nameId = rows[i].cells[0].innerText.toLowerCase() + ' ' + rows[i].cells[1].innerText.toLowerCase();
     const rowShift = rows[i].cells[3].innerText.toLowerCase();
-    const rowStatus = rows[i].cells[4].innerText.toLowerCase();
+    
+    const statusNode = rows[i].querySelector('.student-status');
+    const rowStatus = statusNode ? (statusNode.getAttribute('data-status') || '') : '';
 
     let matchesSearch = nameId.includes(query);
-    let matchesStatus = (status === 'all') || (status === 'assigned' && rowStatus.includes('assigned') && !rowStatus.includes('not')) || (status === 'not_assigned' && rowStatus.includes('not assigned'));
+    let matchesStatus = (status === 'all') || (status === rowStatus);
     let matchesShift = (shift === 'all') || rowShift.includes(shift);
 
     if (matchesSearch && matchesStatus && matchesShift) {

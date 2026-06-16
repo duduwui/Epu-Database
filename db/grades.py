@@ -1,8 +1,48 @@
-﻿from .core import *
+from .core import *
 from .core import _cache_delete, _summarize_component_rows
 from .upgrade import ensure_file_metadata_support, ensure_moodle_assignment_support
 
 _results_schema_ready = False
+_exam_signup_status_ready = False
+
+
+def ensure_exam_signup_status_support():
+    """Ensure exam_signups has a status column ('enrolled'|'dropped') and action_taken_at."""
+    global _exam_signup_status_ready
+    if _exam_signup_status_ready:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        raise RuntimeError('Database connection unavailable')
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            ALTER TABLE exam_signups
+            ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'enrolled'
+        """)
+        cursor.execute("""
+            ALTER TABLE exam_signups
+            ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """)
+        # Back-fill any existing rows with no status
+        cursor.execute("""
+            UPDATE exam_signups
+            SET action_taken_at = COALESCE(action_taken_at, signed_up_at, CURRENT_TIMESTAMP)
+            WHERE action_taken_at IS NULL
+        """)
+        conn.commit()
+        cursor.close()
+        return_connection(conn)
+        _exam_signup_status_ready = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return_connection(conn)
+        raise
 
 def ensure_results_publication_support():
     """Ensure result-publication snapshot columns exist."""
@@ -79,7 +119,8 @@ def get_exam_period_signup_summary(semester, period_type, major_id=None):
         ),
         signup_counts AS (
             SELECT es.student_id,
-                   COUNT(*) AS signup_count
+                   COUNT(CASE WHEN es.status = 'enrolled' THEN 1 END) AS enrolled_count,
+                   COUNT(CASE WHEN es.status = 'dropped' THEN 1 END) AS dropped_count
             FROM exam_signups es
             JOIN subjects sub ON sub.id = es.subject_id
             WHERE es.exam_type = %s
@@ -87,8 +128,13 @@ def get_exam_period_signup_summary(semester, period_type, major_id=None):
             GROUP BY es.student_id
         )
         SELECT ss.*,
-               COALESCE(sc.signup_count, 0) AS signup_count,
-               CASE WHEN COALESCE(sc.signup_count, 0) > 0 THEN TRUE ELSE FALSE END AS is_assigned
+               COALESCE(sc.enrolled_count, 0) AS enrolled_count,
+               COALESCE(sc.dropped_count, 0) AS dropped_count,
+               COALESCE(sc.enrolled_count, 0) AS signup_count,
+               CASE WHEN COALESCE(sc.enrolled_count, 0) > 0 THEN 'enrolled'
+                    WHEN COALESCE(sc.dropped_count, 0) > 0 THEN 'dropped'
+                    ELSE 'pending' END AS signup_status,
+               CASE WHEN COALESCE(sc.enrolled_count, 0) > 0 THEN TRUE ELSE FALSE END AS is_assigned
         FROM semester_students ss
         LEFT JOIN signup_counts sc ON sc.student_id = ss.student_id
     """
@@ -98,24 +144,59 @@ def get_exam_period_signup_summary(semester, period_type, major_id=None):
         params = [semester, major_id, period_type, semester]
     query += " ORDER BY is_assigned DESC, ss.student_name"
     rows = execute_query(query, tuple(params), fetch_all=True) or []
-    assigned = [row for row in rows if row.get('is_assigned')]
-    pending = [row for row in rows if not row.get('is_assigned')]
+    enrolled = [row for row in rows if row.get('signup_status') == 'enrolled']
+    dropped  = [row for row in rows if row.get('signup_status') == 'dropped']
+    pending  = [row for row in rows if row.get('signup_status') == 'pending']
     return {
         'total_students': len(rows),
-        'assigned_count': len(assigned),
-        'pending_count': len(pending),
-        'assigned_students': assigned,
+        'enrolled_count': len(enrolled),
+        'dropped_count':  len(dropped),
+        'pending_count':  len(pending),
+        'assigned_count': len(enrolled),
+        'assigned_students': enrolled,
         'pending_students': pending,
         'students': rows,
     }
 
 def delete_exam_period(period_id): return execute_query("DELETE FROM exam_periods WHERE id=%s", (period_id,))
 
-def signup_for_exam(student_id, subject_id, exam_type): return execute_insert_returning("INSERT INTO exam_signups (student_id, subject_id, exam_type) VALUES (%s,%s,%s) ON CONFLICT (student_id, subject_id, exam_type) DO NOTHING RETURNING id", (student_id, subject_id, exam_type))
 
-def cancel_exam_signup(student_id, subject_id, exam_type): return execute_query("DELETE FROM exam_signups WHERE student_id=%s AND subject_id=%s AND exam_type=%s", (student_id, subject_id, exam_type))
+def signup_for_exam(student_id, subject_id, exam_type):
+    """Sign a student up for an exam — sets status='enrolled'. Uses upsert to re-activate if previously dropped."""
+    ensure_exam_signup_status_support()
+    return execute_insert_returning(
+        """INSERT INTO exam_signups (student_id, subject_id, exam_type, status, action_taken_at)
+           VALUES (%s, %s, %s, 'enrolled', CURRENT_TIMESTAMP)
+           ON CONFLICT (student_id, subject_id, exam_type)
+           DO UPDATE SET status = 'enrolled', action_taken_at = CURRENT_TIMESTAMP
+           RETURNING id""",
+        (student_id, subject_id, exam_type)
+    )
 
-def get_exam_signup(student_id, subject_id, exam_type): return execute_query("SELECT * FROM exam_signups WHERE student_id=%s AND subject_id=%s AND exam_type=%s", (student_id, subject_id, exam_type), fetch_one=True)
+
+def drop_exam_signup(student_id, subject_id, exam_type):
+    """Drop a student from an exam — sets status='dropped'. Preserves the row for admin audit trail."""
+    ensure_exam_signup_status_support()
+    return execute_query(
+        """UPDATE exam_signups
+           SET status = 'dropped', action_taken_at = CURRENT_TIMESTAMP
+           WHERE student_id = %s AND subject_id = %s AND exam_type = %s""",
+        (student_id, subject_id, exam_type)
+    )
+
+
+def cancel_exam_signup(student_id, subject_id, exam_type):
+    """Alias kept for backward compatibility — now calls drop_exam_signup."""
+    return drop_exam_signup(student_id, subject_id, exam_type)
+
+
+def get_exam_signup(student_id, subject_id, exam_type):
+    """Return the exam signup row (any status) for a student+subject+exam_type."""
+    ensure_exam_signup_status_support()
+    return execute_query(
+        "SELECT * FROM exam_signups WHERE student_id=%s AND subject_id=%s AND exam_type=%s",
+        (student_id, subject_id, exam_type), fetch_one=True
+    )
 
 def add_grade(student_id, subject_id, teacher_id, grade_type, title, score, max_score, date, notes=None, component_id=None, published=False):
     """Add a grade for a student (default unpublished/draft)"""

@@ -1,4 +1,4 @@
-﻿from .core import *
+from .core import *
 from .core import _cache_get, _cache_set, _cache_delete, CACHE_TTL, CACHE_TTL_LONG
 from .grades import ensure_results_publication_support
 from .upgrade import get_current_cycle
@@ -8,6 +8,9 @@ def get_semester_for_year(year, cycle=None):
     return (1 if cycle == 1 else 2) if year == 1 else (3 if cycle == 1 else 4)
 
 def get_exam_eligible_subjects(student_id, exam_type, semester=None):
+    """Return subjects eligible for the given exam type with signup status flags."""
+    from .grades import ensure_exam_signup_status_support
+    ensure_exam_signup_status_support()
     enrolled = get_enrolled_subjects_for_student(student_id) or []
     if semester: enrolled = [s for s in enrolled if s.get('semester') == semester]
     eligible = []
@@ -17,18 +20,25 @@ def get_exam_eligible_subjects(student_id, exam_type, semester=None):
             max_val, score = midterm['total_max'], midterm['total_score']
             normalized = score / max_val * 60 if max_val > 0 else 0
             existing = get_exam_signup(student_id, subj['id'], 'final')
+            signup_status = existing['status'] if existing else None
             subj['midterm_score'] = round(score, 1)
             subj['midterm_max'] = round(max_val, 1)
             subj['midterm_normalized'] = round(normalized, 1)
             subj['coursework_score'] = round(score, 1)
             subj['coursework_max'] = round(max_val, 1)
             subj['coursework_normalized'] = round(normalized, 1)
-            subj['already_signed_up'] = existing is not None
+            subj['already_signed_up'] = signup_status == 'enrolled'
+            subj['is_dropped'] = signup_status == 'dropped'
+            subj['signup_status'] = signup_status
             subj['eligible'] = normalized >= 20
             eligible.append(subj)
     elif exam_type == 'second_round':
         for subj in enrolled:
             if not subj.get('results_published'): continue
+            # Skip if student dropped this subject from the final exam (dropped = won't sit 2nd round)
+            final_signup = get_exam_signup(student_id, subj['id'], 'final')
+            if final_signup and final_signup.get('status') == 'dropped':
+                continue
             grades_data = get_student_result_grades_for_subject(student_id, subj['id']) or []
             if not grade_rows_have_scores(grades_data):
                 continue
@@ -36,17 +46,25 @@ def get_exam_eligible_subjects(student_id, exam_type, semester=None):
             percentage = (total_score / total_max * 100) if total_max > 0 else 0
             if percentage >= 60: continue
             existing = get_exam_signup(student_id, subj['id'], 'second_round')
+            signup_status = existing['status'] if existing else None
             subj['percentage'] = round(percentage, 1)
-            subj['already_signed_up'] = existing is not None
+            subj['already_signed_up'] = signup_status == 'enrolled'
+            subj['is_dropped'] = signup_status == 'dropped'
+            subj['signup_status'] = signup_status
             subj['eligible'] = True
             eligible.append(subj)
     return eligible
 
 def get_exam_signups_for_subject(subject_id, exam_type=None):
-    query = "SELECT es.*, u.full_name as student_name, st.student_number FROM exam_signups es JOIN students st ON es.student_id=st.id JOIN users u ON st.user_id=u.id WHERE es.subject_id=%s"
+    """Return exam signups for a subject. Includes status so admin/teacher can see enrolled vs dropped."""
+    query = """SELECT es.*, u.full_name as student_name, st.student_number
+               FROM exam_signups es
+               JOIN students st ON es.student_id=st.id
+               JOIN users u ON st.user_id=u.id
+               WHERE es.subject_id=%s"""
     params = [subject_id]
     if exam_type: query += " AND es.exam_type=%s"; params.append(exam_type)
-    return execute_query(query+" ORDER BY u.full_name", tuple(params), fetch_all=True)
+    return execute_query(query+" ORDER BY es.status, u.full_name", tuple(params), fetch_all=True)
 
 def create_subject(name, semester, description=None, credits=6, major_id=None):
     if major_id: existing = execute_query("SELECT id FROM subjects WHERE LOWER(name)=LOWER(%s) AND semester=%s AND major_id=%s", (name, semester, major_id), fetch_one=True)

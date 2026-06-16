@@ -269,10 +269,10 @@ def unenroll_subject(subject_id):
             return jsonify({'success': False, 'error': 'Enrollment period has ended or not started yet'}), 403
 
     try:
-        db.unenroll_student_from_subject(student['id'], subject_id)
-        return jsonify({'success': True, 'message': 'Unenrolled successfully'})
+        db.drop_student_from_subject(student['id'], subject_id)
+        return jsonify({'success': True, 'message': 'Subject dropped successfully'})
     except Exception as e:
-        print(f"Error unenrolling student {student['id']} from subject {subject_id}: {str(e)}")
+        print(f"Error dropping student {student['id']} from subject {subject_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -470,8 +470,12 @@ def exam_cancel(subject_id, exam_type):
         if not period:
             return jsonify({'success': False, 'error': 'Exam period is not active'}), 400
 
-        db.cancel_exam_signup(student['id'], subject_id, exam_type)
-        return jsonify({'success': True, 'message': 'Exam signup cancelled'})
+        db.drop_exam_signup(student['id'], subject_id, exam_type)
+        if exam_type == 'final':
+            msg = 'Dropped from final exam. This subject will not appear in your 2nd round options.'
+        else:
+            msg = 'Dropped from 2nd round exam. This subject will need to be retaken next year.'
+        return jsonify({'success': True, 'message': msg})
     except Exception as e:
         print(f"Error cancelling exam signup: {e}")
         import traceback; traceback.print_exc()

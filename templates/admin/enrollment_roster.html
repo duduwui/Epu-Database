@@ -97,16 +97,20 @@
     <!-- Stats Header -->
     <div class="card-header bg-light border-bottom p-3">
       <div class="row text-center g-3">
-        <div class="col-4 border-end">
-          <div class="fs-4 fw-bold text-dark">{{ period.signup_summary.total_students }}</div>
+        <div class="col-3 border-end">
+          <div class="fs-4 fw-bold text-dark">{{ signup_log.total_students }}</div>
           <small class="text-muted">Total Students</small>
         </div>
-        <div class="col-4 border-end">
-          <div class="fs-4 fw-bold text-success">{{ period.signup_summary.assigned_count }}</div>
+        <div class="col-3 border-end">
+          <div class="fs-4 fw-bold text-success">{{ signup_log.enrolled_count }}</div>
           <small class="text-muted"><i class="bi bi-check-circle me-1"></i>Enrolled</small>
         </div>
-        <div class="col-4">
-          <div class="fs-4 fw-bold text-warning">{{ period.signup_summary.pending_count }}</div>
+        <div class="col-3 border-end">
+          <div class="fs-4 fw-bold text-danger">{{ signup_log.dropped_count }}</div>
+          <small class="text-muted"><i class="bi bi-x-circle me-1"></i>Dropped</small>
+        </div>
+        <div class="col-3">
+          <div class="fs-4 fw-bold text-warning">{{ signup_log.pending_count }}</div>
           <small class="text-muted"><i class="bi bi-clock me-1"></i>Pending</small>
         </div>
       </div>
@@ -117,7 +121,7 @@
       <div class="row g-2 align-items-center">
         <div class="col-12 col-md-12 col-lg-4">
           <div class="input-container">
-            <input type="text" class="search-input" id="enrollSearchInput" placeholder="Search student name or number..." onkeyup="filterEnrollRoster()">
+            <input type="text" class="search-input" id="enrollSearchInput" placeholder="Search student name, number or subject..." onkeyup="filterEnrollRoster()">
             <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
               <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
             </svg>
@@ -127,8 +131,9 @@
           <div class="filter-group">
             <select class="form-select filter-select w-100" id="enrollStatusFilter" onchange="filterEnrollRoster()" aria-label="Filter by Status">
               <option value="all">All Statuses</option>
-              <option value="assigned">Enrolled</option>
-              <option value="pending">Pending</option>
+              <option value="enrolled">Enrolled</option>
+              <option value="dropped">Dropped</option>
+              <option value="pending">Pending (No action)</option>
             </select>
           </div>
         </div>
@@ -164,43 +169,49 @@
               <th class="ps-3 text-muted small text-uppercase">Number</th>
               <th class="text-muted small text-uppercase">Name</th>
               <th class="text-muted small text-uppercase">Class</th>
+              <th class="text-muted small text-uppercase">Subject</th>
               <th class="text-muted small text-uppercase">Status</th>
-              <th class="text-end pe-3 text-muted small text-uppercase">Subjects</th>
+              <th class="pe-3 text-muted small text-uppercase text-end">Action Taken At</th>
             </tr>
           </thead>
           <tbody>
-            {% if period.signup_summary.all_rows %}
-              {% for student in period.signup_summary.all_rows %}
+            {% if signup_log.all_rows %}
+              {% for student in signup_log.all_rows %}
               <tr class="student-row bg-white border-bottom">
-                <td class="ps-3" data-label="Number"><span class="badge bg-light text-dark border">{{ student.student_number }}</span></td>
+                <td class="ps-3" data-label="Number">
+                  <span class="badge bg-light text-dark border">{{ student.student_number or student.username }}</span>
+                </td>
                 <td class="student-name fw-medium text-navy" data-label="Name">{{ student.student_name }}</td>
                 <td class="d-none student-shift" data-label="Shift">{{ student.shift|lower }}</td>
                 <td data-label="Class">
                   {% if student.section %}
-                    <span class="badge border border-secondary text-dark px-2" title="Year {{ student.year }} - {{ student.shift|capitalize }}">{{ student.section }}</span>
+                    <span class="badge border border-secondary text-dark px-2" title="Semester {{ student.semester }} - {{ student.shift|capitalize }}">{{ student.section }}</span>
                   {% else %}
                     {% set class_parts = student.class_name.split(' ') if student.class_name else [] %}
                     {% set class_letter = class_parts[4] if class_parts|length >= 5 else (student.class_name or 'Unassigned') %}
                     <span class="badge border border-secondary text-dark px-2">{{ class_letter }}</span>
                   {% endif %}
                 </td>
-                <td class="student-status" data-label="Status" data-status="{{ 'assigned' if student.is_assigned else 'pending' }}">
-                  {% if student.is_assigned %}
+                <td class="student-subject text-muted" data-label="Subject">
+                  {{ student.subject_name or '-' }}
+                </td>
+                <td class="student-status" data-label="Status" data-status="{{ student.action_status or 'pending' }}">
+                  {% if student.action_status == 'enrolled' %}
                     <span class="badge bg-success-subtle text-success border border-success ps-2 pe-3 py-1 rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Enrolled</span>
+                  {% elif student.action_status == 'dropped' %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger ps-2 pe-3 py-1 rounded-pill"><i class="bi bi-x-circle-fill me-1"></i>Dropped</span>
                   {% else %}
                     <span class="badge bg-warning-subtle text-warning border border-warning ps-2 pe-3 py-1 rounded-pill"><i class="bi bi-exclamation-circle-fill me-1"></i>Pending</span>
                   {% endif %}
                 </td>
-                <td class="text-end pe-3" data-label="Subjects">
-                  <span class="badge {% if student.signup_count > 0 %}bg-primary{% else %}bg-light text-muted border{% endif %} rounded-pill fs-7 px-3 py-1">
-                    {{ student.signup_count }}
-                  </span>
+                <td class="pe-3 text-end text-muted small" data-label="Action Taken At">
+                  {{ student.action_taken_at.strftime('%Y-%m-%d %H:%M') if student.action_taken_at else '-' }}
                 </td>
               </tr>
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="5" class="text-center py-5 text-muted">
+                <td colspan="6" class="text-center py-5 text-muted">
                   <i class="bi bi-people display-4 d-block mb-3 text-black-50"></i>
                   No students found for this semester.
                 </td>
@@ -228,14 +239,15 @@ function filterEnrollRoster() {
   const rows = tbody.querySelectorAll('tr.student-row');
 
   for (let i = 0; i < rows.length; i++) {
-    // Cells mapping: Number (0), Name (1), hidden Shift (2), Class (3), Status (4), Subjects (5)
+    // Cells mapping: Number (0), Name (1), hidden Shift (2), Class (3), Subject (4), Status (5), Action Date (6)
     if (rows[i].cells.length < 5) continue;
 
     const studentNumber = rows[i].cells[0].innerText.toLowerCase();
     const nameStr = rows[i].cells[1].innerText.toLowerCase();
-    const nameId = studentNumber + ' ' + nameStr;
+    const subjectStr = rows[i].querySelector('.student-subject').innerText.toLowerCase();
+    const nameId = studentNumber + ' ' + nameStr + ' ' + subjectStr;
     
-    const rowShift = rows[i].cells[2].innerText.toLowerCase().trim();
+    const rowShift = rows[i].querySelector('.student-shift').innerText.toLowerCase().trim();
     const rowClass = rows[i].cells[3].innerText.toLowerCase().trim();
     
     const statusNode = rows[i].querySelector('.student-status');
@@ -262,5 +274,4 @@ function filterEnrollRoster() {
   }
 }
 </script>
-
 {% endblock %}
