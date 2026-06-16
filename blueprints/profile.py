@@ -241,8 +241,56 @@ def _json_error(message, status=400):
     return jsonify({'ok': False, 'error': message}), status
 
 
+
+RESEARCH_SECTIONS = {
+    'research': {
+        'table': 'researches',
+        'title': 'Researches',
+        'active': 'researches',
+        'group_label': 'Researches',
+        'api_base': '/profile/api/researches',
+        'columns': [('title', 'Title'), ('publication_status', 'Status'), ('publication_type', 'Type'), ('date', 'Date'), ('attachment', 'Attachments')],
+        'fields': [
+            {'name': 'title', 'label': 'Title', 'type': 'text', 'required': True},
+            {'name': 'publication_status', 'label': 'Publication Status', 'type': 'select', 'required': True, 'options': ['Published', 'Under Review', 'In Progress']},
+            {'name': 'publication_type', 'label': 'Publication Type', 'type': 'select', 'required': True, 'options': ['Impact factor Journal', 'Non-Impact factor Journal', 'Conference Paper', 'Book Chapter']},
+            {'name': 'journal_name_and_number', 'label': 'Journal Name and Number', 'type': 'text'},
+            {'name': 'published_research_link', 'label': 'Published Research Link', 'type': 'url'},
+            {'name': 'doi_link', 'label': 'DOI Link', 'type': 'url'},
+            {'name': 'date', 'label': 'Date', 'type': 'date', 'required': True},
+        ],
+    },
+    'book': {
+        'table': 'books',
+        'title': 'Books',
+        'active': 'researches',
+        'group_label': 'Researches',
+        'api_base': '/profile/api/researches',
+        'columns': [('title', 'Title'), ('publisher', 'Publisher'), ('date', 'Date'), ('attachment', 'Attachments')],
+        'fields': [
+            {'name': 'title', 'label': 'Title', 'type': 'text', 'required': True},
+            {'name': 'publisher', 'label': 'Publisher', 'type': 'text', 'required': True},
+            {'name': 'date', 'label': 'Date', 'type': 'date', 'required': True},
+        ],
+    },
+    'grant': {
+        'table': 'grants',
+        'title': 'Grants',
+        'active': 'researches',
+        'group_label': 'Researches',
+        'api_base': '/profile/api/researches',
+        'columns': [('title', 'Title Name'), ('grant_type', 'Type'), ('achievement', 'Achievement'), ('date', 'Date'), ('attachment', 'Attachments')],
+        'fields': [
+            {'name': 'title', 'label': 'Title', 'type': 'text', 'required': True},
+            {'name': 'grant_type', 'label': 'Grant Type', 'type': 'text', 'required': True},
+            {'name': 'achievement', 'label': 'Achievement', 'type': 'text', 'required': True},
+            {'name': 'date', 'label': 'Date', 'type': 'date', 'required': True},
+        ],
+    },
+}
+
 def _section_config_or_404(section):
-    return CAD_SECTIONS.get(section) or PORTFOLIO_SECTIONS.get(section)
+    return CAD_SECTIONS.get(section) or PORTFOLIO_SECTIONS.get(section) or RESEARCH_SECTIONS.get(section) or RESEARCH_SECTIONS.get(section)
 
 
 def _attachment_icon(path):
@@ -643,6 +691,99 @@ def delete_portfolio_record(section, item_id):
     return jsonify({'ok': True, 'message': 'The Record Deleted'})
 
 
+@profile_bp.route('/researches/<section>')
+@teacher_required
+def researches_section(section):
+    config = RESEARCH_SECTIONS.get(section)
+    if not config:
+        return redirect(url_for('profile.dashboard'))
+    teacher = _teacher_or_redirect()
+    if not teacher:
+        return redirect(url_for('auth.dashboard'))
+    return render_template(
+        'profile/section_records.html',
+        teacher=teacher,
+        section=section,
+        config=config,
+        records=db.list_profile_section_records(_current_teacher_user_id(), config['table']),
+    )
+
+
+@profile_bp.route('/api/researches/<section>', methods=['POST'])
+@teacher_required
+def add_researches_record(section):
+    config = RESEARCH_SECTIONS.get(section)
+    if not config:
+        return _json_error('Unsupported section.', 404)
+    values = {}
+    for field in config['fields']:
+        value = (request.form.get(field['name']) or '').strip()
+        if field.get('required') and not value:
+            return _json_error(f"{field['label']} is required.")
+        values[field['name']] = value or None
+    try:
+        values['attachment'] = _save_upload(request.files.get('attachment'), _current_teacher_user_id(), ATTACHMENT_EXTENSIONS)
+        item_id = db.add_profile_section_record(_current_teacher_user_id(), config['table'], values)
+        values['id'] = item_id
+        return jsonify({'ok': True, 'message': 'The Record Added', 'item': values})
+    except ValueError as exc:
+        return _json_error(str(exc))
+
+
+@profile_bp.route('/api/researches/<section>/<int:item_id>', methods=['GET'])
+@teacher_required
+def get_researches_record(section, item_id):
+    config = RESEARCH_SECTIONS.get(section)
+    if not config:
+        return _json_error('Unsupported section.', 404)
+    item = db.get_profile_section_record(_current_teacher_user_id(), config['table'], item_id)
+    if not item:
+        return _json_error('Record not found.', 404)
+    return jsonify({'ok': True, 'item': item})
+
+
+@profile_bp.route('/api/researches/<section>/<int:item_id>', methods=['POST'])
+@teacher_required
+def update_researches_record(section, item_id):
+    config = RESEARCH_SECTIONS.get(section)
+    if not config:
+        return _json_error('Unsupported section.', 404)
+    existing = db.get_profile_section_record(_current_teacher_user_id(), config['table'], item_id)
+    if not existing:
+        return _json_error('Record not found.', 404)
+    values = {}
+    for field in config['fields']:
+        value = (request.form.get(field['name']) or '').strip()
+        if field.get('required') and not value:
+            return _json_error(f"{field['label']} is required.")
+        values[field['name']] = value or None
+    try:
+        attachment = _save_upload(request.files.get('attachment'), _current_teacher_user_id(), ATTACHMENT_EXTENSIONS)
+        if attachment:
+            _delete_static_file(existing.get('attachment'))
+            values['attachment'] = attachment
+        db.update_profile_section_record(_current_teacher_user_id(), config['table'], item_id, values)
+        values['id'] = item_id
+        values['attachment'] = attachment or existing.get('attachment')
+        return jsonify({'ok': True, 'message': 'The Record Updated', 'item': values})
+    except ValueError as exc:
+        return _json_error(str(exc))
+
+
+@profile_bp.route('/api/researches/<section>/<int:item_id>', methods=['DELETE'])
+@teacher_required
+def delete_researches_record(section, item_id):
+    config = RESEARCH_SECTIONS.get(section)
+    if not config:
+        return _json_error('Unsupported section.', 404)
+    existing = db.get_profile_section_record(_current_teacher_user_id(), config['table'], item_id)
+    if not existing:
+        return _json_error('Record not found.', 404)
+    _delete_static_file(existing.get('attachment'))
+    db.delete_profile_section_record(_current_teacher_user_id(), config['table'], item_id)
+    return jsonify({'ok': True, 'message': 'The Record Deleted'})
+
+
 @profile_bp.route('/api/cad/<section>', methods=['POST'])
 @teacher_required
 def add_cad_record(section):
@@ -729,3 +870,69 @@ def workshop_attend_form():
         mimetype='application/msword',
         headers={'Content-Disposition': 'attachment; filename=workshop_attendance_form.doc'}
     )
+
+
+@profile_bp.route('/v/<staff_id>')
+def public_teacher_profile(staff_id):
+    teacher = db.get_teacher_by_staff_id(staff_id)
+    if not teacher:
+        flash('Teacher profile not found.', 'danger')
+        return redirect(url_for('public.home'))  # or index
+    
+    # We will pass all required data to the template
+    user_id = teacher['id']
+    phones = db.list_teacher_phones(user_id)
+    socials = db.list_teacher_social_media(user_id)
+    languages = db.list_teacher_languages(user_id)
+    scientific_titles = db.list_scientific_titles(user_id)
+    
+    cad_data = {}
+    for section, config in CAD_SECTIONS.items():
+        cad_data[section] = {
+            'title': config['title'],
+            'records': db.list_profile_section_records(user_id, config['table']),
+            'columns': config['columns']
+        }
+        
+    portfolio_data = {}
+    for section, config in PORTFOLIO_SECTIONS.items():
+        portfolio_data[section] = {
+            'title': config['title'],
+            'records': db.list_profile_section_records(user_id, config['table']),
+            'columns': config['columns']
+        }
+        
+    researches_data = {}
+    for section, config in RESEARCH_SECTIONS.items():
+        researches_data[section] = {
+            'title': config['title'],
+            'records': db.list_profile_section_records(user_id, config['table']),
+            'columns': config['columns']
+        }
+        
+    return render_template('profile/public_profile.html',
+                           teacher=teacher,
+                           phones=phones,
+                           socials=socials,
+                           languages=languages,
+                           scientific_titles=scientific_titles,
+                           cad_data=cad_data,
+                           portfolio_data=portfolio_data,
+                           researches_data=researches_data)
+
+
+@profile_bp.route('/qap-results', methods=['GET'])
+@teacher_required
+def qap_results():
+    teacher_user_id = _current_teacher_user_id()
+    teacher = _teacher_or_redirect()
+    if not teacher: return redirect(url_for('auth.login'))
+    return render_template('profile/qap_results.html', teacher=teacher)
+
+@profile_bp.route('/appeals', methods=['GET'])
+@teacher_required
+def appeals():
+    teacher_user_id = _current_teacher_user_id()
+    teacher = _teacher_or_redirect()
+    if not teacher: return redirect(url_for('auth.login'))
+    return render_template('profile/appeals.html', teacher=teacher)

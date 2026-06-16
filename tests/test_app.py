@@ -23,3 +23,15 @@ def test_student_dashboard_redirects_unauthenticated(client):
 def test_teacher_dashboard_redirects_unauthenticated(client):
     response = client.get('/teacher/dashboard')
     assert response.status_code == 302
+
+def test_student_grades_redirects_unauthenticated(client):
+    response = client.get('/student/grades')
+    assert response.status_code == 302
+
+def test_student_results_redirects_unauthenticated(client):
+    response = client.get('/student/results')
+    assert response.status_code == 302
+
+def test_student_moodle_redirects_unauthenticated(client):
+    response = client.get('/student/moodle')
+    assert response.status_code == 302

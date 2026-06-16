@@ -47,13 +47,13 @@
     <span><i class="bi bi-journal-richtext"></i>Researches</span><i class="bi bi-chevron-right"></i>
   </button>
   <div class="collapse {{ 'show' if active == 'researches' else '' }}" id="profileResearches">
-    <a class="profile-side-sublink" href="#">Researches</a>
-    <a class="profile-side-sublink" href="#">Books</a>
-    <a class="profile-side-sublink" href="#">Grants</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.researches_section', section='research') }}">Researches</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.researches_section', section='book') }}">Books</a>
+    <a class="profile-side-sublink" href="{{ url_for('profile.researches_section', section='grant') }}">Grants</a>
   </div>
 
-  <a class="profile-side-link" href="#"><i class="bi bi-clipboard2-check"></i><span>QAP Results</span></a>
-  <a class="profile-side-link" href="#"><i class="bi bi-chat-square-text"></i><span>Appeals</span></a>
+  <a class="profile-side-link {{ 'active' if active == 'qap' else '' }}" href="{{ url_for('profile.qap_results') }}"><i class="bi bi-clipboard2-check"></i><span>QAP Results</span></a>
+  <a class="profile-side-link {{ 'active' if active == 'appeals' else '' }}" href="{{ url_for('profile.appeals') }}"><i class="bi bi-chat-square-text"></i><span>Appeals</span></a>
 </aside>
 {% endmacro %}
 

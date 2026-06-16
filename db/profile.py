@@ -251,6 +251,9 @@ PROFILE_SECTION_FIELDS = {
     'supervisions': ['research_title', 'department', 'degree_type', 'date', 'attachment'],
     'acknowledgements': ['from_source', 'date', 'attachment'],
     'memberships': ['organization_name', 'link', 'level', 'date', 'attachment'],
+    'researches': ['title', 'publication_status', 'publication_type', 'journal_name_and_number', 'published_research_link', 'doi_link', 'date', 'attachment'],
+    'books': ['title', 'publisher', 'date', 'attachment'],
+    'grants': ['title', 'grant_type', 'achievement', 'date', 'attachment'],
 }
 
 
@@ -302,3 +305,7 @@ def update_profile_section_record(user_id, table, item_id, values):
 def delete_profile_section_record(user_id, table, item_id):
     _section_fields(table)
     return execute_query(f"DELETE FROM {table} WHERE teacher_id=%s AND id=%s", (user_id, item_id))
+
+
+def get_teacher_by_staff_id(staff_id):
+    return execute_query("SELECT * FROM users WHERE staff_id=%s AND role='teacher'", (staff_id,), fetch_one=True)

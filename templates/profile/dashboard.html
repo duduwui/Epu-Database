@@ -10,13 +10,9 @@
     {{ profile_sidebar('dashboard') }}
     
     <section>
-      <div class="profile-topbar">
-        <div>
-          <h1 class="h4 fw-bold text-navy mb-1">Welcome to Dashboard</h1>
-          <div class="text-muted small">Academic profile summary and staff announcements</div>
-        </div>
+      <div class="profile-topbar justify-content-end">
         <div class="d-flex align-items-center gap-3">
-          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('profile.edit') }}">View my profile</a>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('profile.edit') }}">Edit Profile</a>
           {% if teacher.photo %}
             <img class="profile-avatar" src="{{ url_for('static', filename=teacher.photo) }}" alt="{{ teacher.full_name }}">
           {% else %}
