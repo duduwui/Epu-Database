@@ -103,6 +103,7 @@ def get_active_exam_period(semester, period_type, major_id=None):
 
 def get_exam_period_signup_summary(semester, period_type, major_id=None):
     """Summarize which students in a semester have signed up for at least one exam of a given type."""
+    ensure_exam_signup_status_support()
     query = """
         WITH semester_students AS (
             SELECT st.id AS student_id,

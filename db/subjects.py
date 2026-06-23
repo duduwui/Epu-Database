@@ -10,6 +10,7 @@ def get_semester_for_year(year, cycle=None):
 def get_exam_eligible_subjects(student_id, exam_type, semester=None):
     """Return subjects eligible for the given exam type with signup status flags."""
     from .grades import ensure_exam_signup_status_support
+    from .students import get_enrolled_subjects_for_student
     ensure_exam_signup_status_support()
     enrolled = get_enrolled_subjects_for_student(student_id) or []
     if semester: enrolled = [s for s in enrolled if s.get('semester') == semester]
