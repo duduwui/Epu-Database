@@ -7,6 +7,7 @@ node_modules/
 *.log
 *.txt
 database/*.dump
+!database/latest_mis_system_migration.dump
 database/*schema_*.sql
 database/recovery_restore*.log
 database/emergency_mis_system_*.dump
