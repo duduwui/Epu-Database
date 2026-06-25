@@ -289,9 +289,19 @@
                 </form>
             </div>
         </div>
-
         {% endif %}
 
+        {% else %}
+        <div class="card border-0 shadow-sm text-center p-5 bg-white rounded-3">
+            <div class="card-body">
+                <i class="bi bi-journal-plus text-muted mb-3" style="font-size: 3.5rem;"></i>
+                <h4 class="text-navy">{{ t('No Weeks Created') }}</h4>
+                <p class="text-muted mb-3">{{ t('You have not created any weekly blocks or uploaded any content for this class yet.') }}</p>
+                <button class="btn btn-primary btn-sm px-4 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#addWeekModal">
+                    <i class="bi bi-plus-lg me-1"></i>{{ t('Create Your First Week') }}
+                </button>
+            </div>
+        </div>
         {% endfor %}
     </div>
 </div>

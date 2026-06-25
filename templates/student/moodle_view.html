@@ -139,6 +139,14 @@
                 </div>
             </div>
         </div>
+        {% else %}
+        <div class="card border-0 shadow-sm text-center p-5 bg-white rounded-3">
+            <div class="card-body">
+                <i class="bi bi-journal-x text-muted mb-3" style="font-size: 3.5rem;"></i>
+                <h4 class="text-navy">{{ t('No Content Available') }}</h4>
+                <p class="text-muted mb-0">{{ t('Your instructor has not posted any weeks, lecture files, or links for this subject yet.') }}</p>
+            </div>
+        </div>
         {% endfor %}
     </div>
 </div>
