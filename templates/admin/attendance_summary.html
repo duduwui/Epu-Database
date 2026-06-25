@@ -323,8 +323,10 @@
                 
                 <!-- Attendance Records Table -->
                 <h6 class="mb-2 small">Detailed Records</h6>
+                
+                <!-- Table View -->
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover">
+                    <table class="table table-sm table-hover responsive-card-table">
                         <thead class="table-light">
                             <tr>
                                 <th>Date</th>
@@ -346,11 +348,11 @@
           });
           html += `
                     <tr>
-                        <td>${formattedDate}</td>
-                        ${subjectId === 'all' ? `<td><small>${record.subject_name}</small></td>` : ''}
-                        <td>${record.teacher_name || 'N/A'}</td>
-                        <td>${statusBadge}</td>
-                        <td>${record.notes || '-'}</td>
+                        <td data-label="Date">${formattedDate}</td>
+                        ${subjectId === 'all' ? `<td data-label="Subject"><small>${record.subject_name}</small></td>` : ''}
+                        <td data-label="Teacher">${record.teacher_name || 'N/A'}</td>
+                        <td data-label="Status">${statusBadge}</td>
+                        <td data-label="Notes">${record.notes || '-'}</td>
                     </tr>
                 `;
         });

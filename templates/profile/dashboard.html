@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% from 'profile/_sidebar.html' import profile_sidebar, profile_module_css %}
+{% block title %}Profile Dashboard - EPU MIS{% endblock %}
+
+{% block content %}
+<div class="container profile-shell" style="max-width: 1180px; margin: 0 auto;">
+  {{ profile_module_css() }}
+  
+  <div class="profile-module-layout">
+    {{ profile_sidebar('dashboard') }}
+    
+    <section>
+      <div class="profile-topbar justify-content-end">
+        <div class="d-flex align-items-center gap-3">
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('profile.edit') }}">Edit Profile</a>
+          {% if teacher.photo %}
+            <img class="profile-avatar" src="{{ url_for('static', filename=teacher.photo) }}" alt="{{ teacher.full_name }}">
+          {% else %}
+            <div class="profile-avatar"><i class="bi bi-person"></i></div>
+          {% endif %}
+          <div class="d-none d-md-block">
+            <div class="fw-bold">{{ teacher.full_name }}</div>
+            <small class="text-muted">{{ teacher.academic_title or 'Academic Staff' }}</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Card CSS defined early -->
+      <style>
+        .morph-wrapper {
+          display: flex;
+          justify-content: center;
+        }
+        .morph-card {
+          position: relative;
+          width: 140px;
+          height: 180px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          filter: url(#morphGoo) drop-shadow(0 10px 20px rgba(0,0,0,0.08));
+          cursor: pointer;
+        }
+
+        /* Основные блобы формируют карточку */
+        .morph-blob {
+          position: absolute;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid rgba(255,255,255,0.4);
+          border-radius: 50%;
+          transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .morph-blob-1 {
+          width: 140px;
+          height: 140px;
+          top: 20px;
+          left: 0;
+        }
+
+        .morph-blob-2 {
+          width: 80px;
+          height: 80px;
+          top: -5px;
+          left: 30px;
+        }
+
+        .morph-blob-3 {
+          width: 60px;
+          height: 60px;
+          bottom: 5px;
+          left: 45px;
+        }
+
+        /* При hover — блобы перестраиваются */
+        .morph-card:hover .morph-blob-1 {
+          border-radius: 30%;
+          width: 130px;
+          height: 130px;
+          top: 25px;
+          left: 5px;
+          transform: rotate(-3deg);
+        }
+
+        .morph-card:hover .morph-blob-2 {
+          width: 55px;
+          height: 55px;
+          top: -10px;
+          left: -10px;
+          transform: rotate(10deg);
+        }
+
+        .morph-card:hover .morph-blob-3 {
+          width: 45px;
+          height: 45px;
+          bottom: -15px;
+          left: 100px;
+          transform: rotate(-8deg);
+        }
+
+        /* Контент */
+        .morph-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          color: #1C0770;
+          transition: all 0.5s ease;
+        }
+
+        .morph-icon {
+          font-size: 1.8rem;
+          color: rgba(28, 7, 112, 0.7);
+          transition: all 0.5s ease;
+        }
+
+        .morph-card:hover .morph-icon {
+          color: #1C0770;
+          transform: translateY(-4px);
+          filter: drop-shadow(0 0 6px rgba(28, 7, 112, 0.2));
+        }
+
+        .morph-label {
+          font-family: "Segoe UI", system-ui, sans-serif;
+          font-size: 10px;
+          font-weight: 600;
+          color: rgba(28, 7, 112, 0.6);
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          transition: all 0.5s ease;
+        }
+
+        .morph-card:hover .morph-label {
+          color: rgba(28, 7, 112, 0.9);
+          letter-spacing: 2.5px;
+        }
+
+        .morph-count {
+          font-family: "Segoe UI", system-ui, sans-serif;
+          font-size: 26px;
+          font-weight: 500;
+          color: #1C0770;
+          transition: all 0.5s ease;
+        }
+
+        .morph-card:hover .morph-count {
+          transform: scale(1.1);
+          text-shadow: 0 0 10px rgba(28, 7, 112, 0.15);
+        }
+
+        /* Active — сжатие */
+        .morph-card:active .morph-blob {
+          transform: scale(0.92) !important;
+          transition-duration: 0.15s;
+        }
+      </style>
+
+      {% set dashboard_cards = [
+        ('Research', profile_stats.research or 0, 'bi-journal-richtext'),
+        ('Books', profile_stats.books or 0, 'bi-book'),
+        ('Seminars', profile_stats.seminars or 0, 'bi-mic'),
+        ('Conferences', profile_stats.conferences or 0, 'bi-globe2'),
+        ('Courses', profile_stats.courses or 0, 'bi-easel2'),
+        ('Supervision', profile_stats.supervision or 0, 'bi-people'),
+        ('Acknowledgments', profile_stats.acknowledgments or 0, 'bi-patch-check'),
+        ('Committees', profile_stats.committees or 0, 'bi-diagram-3')
+      ] %}
+      
+      <div class="row g-3 mb-4">
+        {% for label, value, icon in dashboard_cards %}
+        <div class="col-sm-6 col-xl-3">
+          <div class="morph-wrapper">
+            <div class="morph-card">
+              <div class="morph-blob morph-blob-1"></div>
+              <div class="morph-blob morph-blob-2"></div>
+              <div class="morph-blob morph-blob-3"></div>
+              <div class="morph-content">
+                <div class="morph-icon"><i class="bi {{ icon }}"></i></div>
+                <div class="morph-label">{{ label }}</div>
+                <div class="morph-count">{{ value }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- SVG filter required for goo effect -->
+      <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="display:none;width:0;height:0">
+        <defs>
+          <filter id="morphGoo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"></feGaussianBlur>
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo"></feColorMatrix>
+            <feComposite in="SourceGraphic" in2="goo" operator="atop"></feComposite>
+          </filter>
+        </defs>
+      </svg>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white fw-bold"><i class="bi bi-megaphone me-2"></i>Announcements</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead class="table-light">
+                <tr><th>Title</th><th class="text-nowrap" style="width: 180px;">Date</th></tr>
+              </thead>
+              <tbody>
+                {% for announcement in announcements %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ announcement.title }}</div>
+                    {% if announcement.body %}<div class="small text-muted">{{ announcement.body }}</div>{% endif %}
+                  </td>
+                  <td class="text-muted">{{ announcement.published_at or announcement.created_at.date() }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" class="text-center text-muted py-4">No announcements yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

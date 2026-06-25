@@ -8,9 +8,78 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, date
 import os
 import db
+import time
 from blueprints.auth import teacher_required, login_required
 
 teacher_bp = Blueprint('teacher', __name__)
+
+
+def _resolve_uploaded_path(stored_path):
+    """Resolve legacy absolute paths and newer UPLOAD_FOLDER-relative paths."""
+    if not stored_path:
+        return None
+
+    normalized_path = os.path.normpath(stored_path)
+    if os.path.isabs(normalized_path):
+        return normalized_path
+
+    upload_folder = current_app.config.get('UPLOAD_FOLDER')
+    if upload_folder:
+        return os.path.normpath(os.path.join(upload_folder, normalized_path))
+
+    return normalized_path
+
+
+def _teacher_has_assignment(teacher_id, subject_id, class_id):
+    assignments = db.get_subjects_by_teacher(teacher_id) or []
+    return any(item['id'] == subject_id and item.get('class_id') == class_id for item in assignments)
+
+
+def _get_teacher_subject_group(teacher_id, subject_id):
+    subject_groups = db.get_teacher_subject_groups(teacher_id) or []
+    return next((group for group in subject_groups if group['subject_id'] == subject_id), None)
+
+
+def _get_target_assignments(assignments, current_class_id, scope):
+    current_row = next((item for item in assignments if item.get('class_id') == current_class_id), None)
+    if not current_row:
+        return []
+
+    if scope == 'all_classes':
+        return assignments
+    if scope == 'current_shift':
+        return [item for item in assignments if item.get('shift') == current_row.get('shift')]
+    return [current_row]
+
+
+def _resolve_subject_action_url(action, subject_id, class_id):
+    if action == 'grades':
+        return url_for('teacher.add_grades', subject_id=subject_id, class_id=class_id)
+    if action == 'attendance':
+        return url_for('teacher.take_attendance', subject_id=subject_id, class_id=class_id)
+    return url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id)
+
+
+def _parse_due_at_value(raw_due_at):
+    if not raw_due_at:
+        return None
+    try:
+        return datetime.fromisoformat(raw_due_at)
+    except ValueError:
+        return None
+
+
+def _send_uploaded_file(stored_path, download_name=None, as_attachment=False):
+    file_path = _resolve_uploaded_path(stored_path)
+    if file_path and os.path.exists(file_path):
+        directory = os.path.dirname(file_path)
+        filename = os.path.basename(file_path)
+        kwargs = {'as_attachment': as_attachment}
+        if download_name:
+            kwargs['download_name'] = download_name
+        return send_from_directory(directory, filename, **kwargs)
+    flash('File not found on server.', 'danger')
+    return redirect(request.referrer or url_for('auth.dashboard'))
 
 
 # =============================================
@@ -24,31 +93,40 @@ def dashboard():
     teacher = db.get_teacher_by_user_id(session['user_id'])
 
     if not teacher:
-        flash('Teacher profile not found.', 'danger')
-        return redirect(url_for('auth.dashboard'))
+        lang = session.get('lang', 'en')
+        session.clear()
+        session['lang'] = lang
+        flash('Teacher profile not found. Please log in again.', 'warning')
+        return redirect(url_for('auth.login'))
 
-    subjects = db.get_subjects_by_teacher(teacher['id']) or []
-    homework = db.get_homework_by_teacher(teacher['id']) or []
+    teaching_groups = db.get_teacher_subject_groups(teacher['id']) or []
+    pending_grade_students = db.get_teacher_pending_grade_student_count(teacher['id'])
+    pending_requests = db.get_teacher_pending_moodle_requests(teacher['id'], limit=100) or []
+    pending_submission_count = db.get_teacher_pending_moodle_submission_count(teacher['id'])
+    attendance_summary = db.get_teacher_attendance_dashboard_summary(teacher['id'])
+    recent_activity = db.get_teacher_recent_activity(teacher['id'], days=7, limit=8) or []
+    profile_stats = db.get_teacher_profile_stat_counts(session['user_id'])
+    announcements = db.get_active_announcements(limit=8)
 
-    grouped_subjects = {}
-    for s in subjects:
-        name = s['name']
-        if name not in grouped_subjects:
-            grouped_subjects[name] = {'count': 0, 'classes': [], 'credits': s.get('credits', 6)}
-        grouped_subjects[name]['count'] += 1
-        grouped_subjects[name]['classes'].append({
-            'subject_id': s['id'],
-            'class_id': s.get('class_id'),
-            'section': s.get('section', ''),
-            'semester': s.get('semester', ''),
-            'shift': s.get('shift', 'morning'),
-        })
+    attendance_pending_groups = max(
+        (attendance_summary.get('total_groups') or 0) - (attendance_summary.get('recorded_groups') or 0),
+        0
+    )
 
+    total_students = db.get_teacher_unique_student_count(teacher['id'])
     return render_template('teacher/dashboard.html',
                            teacher=teacher,
-                           subjects=subjects,
-                           grouped_subjects=grouped_subjects,
-                           homework=homework)
+                           teaching_groups=teaching_groups,
+                           pending_grade_students=pending_grade_students,
+                           pending_requests=pending_requests,
+                           pending_submission_count=pending_submission_count,
+                           recent_activity=recent_activity,
+                           recent_activity_count=len(recent_activity),
+                           profile_stats=profile_stats,
+                           announcements=announcements,
+                           total_students=total_students,
+                           attendance_summary=attendance_summary,
+                           attendance_pending_groups=attendance_pending_groups)
 
 
 # =============================================
@@ -654,15 +732,79 @@ def download_homework_file(homework_id):
             flash('Access denied. This homework is not for your class.', 'danger')
             return redirect(url_for('student.dashboard'))
 
-    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], hw['file_path'])
+    return _send_uploaded_file(hw.get('file_path'), download_name=hw['filename'], as_attachment=True)
 
-    if os.path.exists(file_path):
-        directory = os.path.dirname(file_path)
-        filename = os.path.basename(file_path)
-        return send_from_directory(directory, filename, as_attachment=True, download_name=hw['filename'])
-    else:
-        flash('File not found on server.', 'danger')
+
+@teacher_bp.route('/homework/view/<int:homework_id>')
+@login_required
+def view_homework_file(homework_id):
+    """Open a homework attachment inline when the browser supports it."""
+    query = "SELECT * FROM homework WHERE id = %s"
+    hw = db.execute_query(query, (homework_id,), fetch_one=True)
+
+    if not hw or not hw.get('filename'):
+        flash('File not found.', 'danger')
         return redirect(request.referrer or url_for('auth.dashboard'))
+
+    user_role = session.get('role')
+    if user_role == 'teacher':
+        teacher = db.get_teacher_by_user_id(session['user_id'])
+        if teacher and hw['teacher_id'] != teacher['id']:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('teacher.homework'))
+    elif user_role == 'student':
+        student = db.get_student_by_user_id(session['user_id'])
+        if student and hw['class_id'] != student['class_id']:
+            flash('Access denied. This homework is not for your class.', 'danger')
+            return redirect(url_for('student.dashboard'))
+
+    return _send_uploaded_file(hw.get('file_path'))
+
+
+@teacher_bp.route('/moodle/submissions/download/<int:submission_id>')
+@login_required
+def download_moodle_submission_file(submission_id):
+    submission = db.get_moodle_request_submission_by_id(submission_id)
+    if not submission:
+        flash('File not found.', 'danger')
+        return redirect(request.referrer or url_for('auth.dashboard'))
+
+    user_role = session.get('role')
+    if user_role == 'teacher':
+        teacher = db.get_teacher_by_user_id(session['user_id'])
+        if not teacher or submission['teacher_id'] != teacher['id']:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('teacher.moodle'))
+    elif user_role == 'student':
+        student = db.get_student_by_user_id(session['user_id'])
+        if not student or submission['student_id'] != student['id']:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('student.moodle'))
+
+    return _send_uploaded_file(submission.get('file_path'), download_name=submission['file_name'], as_attachment=True)
+
+
+@teacher_bp.route('/moodle/submissions/view/<int:submission_id>')
+@login_required
+def view_moodle_submission_file(submission_id):
+    submission = db.get_moodle_request_submission_by_id(submission_id)
+    if not submission:
+        flash('File not found.', 'danger')
+        return redirect(request.referrer or url_for('auth.dashboard'))
+
+    user_role = session.get('role')
+    if user_role == 'teacher':
+        teacher = db.get_teacher_by_user_id(session['user_id'])
+        if not teacher or submission['teacher_id'] != teacher['id']:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('teacher.moodle'))
+    elif user_role == 'student':
+        student = db.get_student_by_user_id(session['user_id'])
+        if not student or submission['student_id'] != student['id']:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('student.moodle'))
+
+    return _send_uploaded_file(submission.get('file_path'))
 
 
 @teacher_bp.route('/files/download/<int:file_id>')
@@ -684,13 +826,7 @@ def download_file(file_id):
                 flash('Access denied. This file is not for your class.', 'danger')
                 return redirect(url_for('student.files'))
 
-    if os.path.exists(file_info['file_path']):
-        directory = os.path.dirname(file_info['file_path'])
-        filename = os.path.basename(file_info['file_path'])
-        return send_from_directory(directory, filename, as_attachment=True, download_name=file_info['file_name'])
-    else:
-        flash('File not found on server.', 'danger')
-        return redirect(url_for('auth.dashboard'))
+    return _send_uploaded_file(file_info.get('file_path'), download_name=file_info['file_name'], as_attachment=True)
 
 
 @teacher_bp.route('/files/view/<int:file_id>')
@@ -712,13 +848,7 @@ def view_file(file_id):
                 flash('Access denied. This file is not for your class.', 'danger')
                 return redirect(url_for('student.files'))
 
-    if os.path.exists(file_info['file_path']):
-        directory = os.path.dirname(file_info['file_path'])
-        filename = os.path.basename(file_info['file_path'])
-        return send_from_directory(directory, filename)
-    else:
-        flash('File not found on server.', 'danger')
-        return redirect(url_for('auth.dashboard'))
+    return _send_uploaded_file(file_info.get('file_path'))
 
 
 # =============================================
@@ -998,8 +1128,9 @@ def delete_file(file_id):
 
     file_info = db.get_lecture_file_by_id(file_id)
     if file_info and file_info['teacher_id'] == teacher['id']:
-        if os.path.exists(file_info['file_path']):
-            os.remove(file_info['file_path'])
+        file_path = _resolve_uploaded_path(file_info.get('file_path'))
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
         db.delete_lecture_file(file_id)
         flash('File deleted successfully!', 'success')
     else:
@@ -1025,8 +1156,9 @@ def delete_file_group():
             fid = int(id_str.strip())
             file_info = db.get_lecture_file_by_id(fid)
             if file_info and file_info['teacher_id'] == teacher['id']:
-                if not physical_deleted and file_info.get('file_path') and os.path.exists(file_info['file_path']):
-                    os.remove(file_info['file_path'])
+                file_path = _resolve_uploaded_path(file_info.get('file_path'))
+                if not physical_deleted and file_path and os.path.exists(file_path):
+                    os.remove(file_path)
                     physical_deleted = True
                 db.delete_lecture_file(fid)
                 deleted += 1
@@ -1039,3 +1171,657 @@ def delete_file_group():
         flash('Could not delete file.', 'danger')
 
     return redirect(url_for('teacher.files'))
+
+
+# =============================================
+# TEACHER - MOODLE HUB
+# =============================================
+
+@teacher_bp.route('/teacher/moodle')
+@teacher_required
+def moodle():
+    """List subjects for Moodle view"""
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    subject_groups = db.get_teacher_subject_groups(teacher['id']) or []
+    return render_template('teacher/moodle_list.html', subject_groups=subject_groups)
+
+
+@teacher_bp.route('/teacher/subject/<int:subject_id>/picker')
+@teacher_required
+def subject_assignment_picker(subject_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("Teacher record not found.", "danger")
+        return redirect(url_for('auth.dashboard'))
+
+    action = (request.args.get('action') or 'moodle').strip().lower()
+    if action not in {'moodle', 'grades', 'attendance'}:
+        action = 'moodle'
+
+    subject_group = _get_teacher_subject_group(teacher['id'], subject_id)
+    if not subject_group:
+        flash("Subject not found or access denied.", "danger")
+        return redirect(url_for('teacher.dashboard'))
+
+    assignments = subject_group.get('assignments') or []
+    if len(assignments) == 1 and assignments[0].get('class_id'):
+        return redirect(_resolve_subject_action_url(action, subject_id, assignments[0]['class_id']))
+
+    action_labels = {
+        'moodle': 'Choose a class to manage Moodle Hub content',
+        'grades': 'Choose a class to manage grades',
+        'attendance': 'Choose a class to manage attendance',
+    }
+    action_button_labels = {
+        'moodle': 'Open Moodle Hub',
+        'grades': 'Open Grades',
+        'attendance': 'Open Attendance',
+    }
+
+    return render_template(
+        'teacher/subject_assignment_picker.html',
+        subject_group=subject_group,
+        assignments=assignments,
+        selected_action=action,
+        action_label=action_labels[action],
+        action_button_label=action_button_labels[action],
+    )
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/add_week', methods=['POST'])
+@teacher_required
+def moodle_add_week_subject(subject_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("Teacher record not found.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    subject_group = _get_teacher_subject_group(teacher['id'], subject_id)
+    if not subject_group:
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    title = (request.form.get('title') or '').strip()
+    display_order = request.form.get('display_order', 0)
+    scope = (request.form.get('apply_scope') or 'global').strip()
+    selected_class_id = request.form.get('target_class_id', type=int)
+
+    if not title:
+        flash("Week title is required.", "danger")
+        return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+    assignments = subject_group.get('assignments') or []
+    if scope == 'specific':
+        target_assignments = [item for item in assignments if item.get('class_id') == selected_class_id]
+    else:
+        target_assignments = assignments
+
+    if not target_assignments:
+        flash("Choose a valid class for this week.", "danger")
+        return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+    for assignment in target_assignments:
+        db.create_moodle_week(assignment['class_id'], subject_id, session['user_id'], title, display_order)
+
+    flash(
+        f"Week added for {len(target_assignments)} class{'es' if len(target_assignments) != 1 else ''}.",
+        "success"
+    )
+    return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/add_request', methods=['POST'])
+@teacher_required
+def moodle_add_request_subject(subject_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("Teacher record not found.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    subject_group = _get_teacher_subject_group(teacher['id'], subject_id)
+    if not subject_group:
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    title = (request.form.get('title') or '').strip()
+    description = (request.form.get('description') or '').strip()
+    due_at = _parse_due_at_value(request.form.get('due_at'))
+    scope = (request.form.get('apply_scope') or 'global').strip()
+    selected_class_id = request.form.get('target_class_id', type=int)
+    attachment = request.files.get('file')
+
+    if not title or due_at is None:
+        flash("Title and due date/time are required.", "danger")
+        return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+    assignments = subject_group.get('assignments') or []
+    if scope == 'specific':
+        target_assignments = [item for item in assignments if item.get('class_id') == selected_class_id]
+    else:
+        target_assignments = assignments
+
+    if not target_assignments:
+        flash("Choose a valid class for this request.", "danger")
+        return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+    filename = None
+    file_size = 0
+    file_type = None
+    file_bytes = None
+    if attachment and attachment.filename:
+        filename = secure_filename(attachment.filename)
+        file_bytes = attachment.read()
+        file_size = len(file_bytes)
+        file_type = attachment.content_type
+
+    for index, assignment in enumerate(target_assignments, start=1):
+        relative_path = None
+        if filename and file_bytes is not None:
+            upload_dir = os.path.join(
+                current_app.config['UPLOAD_FOLDER'],
+                'moodle_requests',
+                f"subject_{subject_id}",
+                f"class_{assignment['class_id']}"
+            )
+            os.makedirs(upload_dir, exist_ok=True)
+            unique_filename = f"{int(time.time())}_{assignment['class_id']}_{index}_{filename}"
+            absolute_path = os.path.join(upload_dir, unique_filename)
+            with open(absolute_path, 'wb') as saved_file:
+                saved_file.write(file_bytes)
+            relative_path = os.path.relpath(absolute_path, current_app.config['UPLOAD_FOLDER'])
+
+        db.create_homework(
+            class_id=assignment['class_id'],
+            subject_id=subject_id,
+            teacher_id=teacher['id'],
+            title=title,
+            description=description,
+            due_date=due_at.date(),
+            filename=filename,
+            file_path=relative_path,
+            file_type=file_type,
+            file_size=file_size,
+            week_id=None,
+            is_moodle_request=True,
+            due_at=due_at
+        )
+
+    flash(
+        f"Request created for {len(target_assignments)} class{'es' if len(target_assignments) != 1 else ''}.",
+        "success"
+    )
+    return redirect(url_for('teacher.subject_assignment_picker', subject_id=subject_id, action='moodle'))
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>', methods=['GET'])
+@teacher_required
+def moodle_hub(subject_id, class_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+    subject = db.execute_query("SELECT id, name FROM subjects WHERE id = %s", (subject_id,), fetch_one=True)
+    subject_assignments = db.get_teacher_subject_assignments(teacher['id'], subject_id) or []
+    current_assignment = next((item for item in subject_assignments if item.get('class_id') == class_id), None)
+    moodle_content = db.get_moodle_content(class_id, subject_id)
+    return render_template(
+        'teacher/moodle_hub.html',
+        subject=subject,
+        class_id=class_id,
+        current_assignment=current_assignment,
+        subject_assignments=subject_assignments,
+        moodle_content=moodle_content
+    )
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/add_week', methods=['POST'])
+@teacher_required
+def moodle_add_week(subject_id, class_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if teacher and not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+    if not teacher and session.get('role') == 'admin':
+        flash("Admins cannot add Moodle content unless assigned as a teacher.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+    elif not teacher:
+        flash("Teacher record not found.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    title = (request.form.get('title') or '').strip()
+    display_order = request.form.get('display_order', 0)
+    scope = (request.form.get('apply_scope') or 'current_class').strip()
+
+    if not title:
+        flash("Week title is required.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    subject_assignments = db.get_teacher_subject_assignments(teacher['id'], subject_id) or []
+    target_assignments = _get_target_assignments(subject_assignments, class_id, scope)
+    if not target_assignments:
+        flash("No target classes found for this scope.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    for assignment in target_assignments:
+        db.create_moodle_week(assignment['class_id'], subject_id, session['user_id'], title, display_order)
+
+    flash(
+        f"Week added for {len(target_assignments)} class{'es' if len(target_assignments) != 1 else ''}.",
+        "success"
+    )
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/add_file', methods=['POST'])
+@teacher_required
+def moodle_add_file(subject_id, class_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("You must be an assigned teacher to add content.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+    if not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+        
+    material_type = request.form.get('material_type')
+    title = (request.form.get('title') or '').strip()
+    description = request.form.get('description', '')
+    week_id = request.form.get('week_id')
+    scope = (request.form.get('apply_scope') or 'current_class').strip()
+
+    if not title:
+        flash("Title is required.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    subject_assignments = db.get_teacher_subject_assignments(teacher['id'], subject_id) or []
+    target_assignments = _get_target_assignments(subject_assignments, class_id, scope)
+    if not target_assignments:
+        flash("No target classes found for this scope.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    source_week = None
+    if week_id:
+        try:
+            week_id = int(week_id)
+        except (TypeError, ValueError):
+            flash("Invalid week selected.", "danger")
+            return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+        source_week = db.get_moodle_week_by_id(week_id, teacher_id=session['user_id'])
+        if not source_week or source_week['subject_id'] != subject_id or source_week['class_id'] != class_id:
+            flash("Invalid week selected.", "danger")
+            return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+    
+    if material_type == 'link':
+        link_url = request.form.get('link_url')
+        for assignment in target_assignments:
+            target_week_id = None
+            if source_week:
+                if assignment['class_id'] == class_id:
+                    target_week_id = source_week['id']
+                else:
+                    matched_week = db.get_or_create_moodle_week(
+                        assignment['class_id'],
+                        subject_id,
+                        session['user_id'],
+                        source_week['title'],
+                        source_week.get('display_order') or 0
+                    )
+                    target_week_id = matched_week['id'] if matched_week else None
+
+            db.create_lecture_file(
+                subject_id,
+                teacher['id'],
+                assignment['class_id'],
+                title,
+                description,
+                None,
+                None,
+                None,
+                None,
+                None,
+                target_week_id,
+                True,
+                link_url
+            )
+        flash(
+            f"Link added for {len(target_assignments)} class{'es' if len(target_assignments) != 1 else ''}.",
+            "success"
+        )
+    else:
+        file = request.files.get('file')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file_bytes = file.read()
+            file_type = file.content_type
+
+            upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], f"subject_{subject_id}")
+            os.makedirs(upload_dir, exist_ok=True)
+
+            for index, assignment in enumerate(target_assignments, start=1):
+                target_week_id = None
+                if source_week:
+                    if assignment['class_id'] == class_id:
+                        target_week_id = source_week['id']
+                    else:
+                        matched_week = db.get_or_create_moodle_week(
+                            assignment['class_id'],
+                            subject_id,
+                            session['user_id'],
+                            source_week['title'],
+                            source_week.get('display_order') or 0
+                        )
+                        target_week_id = matched_week['id'] if matched_week else None
+
+                unique_filename = f"{int(time.time())}_{assignment['class_id']}_{index}_{filename}"
+                file_path = os.path.join(f"subject_{subject_id}", unique_filename)
+                absolute_path = os.path.join(current_app.config['UPLOAD_FOLDER'], file_path)
+
+                with open(absolute_path, 'wb') as saved_file:
+                    saved_file.write(file_bytes)
+
+                db.create_lecture_file(
+                    subject_id,
+                    teacher['id'],
+                    assignment['class_id'],
+                    title,
+                    description,
+                    filename,
+                    file_path,
+                    len(file_bytes),
+                    file_type,
+                    None,
+                    target_week_id,
+                    False,
+                    None
+                )
+
+            flash(
+                f"File uploaded for {len(target_assignments)} class{'es' if len(target_assignments) != 1 else ''}.",
+                "success"
+            )
+        else:
+            flash("No file selected.", "danger")
+            
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/add_request', methods=['POST'])
+@teacher_required
+def moodle_add_request(subject_id, class_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("You must be an assigned teacher to create Moodle requests.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    title = (request.form.get('title') or '').strip()
+    description = (request.form.get('description') or '').strip()
+    due_at_raw = request.form.get('due_at')
+    week_id = request.form.get('week_id') or None
+    attachment = request.files.get('file')
+
+    if not title or not due_at_raw:
+        flash("Title and due date/time are required.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    try:
+        due_at = datetime.fromisoformat(due_at_raw)
+    except ValueError:
+        flash("Invalid due date/time.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    if week_id:
+        try:
+            week_id = int(week_id)
+        except (TypeError, ValueError):
+            flash("Invalid week selected.", "danger")
+            return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+        week = db.get_moodle_week_by_id(week_id, teacher_id=session['user_id'])
+        if not week or week['subject_id'] != subject_id or week['class_id'] != class_id:
+            flash("Invalid week selected.", "danger")
+            return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    filename = None
+    relative_path = None
+    file_size = 0
+    file_type = None
+
+    if attachment and attachment.filename:
+        filename = secure_filename(attachment.filename)
+        upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'moodle_requests', f"subject_{subject_id}", f"class_{class_id}")
+        os.makedirs(upload_dir, exist_ok=True)
+        unique_filename = f"{int(time.time())}_{filename}"
+        absolute_path = os.path.join(upload_dir, unique_filename)
+        attachment.save(absolute_path)
+        relative_path = os.path.relpath(absolute_path, current_app.config['UPLOAD_FOLDER'])
+        file_size = os.path.getsize(absolute_path)
+        file_type = attachment.content_type
+
+    db.create_homework(
+        class_id=class_id,
+        subject_id=subject_id,
+        teacher_id=teacher['id'],
+        title=title,
+        description=description,
+        due_date=due_at.date(),
+        filename=filename,
+        file_path=relative_path,
+        file_type=file_type,
+        file_size=file_size,
+        week_id=week_id,
+        is_moodle_request=True,
+        due_at=due_at
+    )
+    flash("Moodle request created successfully.", "success")
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/request/<int:request_id>')
+@teacher_required
+def moodle_request_details(subject_id, class_id, request_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    request_row = db.get_moodle_request_by_id(request_id)
+    if not request_row or request_row['subject_id'] != subject_id or request_row['class_id'] != class_id or request_row['teacher_id'] != teacher['id']:
+        flash("Request not found or access denied.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    subject = db.execute_query("SELECT id, name FROM subjects WHERE id = %s", (subject_id,), fetch_one=True)
+    roster = db.get_moodle_request_roster(request_id)
+    submitted = [row for row in roster if row.get('submission_id')]
+    remaining = [row for row in roster if not row.get('submission_id')]
+    return render_template(
+        'teacher/moodle_request_submissions.html',
+        subject=subject,
+        class_id=class_id,
+        request_row=request_row,
+        roster=roster,
+        submitted=submitted,
+        remaining=remaining
+    )
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/request/<int:request_id>/update_due', methods=['POST'])
+@teacher_required
+def moodle_update_request_due(subject_id, class_id, request_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    due_at_raw = request.form.get('due_at')
+    try:
+        due_at = datetime.fromisoformat(due_at_raw)
+    except (TypeError, ValueError):
+        flash("Invalid due date/time.", "danger")
+        return redirect(url_for('teacher.moodle_request_details', subject_id=subject_id, class_id=class_id, request_id=request_id))
+
+    updated = db.update_moodle_request_due(request_id, teacher['id'], due_at)
+    flash("Due date updated successfully." if updated else "Could not update due date.", "success" if updated else "danger")
+    return redirect(url_for('teacher.moodle_request_details', subject_id=subject_id, class_id=class_id, request_id=request_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/request/<int:request_id>/delete', methods=['POST'])
+@teacher_required
+def moodle_delete_request(subject_id, class_id, request_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+
+    request_row = db.get_moodle_request_by_id(request_id)
+    if not request_row or request_row['subject_id'] != subject_id or request_row['class_id'] != class_id or request_row['teacher_id'] != teacher['id']:
+        flash("Request not found or access denied.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    attachment_path = _resolve_uploaded_path(request_row.get('file_path'))
+    if attachment_path and os.path.exists(attachment_path):
+        os.remove(attachment_path)
+
+    for submission in db.get_moodle_request_submissions(request_id):
+        submission_path = _resolve_uploaded_path(submission.get('file_path'))
+        if submission_path and os.path.exists(submission_path):
+            os.remove(submission_path)
+
+    db.delete_moodle_request_submissions(request_id)
+    db.delete_moodle_request(request_id, teacher['id'])
+    flash("Moodle request deleted successfully.", "success")
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/delete_week/<int:week_id>', methods=['POST'])
+@teacher_required
+def moodle_delete_week(subject_id, class_id, week_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("You must be an assigned teacher to delete weeks.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    week = db.get_moodle_week_by_id(week_id, teacher_id=session['user_id'])
+    if not week or week['subject_id'] != subject_id or week['class_id'] != class_id:
+        flash("Week not found or access denied.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    files = db.get_lecture_files_for_week(week_id)
+    for file_info in files:
+        if file_info['subject_id'] != subject_id or file_info['class_id'] != class_id:
+            continue
+        if not file_info.get('is_link'):
+            file_path = _resolve_uploaded_path(file_info.get('file_path'))
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+        db.delete_lecture_file(file_info['id'])
+
+    homework_rows = db.get_homework_for_week(week_id)
+    for hw in homework_rows:
+        if hw['subject_id'] != subject_id or hw['class_id'] != class_id:
+            continue
+        file_path = _resolve_uploaded_path(hw.get('file_path'))
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+        for submission in db.get_moodle_request_submissions(hw['id']):
+            submission_path = _resolve_uploaded_path(submission.get('file_path'))
+            if submission_path and os.path.exists(submission_path):
+                os.remove(submission_path)
+        db.delete_moodle_request_submissions(hw['id'])
+    db.delete_homework_by_week(week_id)
+
+    db.delete_moodle_week(week_id, session['user_id'])
+    flash("Week and its files deleted successfully.", "success")
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/delete_file/<int:file_id>', methods=['POST'])
+@teacher_required
+def moodle_delete_file(subject_id, class_id, file_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("You must be an assigned teacher to delete files.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    file_info = db.get_lecture_file_by_id(file_id)
+    if not file_info or file_info['teacher_id'] != teacher['id'] or file_info['subject_id'] != subject_id or file_info['class_id'] != class_id:
+        flash("File not found or access denied.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    if not file_info.get('is_link'):
+        file_path = _resolve_uploaded_path(file_info.get('file_path'))
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+    db.delete_lecture_file(file_id)
+    flash("File deleted successfully.", "success")
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/replace_file/<int:file_id>', methods=['POST'])
+@teacher_required
+def moodle_replace_file(subject_id, class_id, file_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher:
+        flash("You must be an assigned teacher to replace files.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    file_info = db.get_lecture_file_by_id(file_id)
+    if not file_info or file_info['teacher_id'] != teacher['id'] or file_info['subject_id'] != subject_id or file_info['class_id'] != class_id:
+        flash("File not found or access denied.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    if file_info.get('is_link'):
+        flash("Links cannot be replaced. Delete and add the link again.", "warning")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        flash("No replacement file selected.", "danger")
+        return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+    filename = secure_filename(file.filename)
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], f"subject_{subject_id}")
+    os.makedirs(upload_dir, exist_ok=True)
+    unique_filename = f"{int(time.time())}_{filename}"
+    relative_path = os.path.join(f"subject_{subject_id}", unique_filename)
+    absolute_path = os.path.join(current_app.config['UPLOAD_FOLDER'], relative_path)
+    file.save(absolute_path)
+    file_size = os.path.getsize(absolute_path)
+    file_type = file.content_type
+
+    old_file_path = _resolve_uploaded_path(file_info.get('file_path'))
+    if old_file_path and os.path.exists(old_file_path):
+        os.remove(old_file_path)
+
+    db.update_lecture_file_asset(
+        file_id=file_id,
+        teacher_id=teacher['id'],
+        file_name=filename,
+        file_path=relative_path,
+        file_size=file_size,
+        file_type=file_type
+    )
+    flash("File replaced successfully.", "success")
+    return redirect(url_for('teacher.moodle_hub', subject_id=subject_id, class_id=class_id))
+
+
+@teacher_bp.route('/teacher/moodle/<int:subject_id>/<int:class_id>/engagement')
+@teacher_required
+def moodle_engagement(subject_id, class_id):
+    teacher = db.get_teacher_by_user_id(session['user_id'])
+    if not teacher or not _teacher_has_assignment(teacher['id'], subject_id, class_id):
+        flash("Access denied.", "danger")
+        return redirect(url_for('teacher.moodle'))
+    assignments = db.get_subjects_by_teacher(teacher['id']) if teacher else []
+    stats = db.get_moodle_engagement_stats(subject_id, class_id)
+    daily_details = db.get_moodle_engagement_daily_details(subject_id, class_id)
+    details_by_student = {}
+    for row in daily_details:
+        details_by_student.setdefault(row['student_id'], []).append(row)
+    for stat in stats:
+        stat['daily_details'] = details_by_student.get(stat['student_id'], [])
+    subject = db.execute_query("SELECT id, name FROM subjects WHERE id = %s", (subject_id,), fetch_one=True)
+    return render_template(
+        'teacher/moodle_engagement.html',
+        stats=stats,
+        subject=subject,
+        class_id=class_id,
+        assignments=assignments,
+        selected_subject_id=subject_id,
+        selected_class_id=class_id
+    )

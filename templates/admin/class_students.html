@@ -53,7 +53,7 @@ class_info.section }}{% endblock %} {% block content %}
         <span class="badge bg-navy fs-6">Total Students: {{ students|length }}</span>
       </div>
       <div class="table-responsive">
-        <table class="table table-hover" id="studentsTable">
+        <table class="table table-hover responsive-card-table" id="studentsTable">
           <thead>
             <tr>
               <th>#</th>
@@ -67,12 +67,12 @@ class_info.section }}{% endblock %} {% block content %}
           <tbody>
             {% for student in students %}
             <tr>
-              <td>{{ loop.index }}</td>
-              <td><strong>{{ student.student_number or '-' }}</strong></td>
-              <td>{{ student.full_name }}</td>
-              <td>{{ student.username }}</td>
-              <td>{{ student.email or '-' }}</td>
-              <td>{{ student.phone or '-' }}</td>
+              <td data-label="#">{{ loop.index }}</td>
+              <td data-label="Student Number"><strong>{{ student.student_number or '-' }}</strong></td>
+              <td data-label="Full Name">{{ student.full_name }}</td>
+              <td data-label="Username">{{ student.username }}</td>
+              <td data-label="Email">{{ student.email or '-' }}</td>
+              <td data-label="Phone">{{ student.phone or '-' }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -183,7 +183,7 @@ class_info.section }}{% endblock %} {% block content %}
     <div class="meta-item">Enrolled<strong>${count} Students</strong></div>
   </div>
   
-  <table>
+  <div class="table-responsive">\n<table>
     <thead>
       <tr>
         <th style="width:40px;text-align:center;">#</th>
@@ -196,7 +196,7 @@ class_info.section }}{% endblock %} {% block content %}
     <tbody>
       ${tableRows}
     </tbody>
-  </table>
+  </table>\n</div>
   
   <div class="footer">
     <span>EPU \u2014 MIS Department</span>

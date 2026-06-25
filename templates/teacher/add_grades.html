@@ -44,66 +44,8 @@ content %}
   {% else %}
 
   <div class="row">
-    <!-- Grade Distribution Structure (Left Side) -->
-    <div class="col-lg-4">
-      <div class="card sticky-top" style="top: 20px">
-        <div class="card-header bg-navy text-white">
-          <i class="bi bi-diagram-3 me-2"></i><strong>Grade Distribution</strong>
-        </div>
-        <div class="card-body p-0">
-          <div class="list-group list-group-flush">
-            {% set ns = namespace(seen_types=[], total_weight=0) %} {% for component in components
-            %} {% if component.component_type not in ns.seen_types %} {% set _ =
-            ns.seen_types.append(component.component_type) %} {% set type = component.component_type
-            %} {% set items = components | selectattr('component_type', 'equalto', type) | list %}
-            {% set type_weight = items | sum(attribute='weight_percentage') %} {% set
-            ns.total_weight = ns.total_weight + type_weight %}
-
-            <!-- Category Header -->
-            <div class="list-group-item bg-light border-0 py-2">
-              <div class="d-flex justify-content-between align-items-center">
-                <strong class="text-uppercase text-navy" style="font-size: 0.9rem">
-                  {{ type|replace('_', ' ') }}
-                </strong>
-                <span class="badge bg-dark">{{ type_weight|round(1) }}%</span>
-              </div>
-            </div>
-
-            <!-- Category Items -->
-            {% for item in items %}
-            <div class="list-group-item border-0 py-2 ps-4">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted" style="font-size: 0.85rem">{{ item.component_name }}</span>
-                <div>
-                  <span class="text-muted me-2" style="font-size: 0.75rem"
-                    >{{ item.weight_percentage|round(1) }}%</span
-                  >
-                  <span class="badge bg-secondary" style="font-size: 0.7rem"
-                    >Max: {{ item.max_score }}</span
-                  >
-                </div>
-              </div>
-            </div>
-            {% endfor %} {% endif %} {% endfor %}
-
-            <!-- Total -->
-            <div class="list-group-item bg-light border-0 py-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <strong>TOTAL</strong>
-                <span
-                  class="badge {{ 'bg-success' if effective_total_weight == 100 else 'bg-warning text-dark' }} fs-6"
-                >
-                  {{ effective_total_weight|round(1) }}%
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Student List (Right Side) -->
-    <div class="col-lg-8">
+    <!-- Student List (Full Width) -->
+    <div class="col-lg-12">
       <div class="card">
         <div class="card-header">
           <i class="bi bi-people me-2"></i><strong>Students - Click to Add Grades</strong>
@@ -267,6 +209,8 @@ content %}
                   <td class="text-center align-middle">
                     <input
                       type="number"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
                       name="component_{{ item.id }}"
                       class="form-control text-center grade-input"
                       data-component-id="{{ item.id }}"

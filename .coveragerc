@@ -1,0 +1,18 @@
+[run]
+source = .
+omit =
+    .venv/*
+    dev_scripts/*
+    fix_*.py
+    align_center.py
+    init_db.py
+    tests/*
+    */test_*.py
+    */__pycache__/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    except ImportError

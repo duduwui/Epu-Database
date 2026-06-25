@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% from 'profile/_sidebar.html' import profile_sidebar, profile_module_css %}
+
+{% block content %}
+{{ profile_module_css() }}
+<div class="container py-4 profile-module-layout">
+  {{ profile_sidebar(active='qap') }}
+  
+  <div class="profile-main-content">
+    <div class="profile-topbar">
+      <div>
+        <h1 class="h4 fw-bold text-navy mb-1">QAP Results</h1>
+        <div class="text-muted small">Quality Assurance Process Results</div>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <a class="btn btn-outline-primary btn-sm" href="{% if teacher.staff_id %}{{ url_for('profile.public_teacher_profile', staff_id=teacher.staff_id) }}{% else %}#{% endif %}" target="_blank" {% if not teacher.staff_id %}onclick="alert('Please set your Staff ID in Edit Profile first.'); return false;"{% endif %}>View my profile</a>
+        {% if teacher.photo %}
+          <img class="profile-avatar" src="{{ url_for('static', filename=teacher.photo) }}" alt="{{ teacher.kurdish_full_name }}">
+        {% else %}
+          <div class="profile-avatar"><i class="bi bi-person"></i></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+      <div class="card-body text-center py-5">
+        <div class="display-1 text-muted mb-3"><i class="bi bi-clipboard-x"></i></div>
+        <h4 class="fw-bold text-navy">No QAP Results Available</h4>
+        <p class="text-muted mb-0">Your Quality Assurance Process (QAP) results for the current academic year are not yet available or have not been published.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

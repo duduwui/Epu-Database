@@ -344,21 +344,21 @@ block content %}
               
               <!-- Component Items -->
               <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
+                <table class="table table-sm table-hover mb-0 responsive-card-table">
                   <thead class="table-light">
                     <tr class="small">
                       <th style="width: 50%">Component Name</th>
                       <th class="text-center" style="width: 15%">Max Score</th>
                       <th class="text-center" style="width: 15%">Weight %</th>
                       <th class="text-center" style="width: 10%">Order</th>
-                      <th class="text-center" style="width: 10%">Actions</th>
+                      <th class="text-center no-print" style="width: 10%">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for component in items %}
                     <tr>
-                      <td>
-                        <i class="bi bi-circle-fill text-secondary me-2" style="font-size: 6px;"></i>
+                      <td data-label="Component Name">
+                        <i class="bi bi-circle-fill text-primary me-2" style="font-size: 6px;"></i>
                         <strong>{{ component.component_name }}</strong>
                         {% if component.pair_group is not none %}
                         <span class="badge bg-warning text-dark ms-1" title="Paired pair – scores averaged with partner">
@@ -366,14 +366,14 @@ block content %}
                         </span>
                         {% endif %}
                       </td>
-                      <td class="text-center">
-                        <span class="badge bg-light text-dark border">{{ component.max_score }}</span>
+                      <td class="text-center" data-label="Max Score">
+                        <span class="badge bg-light text-primary border">{{ component.max_score }}</span>
                       </td>
-                      <td class="text-center">
-                        <span class="badge bg-dark text-white">{{ "%.1f"|format(component.weight_percentage) }}%</span>
+                      <td class="text-center" data-label="Weight %">
+                        <span class="badge" style="background-color: #1C0770; color: white;">{{ "%.1f"|format(component.weight_percentage) }}%</span>
                       </td>
-                      <td class="text-center text-muted small">#{{ component.display_order }}</td>
-                      <td class="text-center">
+                      <td class="text-center text-muted small" data-label="Order">#{{ component.display_order }}</td>
+                      <td class="text-center no-print" data-label="Actions">
                         <div class="btn-group btn-group-sm" role="group">
                           <button
                             class="btn btn-outline-secondary edit-comp-btn"

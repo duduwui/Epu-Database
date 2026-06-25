@@ -3,3 +3,15 @@ __pycache__/
 *.pyo
 .venv/
 uploads/
+node_modules/
+*.log
+*.txt
+database/*.dump
+!database/latest_mis_system_migration.dump
+database/*schema_*.sql
+database/recovery_restore*.log
+database/emergency_mis_system_*.dump
+database/mis_system_pre_*.dump
+database/mis_system_recovery_*.dump
+database/mis_system_restored_live_*.dump
+dev_scripts/archive/mis-home-page-temp

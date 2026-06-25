@@ -7,6 +7,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, time
 import os
+import json
 import re as _re
 import random as _random
 import db
@@ -370,10 +371,19 @@ def users():
     teacher_lookup = {t['user_id']: t for t in teachers_data}
     student_lookup = {s['user_id']: s for s in students_data}
 
+    # Fetch active feedback form
+    active_feedback = db.execute_query('''
+        SELECT *, end_date::timestamp AS end_time 
+        FROM feedback_forms 
+        WHERE CURRENT_DATE <= end_date
+        ORDER BY end_date DESC LIMIT 1
+    ''', fetch_one=True)
+
     return render_template('admin/users.html',
                            users=all_users,
                            teacher_lookup=teacher_lookup,
-                           student_lookup=student_lookup)
+                           student_lookup=student_lookup,
+                           active_feedback=active_feedback)
 
 
 @admin_bp.route('/admin/users/add', methods=['GET', 'POST'])
@@ -1357,17 +1367,41 @@ def enrollment_periods():
     for p in enroll_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now
-
+    
     exam_periods = db.get_all_exam_periods(major_id=major_id)
     for p in exam_periods:
         p['is_active'] = p['start_date'] <= now <= p['end_date']
         p['is_upcoming'] = p['start_date'] > now
+        p['signup_summary'] = db.get_exam_period_signup_summary(
+            p['semester'],
+            p['period_type'],
+            major_id=major_id
+        )
 
     return render_template('admin/enrollment_periods.html',
                            enroll_periods=enroll_periods,
                            exam_periods=exam_periods,
                            active_tab=active_tab)
 
+
+@admin_bp.route('/admin/enrollment-periods/<int:period_id>/roster')
+@admin_required
+def enrollment_roster(period_id):
+    """View the sign-up roster for a specific enrollment period."""
+    major_id = session.get('major_id')
+    period = db.get_enrollment_period_by_id(period_id, major_id=major_id)
+    if not period:
+        flash('Enrollment period not found.', 'danger')
+        return redirect(url_for('.enrollment_periods'))
+
+    now = datetime.now()
+    period['is_active'] = period['start_date'] <= now <= period['end_date']
+    period['is_upcoming'] = period['start_date'] > now
+
+    # 3-way log: enrolled / dropped / pending
+    signup_log = db.get_enrollment_signup_log(period['semester'], major_id=major_id)
+
+    return render_template('admin/enrollment_roster.html', period=period, signup_log=signup_log)
 
 @admin_bp.route('/admin/enrollment-periods/add', methods=['POST'])
 @admin_required
@@ -1382,14 +1416,23 @@ def add_enrollment_period():
         return jsonify({'success': False, 'error': 'All fields are required'}), 400
 
     try:
-        start_day = date.fromisoformat(start_date)
-        end_day = date.fromisoformat(end_date)
+        # Handle both standard date 'YYYY-MM-DD' and datetime 'YYYY-MM-DDTHH:MM' 
+        if 'T' in start_date:
+            start_dt = datetime.fromisoformat(start_date)
+            start_day = start_dt.date()
+        else:
+            start_day = date.fromisoformat(start_date)
+            start_dt = datetime.combine(start_day, time(0, 0, 0))
+            
+        if 'T' in end_date:
+            end_dt = datetime.fromisoformat(end_date)
+            end_day = end_dt.date()
+        else:
+            end_day = date.fromisoformat(end_date)
+            end_dt = datetime.combine(end_day, time(23, 59, 59))
 
-        if end_day < start_day:
-            return jsonify({'success': False, 'error': 'End date must be on or after start date'}), 400
-
-        start_dt = datetime.combine(start_day, time(0, 0, 0))
-        end_dt = datetime.combine(end_day, time(23, 59, 59))
+        if end_dt < start_dt:
+            return jsonify({'success': False, 'error': 'End time must be on or after start time'}), 400
 
         result = db.create_enrollment_period(semester, start_dt, end_dt, description, session['user_id'])
         if result:
@@ -1439,14 +1482,22 @@ def add_exam_period():
         return jsonify({'success': False, 'error': 'Invalid period type'}), 400
 
     try:
-        start_day = date.fromisoformat(start_date)
-        end_day = date.fromisoformat(end_date)
+        if 'T' in start_date:
+            start_dt = datetime.fromisoformat(start_date)
+            start_day = start_dt.date()
+        else:
+            start_day = date.fromisoformat(start_date)
+            start_dt = datetime.combine(start_day, time(0, 0, 0))
 
-        if end_day < start_day:
-            return jsonify({'success': False, 'error': 'End date must be on or after start date'}), 400
+        if 'T' in end_date:
+            end_dt = datetime.fromisoformat(end_date)
+            end_day = end_dt.date()
+        else:
+            end_day = date.fromisoformat(end_date)
+            end_dt = datetime.combine(end_day, time(23, 59, 59))
 
-        start_dt = datetime.combine(start_day, time(0, 0, 0))
-        end_dt = datetime.combine(end_day, time(23, 59, 59))
+        if end_dt < start_dt:
+            return jsonify({'success': False, 'error': 'End time must be on or after start time'}), 400
 
         result = db.create_exam_period(semester, period_type, start_dt, end_dt, description, session['user_id'])
         if result:
@@ -1750,6 +1801,180 @@ def edit_user_ajax(user_id):
     return jsonify({'success': False, 'message': 'Error updating user.'})
 
 
+@admin_bp.route('/admin/feedback/setup-ajax', methods=['GET'])
+@admin_required
+def feedback_setup_ajax():
+    import db
+    import json
+    row = db.execute_query("SELECT value FROM system_settings WHERE key = 'saved_feedback_questions'", fetch_one=True)
+    saved_qs = []
+    if row and row['value']:
+        try:
+            saved_qs = json.loads(row['value'])
+        except:
+            pass
+    return render_template("admin/feedback/setup.html", saved_qs=saved_qs)
+
+@admin_bp.route('/admin/feedback/save', methods=['POST'])
+@admin_required
+def feedback_save():
+    try:
+        import db
+        import json
+        import datetime
+        from flask import request, session
+        data = request.json
+        title = data.get('title')
+        sem = data.get('semester')
+        s_date = data.get('start_date')
+        e_date = data.get('end_date')
+        qs = data.get('questions', [])
+        save_as_default = data.get('save_as_default', False)
+        
+        now = datetime.date.today()
+        year = now.year if now.month >= 9 else now.year - 1
+        study_year = f"{year}-{year+1}"
+        
+        if save_as_default:
+            db.execute_query("""
+                INSERT INTO system_settings (key, value, description)
+                VALUES ('saved_feedback_questions', %s, 'Default feedback questions setup')
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, (json.dumps(qs),))
+
+        
+        user_id = session.get('user_id')
+        db.execute_query('''
+            INSERT INTO feedback_forms (title, semester, questions, start_date, end_date, created_by, study_year)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ''', (title, sem, json.dumps(qs), s_date, e_date, user_id, study_year))
+        
+        return {"success": True}
+    except Exception as e:
+        import logging
+        logging.error(f"err saving feedback: {e}", exc_info=True)
+        return {"success": False, "msg": str(e)}
+
+
+@admin_bp.route('/admin/feedback/end', methods=['POST'])
+@admin_required
+def end_active_feedback():
+    from flask import request, flash, redirect, url_for
+    import db
+    feedback_id = request.form.get('feedback_id')
+    if feedback_id:
+        try:
+            db.execute_query('''
+                UPDATE feedback_forms 
+                SET end_date = CURRENT_DATE - INTERVAL '1 day'
+                WHERE id = %s
+            ''', (feedback_id,))
+            flash('Active feedback form has been ended successfully.', 'success')
+        except Exception as e:
+            flash(f'Error ending feedback form: {str(e)}', 'danger')
+    return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/admin/feedback/results', methods=['GET'])
+@admin_required
+def feedback_results():
+    from flask import session, render_template
+    import db
+    
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
+    major_id = user.get('major_id') if user else None
+    
+    summary = db.get_feedback_summary(major_id)
+    return render_template("admin/feedback/results.html", summary=summary)
+
+@admin_bp.route('/admin/feedback/teacher/<int:teacher_id>', methods=['GET'])
+@admin_required
+def feedback_teacher_details(teacher_id):
+    from flask import request, flash, redirect, render_template, session
+    import db
+    
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
+    major_id = user.get('major_id') if user else None
+
+    teacher = db.execute_query("SELECT full_name FROM users WHERE id = %s", (teacher_id,), fetch_one=True)
+    if not teacher:
+        flash("Teacher not found", "danger")
+        return redirect('/admin/feedback/results')
+        
+    subjects = db.get_feedback_teacher_subjects(teacher_id)
+    
+    selected_subject_id = request.args.get('subject_id', type=int)
+    if not selected_subject_id and subjects:
+        selected_subject_id = subjects[0]['subject_id']
+        
+    classes = []
+    selected_class_id = request.args.get('class_id', type=int)
+    
+    current_students = []
+    questions_list = []
+    
+    if selected_subject_id:
+        classes = db.get_feedback_teacher_classes(teacher_id, selected_subject_id, major_id)
+        if not selected_class_id and classes:
+            selected_class_id = classes[0]['class_id']
+            
+        current_students, questions_list = db.get_feedback_teacher_detail_current(teacher_id, selected_subject_id, selected_class_id, major_id)
+
+    return render_template("admin/feedback/teacher_details.html",
+                           teacher_name=teacher['full_name'],
+                           teacher_id=teacher_id,
+                           subjects=subjects,
+                           selected_subject_id=selected_subject_id,
+                           classes=classes,
+                           selected_class_id=selected_class_id,
+                           current_students=current_students,
+                           questions_list=questions_list)
+
+@admin_bp.route('/admin/feedback/teacher/<int:teacher_id>/history', methods=['GET'])
+@admin_required
+def feedback_teacher_history(teacher_id):
+    from flask import request, flash, redirect, render_template
+    import db
+    
+    teacher = db.execute_query("SELECT full_name FROM users WHERE id = %s", (teacher_id,), fetch_one=True)
+    if not teacher:
+        flash("Teacher not found", "danger")
+        return redirect('/admin/feedback/results')
+        
+    subjects = db.get_feedback_teacher_subjects(teacher_id)
+    selected_subject_id = request.args.get('subject_id', type=int)
+    if not selected_subject_id and subjects:
+        selected_subject_id = subjects[0]['subject_id']
+        
+    classes = []
+    if selected_subject_id:
+        classes = db.execute_query("""
+            SELECT DISTINCT c.id as class_id, c.name as class_name 
+            FROM feedback_responses r 
+            JOIN classes c ON r.snapshot_class_id = c.id 
+            WHERE r.teacher_id = (SELECT id FROM teachers WHERE user_id = %s) 
+              AND r.subject_id = %s
+            ORDER BY c.name
+        """, (teacher_id, selected_subject_id), fetch_all=True) or []
+        
+    selected_class_id = request.args.get('class_id', type=int)
+    
+    history = []
+    if selected_subject_id:
+        history = db.get_feedback_teacher_history_by_year(teacher_id, selected_subject_id, selected_class_id)
+        
+    return render_template("admin/feedback/teacher_history.html",
+                           teacher_name=teacher['full_name'],
+                           teacher_id=teacher_id,
+                           subjects=subjects,
+                           selected_subject_id=selected_subject_id,
+                           classes=classes,
+                           selected_class_id=selected_class_id,
+                           history=history)
+
+
 @admin_bp.route('/admin/users/add-ajax', methods=['POST'])
 @admin_required
 def add_user_ajax():
@@ -1887,3 +2112,24 @@ def upgrade_execute(semester):
         flash(f'Error during upgrade: {str(e)}', 'danger')
 
     return redirect(url_for('.dashboard'))
+
+
+@admin_bp.route('/admin/top-students', methods=['GET'])
+@admin_required
+def top_students():
+    semester = request.args.get('semester', type=int)
+    class_id = request.args.get('class_id', type=int)
+    shift = request.args.get('shift', '')
+    
+    classes = db.get_all_classes() or []
+    
+    # Always fetch results to populate the default view
+    results = db.get_top_students_results(semester=semester, class_id=class_id, shift=shift)
+        
+    return render_template('admin/top_students.html', 
+                            results=results,
+                            classes=classes,
+                            selected_semester=semester,
+                            selected_class_id=class_id,
+                            selected_shift=shift)
+

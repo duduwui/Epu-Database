@@ -43,9 +43,9 @@ CREATE INDEX IF NOT EXISTS idx_subjects_major_id  ON subjects(major_id);
 -- 4. Truncate all operational data (fresh start)
 --    CASCADE handles all child tables automatically.
 -- ─────────────────────────────────────────────────
-TRUNCATE TABLE users    RESTART IDENTITY CASCADE;
-TRUNCATE TABLE subjects RESTART IDENTITY CASCADE;
-TRUNCATE TABLE classes  RESTART IDENTITY CASCADE;
+-- TRUNCATE TABLE users    RESTART IDENTITY CASCADE;
+-- TRUNCATE TABLE subjects RESTART IDENTITY CASCADE;
+-- TRUNCATE TABLE classes  RESTART IDENTITY CASCADE;
 
 -- ─────────────────────────────────────────────────
 -- 5. Seed 72 majors

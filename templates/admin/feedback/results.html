@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Feedback Results{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-3">
+    <div class="col-md-6">
+        <h2 class="h4 text-navy fw-bold mb-0">Feedback Results</h2>
+        <p class="text-muted small mb-0">Overview of all teachers</p>
+    </div>
+    <div class="col-md-6 text-end">
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 responsive-card-table">
+                <thead class="table-light text-navy">
+                    <tr>
+                        <th class="ps-4">Teacher Name</th>
+                        <th class="text-center">Current Active Semester Average</th>
+                        <th class="text-center">Historical All-Time Average</th>
+                        <th class="text-center pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in summary %}
+                    <tr>
+                        <td class="ps-4 fw-medium" data-label="Teacher Name">{{ row.teacher_name }}</td>
+                        <td class="text-center" data-label="Current Active Semester Average">
+                            {% if row.current_avg != "N/A" %}
+                                <span class="badge bg-success bg-opacity-10 text-success fs-6 border border-success border-opacity-25 px-3">
+                                    <i class="bi bi-star-fill text-warning me-1"></i> {{ row.current_avg }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted small">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center" data-label="Historical All-Time Average">
+                            {% if row.all_time_avg != "N/A" %}
+                                <span class="badge" style="background:#1C0770; color: #ffffff !important; font-size: 1rem; padding: 0.35em 1em; border: 1px solid #1C0770;">
+                                    {{ row.all_time_avg }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted small">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center pe-4" data-label="Actions">
+                            <a href="/admin/feedback/teacher/{{ row.teacher_id }}" class="btn btn-sm btn-outline-primary shadow-sm" data-bs-toggle="tooltip" title="View Student Feedback Details">
+                                Details <i class="bi bi-arrow-right-short"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">No feedback records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

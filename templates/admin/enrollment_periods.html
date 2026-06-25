@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Period Management - MIS System{% endblock %}
 {% block content %}
 <div class="container">
@@ -97,36 +97,40 @@
             </div>
             <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 responsive-card-table">
                   <thead class="table-light">
                     <tr>
                       <th style="width: 15%;">Status</th>
                       <th style="width: 20%;">Start Date</th>
                       <th style="width: 20%;">End Date</th>
-                      <th style="width: 25%;">Description</th>
                       <th style="width: 15%;">Created By</th>
-                      <th style="width: 5%;" class="text-center">Action</th>
+                      <th style="width: 15%;" class="text-center">Details</th>
+                      <th style="width: 15%;" class="text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for period in sem_periods %}
-                    <tr>
-                      <td>
+                    <tr class="align-middle">
+                      <td data-label="Status">
                         {% if period.is_active %}
                           <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
                         {% elif period.is_upcoming %}
                           <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Upcoming</span>
                         {% else %}
-                          <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Expired</span>
+                          <span class="badge" style="background:#1C0770;"><i class="bi bi-x-circle me-1"></i>Expired</span>
                         {% endif %}
                       </td>
-                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
-                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
-                      <td><small>{{ period.description or '-' }}</small></td>
-                      <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
-                      <td class="text-center">
+                      <td data-label="Start Date"><i class="bi bi-calendar-check me-1" style="color:#1C0770;"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
+                      <td data-label="End Date"><i class="bi bi-calendar-x me-1" style="color:#1C0770;"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
+                      <td data-label="Created By"><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
+                      <td class="text-center" data-label="Details">
+                        <a href="{{ url_for('admin.enrollment_roster', period_id=period.id) }}" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm">
+                          <i class="bi bi-people-fill me-1"></i> View Details
+                        </a>
+                      </td>
+                      <td class="text-center" data-label="Action">
                         <form method="POST" action="{{ url_for('admin.delete_enrollment_period', period_id=period.id) }}" class="enroll-delete-form" style="display:inline;">
-                          <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                          <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm" title="Delete"><i class="bi bi-trash"></i></button>
                         </form>
                       </td>
                     </tr>
@@ -202,42 +206,52 @@
             </div>
             <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 responsive-card-table">
                   <thead class="table-light">
                     <tr>
                       <th style="width: 12%;">Status</th>
                       <th style="width: 13%;">Type</th>
+                      <th style="width: 12%;">Students</th>
                       <th style="width: 18%;">Start Date</th>
                       <th style="width: 18%;">End Date</th>
-                      <th style="width: 22%;">Description</th>
-                      <th style="width: 12%;">Created By</th>
-                      <th style="width: 5%;" class="text-center">Action</th>
+                      <th style="width: 17%;">Description</th>
+                      <th style="width: 10%;">Created By</th>
+                      <th style="width: 10%;" class="text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for period in sem_exam_periods %}
                     <tr>
-                      <td>
+                      <td data-label="Status">
                         {% if period.is_active %}
                           <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
                         {% elif period.is_upcoming %}
                           <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Upcoming</span>
                         {% else %}
-                          <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Expired</span>
+                          <span class="badge" style="background:#1C0770;"><i class="bi bi-x-circle me-1"></i>Expired</span>
                         {% endif %}
                       </td>
-                      <td>
+                      <td data-label="Type">
                         {% if period.period_type == 'final' %}
                           <span class="badge bg-info">Final Exam</span>
                         {% else %}
                           <span class="badge bg-warning text-dark">2nd Round</span>
                         {% endif %}
                       </td>
-                      <td><i class="bi bi-calendar-check me-1 text-muted"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
-                      <td><i class="bi bi-calendar-x me-1 text-muted"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
-                      <td><small>{{ period.description or '-' }}</small></td>
-                      <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
-                      <td class="text-center">
+                      <td data-label="Students">
+                        <div class="small fw-semibold">{{ period.signup_summary.total_students }} total</div>
+                        <div class="small text-success">{{ period.signup_summary.enrolled_count }} enrolled</div>
+                        <div class="small text-danger">{{ period.signup_summary.dropped_count }} dropped</div>
+                        <div class="small text-warning">{{ period.signup_summary.pending_count }} pending</div>
+                      </td>
+                      <td data-label="Start Date"><i class="bi bi-calendar-check me-1" style="color:#1C0770;"></i>{{ period.start_date.strftime('%Y-%m-%d') }}</td>
+                      <td data-label="End Date"><i class="bi bi-calendar-x me-1" style="color:#1C0770;"></i>{{ period.end_date.strftime('%Y-%m-%d') }}</td>
+                      <td data-label="Description"><small>{{ period.description or '-' }}</small></td>
+                      <td data-label="Created By"><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
+                      <td class="text-center" data-label="Action">
+                        <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal" data-bs-target="#examPeriodRoster{{ period.id }}" title="View Student Status">
+                          <i class="bi bi-people"></i>
+                        </button>
                         <form method="POST" action="{{ url_for('admin.delete_exam_period', period_id=period.id) }}" class="exam-delete-form" style="display:inline;">
                           <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                         </form>
@@ -249,6 +263,122 @@
               </div>
             </div>
           </div>
+
+          {% for period in sem_exam_periods %}
+          <div class="modal fade" id="examPeriodRoster{{ period.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#4a0e8f 0%,#1C0770 100%);">
+                  <div>
+                    <div class="fw-bold">
+                      Semester {{ period.semester }} -
+                      {% if period.period_type == 'final' %}Final Exam{% else %}2nd Round{% endif %}
+                    </div>
+                    <div class="small opacity-75">
+                      {{ period.signup_summary.total_students }} students · {{ period.signup_summary.enrolled_count }} enrolled · {{ period.signup_summary.dropped_count }} dropped · {{ period.signup_summary.pending_count }} pending
+                    </div>
+                  </div>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row g-3 mb-3">
+                    <div class="col-3 col-md-3">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-5 fw-bold text-dark">{{ period.signup_summary.total_students }}</div>
+                        <small class="text-muted">Total</small>
+                      </div>
+                    </div>
+                    <div class="col-3 col-md-3">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-5 fw-bold text-success">{{ period.signup_summary.enrolled_count }}</div>
+                        <small class="text-muted">Enrolled</small>
+                      </div>
+                    </div>
+                    <div class="col-3 col-md-3">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-5 fw-bold text-danger">{{ period.signup_summary.dropped_count }}</div>
+                        <small class="text-muted">Dropped</small>
+                      </div>
+                    </div>
+                    <div class="col-3 col-md-3">
+                      <div class="card border-0 bg-light text-center py-3">
+                        <div class="fs-5 fw-bold text-warning">{{ period.signup_summary.pending_count }}</div>
+                        <small class="text-muted">Pending</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Filters -->
+                  <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Search student name or ID..." id="searchInput{{ period.id }}" onkeyup="filterRoster({{ period.id }})">
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" id="statusFilter{{ period.id }}" onchange="filterRoster({{ period.id }})">
+                        <option value="all">All Statuses</option>
+                        <option value="enrolled">Enrolled</option>
+                        <option value="dropped">Dropped</option>
+                        <option value="pending">Pending</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" id="shiftFilter{{ period.id }}" onchange="filterRoster({{ period.id }})">
+                        <option value="all">All Shifts</option>
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 responsive-card-table" id="rosterTable{{ period.id }}">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Student</th>
+                          <th>ID</th>
+                          <th>Class</th>
+                          <th>Shift</th>
+                          <th>Status</th>
+                          <th>Exam Selections</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for student in period.signup_summary.students %}
+                        <tr>
+                          <td data-label="Student">{{ student.student_name }}</td>
+                          <td data-label="ID">{{ student.student_number or student.username }}</td>
+                          <td data-label="Class">{{ student.section or '-' }}</td>
+                          <td data-label="Shift">{{ student.shift|title if student.shift else '-' }}</td>
+                          <td data-label="Status" class="student-status" data-status="{{ student.signup_status }}">
+                            {% if student.signup_status == 'enrolled' %}
+                              <span class="badge bg-success">Enrolled</span>
+                            {% elif student.signup_status == 'dropped' %}
+                              <span class="badge bg-danger">Dropped</span>
+                            {% else %}
+                              <span class="badge" style="background:#1C0770;">Pending</span>
+                            {% endif %}
+                          </td>
+                          <td data-label="Exam Selections">
+                            <span class="badge bg-success-subtle text-success border border-success">{{ student.enrolled_count }} enrolled</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger">{{ student.dropped_count }} dropped</span>
+                          </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                          <td colspan="6" class="text-center text-muted py-4">No students found for this semester.</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
         {% endif %}
       {% endfor %}
 
@@ -304,11 +434,29 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <input type="date" class="form-control form-control-sm" id="enroll_start_date" name="start_date" required>
+              <input type="hidden" id="enroll_start_date" name="start_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="start_date_display"
+                       placeholder="Select start..." readonly required
+                       onclick="openEpuCalendar('enroll_start_date','start_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('enroll_start_date','start_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <input type="date" class="form-control form-control-sm" id="enroll_end_date" name="end_date" required>
+              <input type="hidden" id="enroll_end_date" name="end_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="end_date_display"
+                       placeholder="Select end..." readonly required
+                       onclick="openEpuCalendar('enroll_end_date','end_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('enroll_end_date','end_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
           </div>
           <div class="mb-2">
@@ -367,11 +515,29 @@
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-play-circle me-1 text-success"></i>Start *</label>
-              <input type="date" class="form-control form-control-sm" id="exam_start_date" name="start_date" required>
+              <input type="hidden" id="exam_start_date" name="start_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="exam_start_date_display"
+                       placeholder="Select start..." readonly required
+                       onclick="openEpuCalendar('exam_start_date','exam_start_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('exam_start_date','exam_start_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold mb-1" style="font-size:.82rem"><i class="bi bi-stop-circle me-1 text-danger"></i>End *</label>
-              <input type="date" class="form-control form-control-sm" id="exam_end_date" name="end_date" required>
+              <input type="hidden" id="exam_end_date" name="end_date">
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control epu-cal-display-input" id="exam_end_date_display"
+                       placeholder="Select end..." readonly required
+                       onclick="openEpuCalendar('exam_end_date','exam_end_date_display')">
+                <button type="button" class="btn btn-outline-secondary epu-cal-trigger" style="border-color:#dee2e6;"
+                        onclick="openEpuCalendar('exam_end_date','exam_end_date_display')">
+                  <i class="bi bi-calendar3"></i>
+                </button>
+              </div>
             </div>
           </div>
           <div class="mb-2">
@@ -494,6 +660,66 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exams-tab').click();
   }
 });
+
+function filterRoster(periodId) {
+  const query = document.getElementById('searchInput' + periodId).value.toLowerCase();
+  const status = document.getElementById('statusFilter' + periodId).value;
+  const shift = document.getElementById('shiftFilter' + periodId).value;
+
+  const table = document.getElementById('rosterTable' + periodId);
+  const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+  for (let i = 0; i < rows.length; i++) {
+    // If it's the "No students found" row, skip
+    if (rows[i].cells.length === 1) continue;
+
+    const nameId = rows[i].cells[0].innerText.toLowerCase() + ' ' + rows[i].cells[1].innerText.toLowerCase();
+    const rowShift = rows[i].cells[3].innerText.toLowerCase();
+    
+    const statusNode = rows[i].querySelector('.student-status');
+    const rowStatus = statusNode ? (statusNode.getAttribute('data-status') || '') : '';
+
+    let matchesSearch = nameId.includes(query);
+    let matchesStatus = (status === 'all') || (status === rowStatus);
+    let matchesShift = (shift === 'all') || rowShift.includes(shift);
+
+    if (matchesSearch && matchesStatus && matchesShift) {
+      rows[i].style.display = "";
+    } else {
+      rows[i].style.display = "none";
+    }
+  }
+}
+
+function filterEnrollRoster(periodId) {
+  const query = document.getElementById('enrollSearchInput' + periodId).value.toLowerCase();
+  const status = document.getElementById('enrollStatusFilter' + periodId).value;
+  const shift = document.getElementById('enrollShiftFilter' + periodId).value;
+
+  const table = document.getElementById('enrollRosterTable' + periodId);
+  if (!table) return;
+  const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+  for (let i = 0; i < rows.length; i++) {
+    // If it's the "No students found" row, skip
+    if (rows[i].cells.length === 1) continue;
+
+    // Number (0), Name (1), hidden Shift (2), Class (3), Status (4)
+    const nameId = rows[i].cells[0].innerText.toLowerCase() + ' ' + rows[i].cells[1].innerText.toLowerCase();
+    const rowShift = rows[i].cells[2].innerText.toLowerCase();
+    const rowStatus = rows[i].querySelector('.student-status').getAttribute('data-status') || '';
+
+    let matchesSearch = nameId.includes(query);
+    let matchesStatus = (status === 'all') || (status === rowStatus);
+    let matchesShift = (shift === 'all') || rowShift.includes(shift);
+
+    if (matchesSearch && matchesStatus && matchesShift) {
+      rows[i].style.display = "";
+    } else {
+      rows[i].style.display = "none";
+    }
+  }
+}
 </script>
 
 <style>

@@ -68,7 +68,7 @@
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 responsive-card-table">
               <thead class="table-light">
                 <tr>
                   <th style="width: 12%;">Status</th>
@@ -83,33 +83,33 @@
               <tbody>
                 {% for period in semester_periods %}
                 <tr>
-                  <td>
+                  <td data-label="Status">
                     {% if period.is_active %}
                       <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
                     {% elif period.is_upcoming %}
                       <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Upcoming</span>
                     {% else %}
-                      <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Expired</span>
+                      <span class="badge" style="background:#1C0770;"><i class="bi bi-x-circle me-1"></i>Expired</span>
                     {% endif %}
                   </td>
-                  <td>
+                  <td data-label="Type">
                     {% if period.period_type == 'final' %}
                       <span class="badge bg-info">Final Exam</span>
                     {% else %}
                       <span class="badge bg-warning text-dark">2nd Round</span>
                     {% endif %}
                   </td>
-                  <td>
-                    <i class="bi bi-calendar-check me-1 text-muted"></i>
+                  <td data-label="Start Date">
+                    <i class="bi bi-calendar-check me-1" style="color:#1C0770;"></i>
                     {{ period.start_date.strftime('%Y-%m-%d %H:%M') }}
                   </td>
-                  <td>
-                    <i class="bi bi-calendar-x me-1 text-muted"></i>
+                  <td data-label="End Date">
+                    <i class="bi bi-calendar-x me-1" style="color:#1C0770;"></i>
                     {{ period.end_date.strftime('%Y-%m-%d %H:%M') }}
                   </td>
-                  <td><small>{{ period.description or '-' }}</small></td>
-                  <td><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
-                  <td class="text-center">
+                  <td data-label="Description"><small>{{ period.description or '-' }}</small></td>
+                  <td data-label="Created By"><small class="text-muted">{{ period.created_by_name or '-' }}</small></td>
+                  <td class="text-center" data-label="Action">
                     <form method="POST" action="{{ url_for('admin.delete_exam_period', period_id=period.id) }}" style="display: inline;">
                       <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Period">
                         <i class="bi bi-trash"></i>

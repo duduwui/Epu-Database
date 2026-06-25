@@ -88,7 +88,7 @@
         <div class="card-body p-0">
           {% if departments %}
           <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0 align-middle">
+            <table class="table table-hover table-sm mb-0 align-middle responsive-card-table">
               <thead class="table-light">
                 <tr>
                   <th>Code</th>
@@ -97,29 +97,29 @@
                   <th class="text-center">Classes</th>
                   <th class="text-center">Subjects</th>
                   <th class="text-center">Users</th>
-                  <th class="text-end">Actions</th>
+                  <th class="text-end no-print">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {% for dept in departments %}
                 <tr>
-                  <td>
+                  <td data-label="Code">
                     <span class="badge" style="background:#1C0770; font-size:.85em; letter-spacing:.05em;">
                       {{ dept.code }}
                     </span>
                   </td>
-                  <td class="fw-semibold">{{ dept.name }}</td>
-                  <td class="text-muted small">{{ dept.description or '—' }}</td>
-                  <td class="text-center">
-                    <span class="badge bg-secondary">{{ dept.class_count }}</span>
+                  <td class="fw-semibold" data-label="Name">{{ dept.name }}</td>
+                  <td class="text-muted small" data-label="Description">{{ dept.description or '—' }}</td>
+                  <td class="text-center" data-label="Classes">
+                    <span class="badge" style="background-color: #1C0770;">{{ dept.class_count }}</span>
                   </td>
-                  <td class="text-center">
-                    <span class="badge bg-secondary">{{ dept.subject_count }}</span>
+                  <td class="text-center" data-label="Subjects">
+                    <span class="badge" style="background-color: #1C0770;">{{ dept.subject_count }}</span>
                   </td>
-                  <td class="text-center">
-                    <span class="badge bg-secondary">{{ dept.user_count }}</span>
+                  <td class="text-center" data-label="Users">
+                    <span class="badge" style="background-color: #1C0770;">{{ dept.user_count }}</span>
                   </td>
-                  <td class="text-end">
+                  <td class="text-end no-print" data-label="Actions">
                     <!-- Edit button (triggers modal) -->
                     <button type="button"
                             class="btn btn-sm btn-outline-primary"

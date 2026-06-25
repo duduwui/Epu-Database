@@ -1,0 +1,168 @@
+# ─────────────────────────────────────────────────────────────────
+#  MIS – Continuous Integration
+#  Triggers: push to any branch  |  PR targeting main
+# ─────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-progress run for the same branch/PR when a new one arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint · Import check · Test
+    runs-on: ubuntu-latest
+
+    # ── Real service containers ───────────────────────────────────
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: mis_test
+          POSTGRES_USER: mis_user
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mis_user -d mis_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # ── Environment variables (all sensitive values come from Secrets) ─
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      FERNET_KEY: ${{ secrets.FERNET_KEY }}
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: mis_test
+      DB_USER: mis_user
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DATABASE_URL: postgresql://mis_user:${{ secrets.DB_PASSWORD }}@localhost:5432/mis_test
+      REDIS_URL: redis://localhost:6379/0
+      FLASK_ENV: testing
+      FLASK_DEBUG: "false"
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ──────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Install dependencies ───────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest pytest-cov
+
+      # ── 4. Syntax check (compiles every .py file) ─────────────────
+      - name: Check Python syntax
+        run: |
+          echo "Checking syntax on all Python files..."
+          find . -name "*.py" \
+            -not -path "./.venv/*" \
+            -not -path "./.git/*" \
+            -not -path "./__pycache__/*" \
+            -print0 | xargs -0 python -m py_compile
+          echo "All files syntax OK."
+
+      # ── 5. Flake8 linting ─────────────────────────────────────────
+      #  Runs as a REPORT-ONLY step — never blocks the pipeline.
+      #  F821 is excluded: the codebase uses "from .core import *" (star imports)
+      #  which causes false "undefined name" positives. Fix star imports later.
+      - name: Flake8 lint (report only, non-blocking)
+        continue-on-error: true
+        run: |
+          echo "=== Flake8 report — issues found but CI continues ==="
+          flake8 . \
+            --exclude=.venv,__pycache__,.git,migrations,fix_*.py,align_center.py \
+            --max-line-length=999 \
+            --select=F401,F811,F841,E711,E712,E999 \
+            --statistics \
+            --count || true
+          echo "=== Flake8 done ==="
+
+      # ── 6. Flask import / startup check ──────────────────────────
+      - name: Flask app import check
+        run: |
+          python - <<'EOF'
+          import sys
+          try:
+              from app import create_app
+              application = create_app()
+              print("Flask app created successfully.")
+              print("Blueprints:", [bp for bp in application.blueprints])
+          except Exception as exc:
+              print(f"Flask startup failed: {exc}", file=sys.stderr)
+              import traceback; traceback.print_exc()
+              sys.exit(1)
+          EOF
+
+      # ── 7. Wait for PostgreSQL ─────────────────────────────────────
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U mis_user; do
+            echo "Waiting for Postgres..."; sleep 2
+          done
+
+      # ── 8. Initialise test database schema ────────────────────────
+      - name: Initialise database schema
+        run: python init_db.py || true
+
+      # ── 9. Run pytest with coverage ───────────────────────────────
+      - name: Run pytest
+        run: |
+          pytest \
+            --tb=short \
+            --no-header \
+            -q \
+            --cov=. \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --ignore=.venv \
+            --ignore=dev_scripts \
+            --ignore=align_center.py \
+            --ignore=fix_db.py \
+            --ignore=fix_css.py \
+            --ignore=fix_base.py \
+            --ignore=fix_liquid.py \
+            --ignore=fix_public_route.py \
+            --ignore=fix_qap_routes.py \
+            --ignore=fix_sidebar.py \
+            --ignore=fix_sidebar_links.py \
+            --ignore=fix_staff_id.py \
+            --ignore=fix_teacher_dash.py \
+            --ignore=fix_topbar.py
+
+      # ── 10. Upload coverage artifact ──────────────────────────────
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 14

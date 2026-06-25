@@ -1,0 +1,30 @@
+import pytest
+from app import create_app
+
+def test_routes_exist(client):
+    # Verify that primary routes are registered
+    # Let's test reaching the login page, which should always be accessible
+    response = client.get('/login')
+    assert response.status_code == 200
+
+def test_student_dashboard_redirects_unauthenticated(client):
+    # Student dashboard should redirect to login if unauthenticated
+    response = client.get('/student/dashboard')
+    assert response.status_code == 302
+    assert '/login' in response.headers.get('Location', '')
+
+def test_teacher_dashboard_redirects_unauthenticated(client):
+    response = client.get('/teacher/dashboard')
+    assert response.status_code == 302
+
+def test_student_grades_redirects_unauthenticated(client):
+    response = client.get('/student/grades')
+    assert response.status_code == 302
+
+def test_student_results_redirects_unauthenticated(client):
+    response = client.get('/student/results')
+    assert response.status_code == 302
+
+def test_student_moodle_redirects_unauthenticated(client):
+    response = client.get('/student/moodle')
+    assert response.status_code == 302

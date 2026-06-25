@@ -32,6 +32,9 @@
                 <p>Manage all students in the MIS program</p>
             </div>
             <div class="col-12 col-md-auto d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                <a href="{{ url_for('admin.top_students') }}" class="btn btn-outline-success">
+                    <i class="bi bi-trophy me-1"></i>Top Students Results
+                </a>
                 <a href="{{ url_for('admin.assign_sections') }}" class="btn btn-outline-primary">
                     <i class="bi bi-diagram-3 me-1"></i>Assign Classes
                 </a>
@@ -55,32 +58,16 @@
     <div class="card mb-3">
         <div class="card-body py-2">
             <form method="GET" id="filterForm" class="row g-2 align-items-end">
-                <div class="col-6 col-md-2">
-                    <label class="form-label mb-1" style="font-size:0.8rem;">Year</label>
-                    <select name="year" id="filterYear" class="form-select form-select-sm" onchange="updateSemesterFilter(); applyFilters()">
-                        <option value="">All Years</option>
-                        <option value="1" {{ 'selected' if request.args.get('year') == '1' }}>Year 1</option>
-                        <option value="2" {{ 'selected' if request.args.get('year') == '2' }}>Year 2</option>
-                    </select>
-                </div>
+                <!-- Year filter removed -->
                 <div class="col-6 col-md-2">
                     <label class="form-label mb-1" style="font-size:0.8rem;">Semester</label>
                     <select name="semester" id="filterSemester" class="form-select form-select-sm" onchange="applyFilters()">
                         <option value="">All Semesters</option>
-                        {% set sel_year = request.args.get('year', '') %}
                         {% set sel_sem = request.args.get('semester', '') %}
-                        {% if sel_year == '1' %}
-                        <option value="1" {{ 'selected' if sel_sem == '1' }}>Sem 1</option>
-                        <option value="2" {{ 'selected' if sel_sem == '2' }}>Sem 2</option>
-                        {% elif sel_year == '2' %}
-                        <option value="3" {{ 'selected' if sel_sem == '3' }}>Sem 3</option>
-                        <option value="4" {{ 'selected' if sel_sem == '4' }}>Sem 4</option>
-                        {% else %}
                         <option value="1" {{ 'selected' if sel_sem == '1' }}>Sem 1</option>
                         <option value="2" {{ 'selected' if sel_sem == '2' }}>Sem 2</option>
                         <option value="3" {{ 'selected' if sel_sem == '3' }}>Sem 3</option>
                         <option value="4" {{ 'selected' if sel_sem == '4' }}>Sem 4</option>
-                        {% endif %}
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
@@ -141,7 +128,7 @@
                 </nav>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover" id="studentsTable">
+                <table class="table table-hover responsive-card-table" id="studentsTable">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -161,24 +148,24 @@
                             data-student-name="{{ student.full_name|lower }}" 
                             data-student-id="{{ (student.student_number or '')|lower }}"
                             id="student-row-{{ student.id }}">
-                            <td class="row-number">{{ loop.index }}</td>
-                            <td><strong>{{ student.student_number or '-' }}</strong></td>
-                            <td>{{ student.full_name }}</td>
-                            <td>
+                            <td class="row-number" data-label="#">{{ loop.index }}</td>
+                            <td data-label="Student No."><strong>{{ student.student_number or '-' }}</strong></td>
+                            <td data-label="Full Name">{{ student.full_name }}</td>
+                            <td data-label="Year">
                                 {% if student.year %}
                                 <span class="badge bg-primary">Year {{ student.year }}</span>
                                 {% else %}
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Semester">
                                 {% if student.semester %}
                                 <span class="badge bg-info text-dark">Sem {{ student.semester }}</span>
                                 {% else %}
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Shift">
                                 {% if student.shift == 'morning' %}
                                 <span class="badge bg-warning text-dark"><i class="bi bi-sun"></i> Morning</span>
                                 {% elif student.shift == 'night' %}
@@ -187,15 +174,15 @@
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td data-label="Class">
                                 {% if student.section %}
                                 <span class="badge bg-success">Class {{ student.section }}</span>
                                 {% else %}
                                 <span class="badge bg-danger">Not Assigned</span>
                                 {% endif %}
                             </td>
-                            <td>{{ student.email or '-' }}</td>
-                            <td class="no-print">
+                            <td data-label="Email">{{ student.email or '-' }}</td>
+                            <td class="no-print" data-label="Actions">
                                 <button type="button" class="btn btn-sm btn-outline-primary edit-student-btn" 
                                         title="Edit"
                                         data-id="{{ student.id }}"

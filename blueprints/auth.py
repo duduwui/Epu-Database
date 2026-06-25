@@ -99,8 +99,7 @@ def login():
 
         user = db.get_user_by_email(email)
 
-        if user and (check_password_hash(user['password_hash'], password) or
-                     (user.get('plain_password') and user['plain_password'] == password)):
+        if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['full_name'] = user['full_name']
@@ -170,8 +169,33 @@ def dashboard():
             return redirect(url_for('admin.majors'))
         return redirect(url_for('admin.dashboard'))
     elif role == 'teacher':
+        teacher = db.get_teacher_by_user_id(session.get('user_id'))
+        if not teacher:
+            lang = normalize_lang(session.get('lang', 'en'))
+            session.clear()
+            session['lang'] = lang
+            flash('Your teacher profile no longer exists. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
         return redirect(url_for('teacher.dashboard'))
     elif role == 'student':
+        student = db.get_student_by_user_id(session.get('user_id'))
+        if not student:
+            lang = normalize_lang(session.get('lang', 'en'))
+            session.clear()
+            session['lang'] = lang
+            flash('Your student profile no longer exists. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
         return redirect(url_for('student.dashboard'))
 
     return render_template('dashboard.html')
+def student_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'warning')
+            return redirect(url_for('auth.login'))
+        if session.get('role') != 'student':
+            flash('Access denied. Student account required.', 'danger')
+            return redirect(url_for('auth.dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function

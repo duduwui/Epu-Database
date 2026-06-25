@@ -26,7 +26,7 @@ content %}
       </div>
       <div class="card-body">
         <div class="table-responsive">
-          <table class="table table-hover">
+          <table class="table table-hover responsive-card-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -39,11 +39,11 @@ content %}
             <tbody>
               {% for student in students %}
               <tr>
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ student.student_number or '-' }}</strong></td>
-                <td>{{ student.full_name }}</td>
-                <td>{{ student.email or '-' }}</td>
-                <td>
+                <td data-label="#">{{ loop.index }}</td>
+                <td data-label="Student Number"><strong>{{ student.student_number or '-' }}</strong></td>
+                <td data-label="Full Name">{{ student.full_name }}</td>
+                <td data-label="Email">{{ student.email or '-' }}</td>
+                <td data-label="Assign Class">
                   <select
                     name="section_{{ student.id }}"
                     class="form-select form-select-sm"

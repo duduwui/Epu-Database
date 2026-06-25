@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}Signups - Student{% endblock %}
 {% block content %}
 <div class="container" style="max-width: 1400px;">
@@ -201,7 +201,7 @@
                 {% if available_subjects %}
                   {% for subject in available_subjects %}
                   <tr id="subject-{{ subject.id }}" data-subject-id="{{ subject.id }}">
-                    <td><strong>{{ subject.name }}</strong></td>
+                    <td><strong>{{ subject.name }}</strong>{% if subject.is_dropped %}<span class="badge bg-danger-subtle text-danger border border-danger ms-2">Dropped</span>{% endif %}</td>
                     <td><span class="badge bg-secondary">{{ subject.credits or 6 }} cr</span></td>
                     <td><small class="text-muted">{{ subject.teacher_names or '\u2014' }}</small></td>
                     <td class="text-center">
@@ -304,6 +304,8 @@
                       <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Not Eligible</span>
                     {% elif subj.already_signed_up %}
                       <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                    {% elif subj.is_dropped %}
+                      <span class="badge bg-danger"><i class="bi bi-dash-circle me-1"></i>Dropped</span>
                     {% else %}
                       <span class="badge bg-primary">Eligible</span>
                     {% endif %}
@@ -405,6 +407,8 @@
                   <td>
                     {% if subj.already_signed_up %}
                       <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Signed Up</span>
+                    {% elif subj.is_dropped %}
+                      <span class="badge bg-danger"><i class="bi bi-dash-circle me-1"></i>Dropped</span>
                     {% else %}
                       <span class="badge bg-primary">Eligible</span>
                     {% endif %}

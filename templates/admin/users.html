@@ -11,7 +11,66 @@
       <div class="col-auto">
         <button
           type="button"
-          class="btn btn-primary"
+          class="btn btn-outline-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#feedbackFormsModal"
+        >
+          <i class="bi bi-chat-square-quote me-1"></i>Feedback Setup
+        </button>
+        <a
+          href="/admin/feedback/results"
+          class="btn btn-outline-success ms-1"
+          title="See students feedback responses"
+        >
+          <i class="bi bi-bar-chart-line me-1"></i>Results
+        </a>
+        
+        {% if active_feedback %}
+        <span class="badge bg-warning text-dark border shadow-sm ms-2 d-inline-flex align-items-center" style="font-size: 0.85rem; height: 31px;" data-bs-toggle="tooltip" title="Active form for Semester {{ active_feedback.semester }}">
+          <i class="bi bi-stopwatch text-danger me-1"></i>
+          Active Form: <strong class="ms-1" id="feedbackTimer">--:--:--</strong>
+        </span>
+        <form action="{{ url_for('admin.end_active_feedback') }}" method="POST" class="d-inline-flex ms-1 align-items-center mb-0">
+            <input type="hidden" name="feedback_id" value="{{ active_feedback.id }}">
+            <button type="submit" class="btn btn-outline-danger shadow-sm d-flex align-items-center justify-content-center" style="height: 31px; font-size: 0.85rem;" title="End Feedback Now" onclick="return confirm('Are you sure you want to end this Active Feedback immediately?');">
+                <i class="bi bi-x-circle-fill me-1"></i> End
+            </button>
+        </form>
+        <script>
+          document.addEventListener("DOMContentLoaded", function() {
+              const endTime = new Date("{{ active_feedback.end_time }}").getTime();
+              const timerEl = document.getElementById("feedbackTimer");
+              
+              function updateTimer() {
+                  const now = new Date().getTime();
+                  const distance = endTime - now;
+                  
+                  if (distance < 0) {
+                      timerEl.innerHTML = "Expired";
+                      return;
+                  }
+                  
+                  const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                  const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                  const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                  
+                  if (days > 0) {
+                      timerEl.innerHTML = days + "d " + hours + "h " + minutes + "m";
+                  } else {
+                      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                      timerEl.innerHTML = hours + "h " + minutes + "m " + seconds + "s";
+                  }
+              }
+              
+              updateTimer();
+              setInterval(updateTimer, 1000);
+          });
+        </script>
+        {% endif %}
+
+        <button
+          type="button"
+          class="btn btn-primary ms-1"
           data-bs-toggle="modal"
           data-bs-target="#addUserModal"
         >
@@ -214,30 +273,30 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="adminTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="adminTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {% for user in admins %}
                 <tr id="user-row-{{ user.id }}">
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-danger me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-danger me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"
@@ -307,13 +366,13 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="teacherTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="teacherTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -326,18 +385,18 @@
                   data-sections="{{ teacher_sections | join(',') | upper }}"
                   data-subjects="{{ teacher_subjects | join(',') | lower }}"
                 >
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-primary me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-primary me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"
@@ -406,13 +465,13 @@
           </div>
 
           <div class="table-responsive">
-            <table class="table table-hover mb-0" id="studentTable">
+            <table class="table table-hover mb-0 responsive-card-table" id="studentTable">
               <thead class="table-light">
                 <tr>
                   <th>User</th>
                   <th>Email</th>
                   <th>Created</th>
-                  <th class="text-center" style="width: 150px">Actions</th>
+                  <th class="text-center no-print" style="width: 150px">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,18 +484,18 @@
                   data-shift="{{ student_info.get('shift', '') | lower }}"
                   data-section="{{ student_info.get('section', '') }}"
                 >
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="avatar-sm bg-success me-2">{{ user.full_name[0] | upper }}</div>
-                      <div>
+                  <td data-label="User">
+                    <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                      <div class="avatar-sm bg-success me-2 d-none d-md-flex">{{ user.full_name[0] | upper }}</div>
+                      <div class="text-end text-md-start">
                         <strong class="user-fullname">{{ user.full_name }}</strong>
-                        <br /><small class="text-muted">@{{ user.username }}</small>
+                        <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ user.username }}</small>
                       </div>
                     </div>
                   </td>
-                  <td class="user-email">{{ user.email or '-' }}</td>
-                  <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
-                  <td class="text-center">
+                  <td class="user-email" data-label="Email">{{ user.email or '-' }}</td>
+                  <td data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                  <td class="text-center no-print" data-label="Actions">
                     <button
                       class="btn btn-sm btn-outline-primary edit-user-btn"
                       data-id="{{ user.id }}"
@@ -754,6 +813,29 @@
   }
 </style>
 {% endblock %} {% block extra_js %}
+<!-- Feedback Setup Modal -->
+<div class="modal fade" id="feedbackFormsModal" tabindex="-1" aria-labelledby="feedbackFormsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header d-flex align-items-center" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+        <h5 class="modal-title text-white fw-bold" id="feedbackFormsModalLabel">
+          <i class="bi bi-chat-square-quote me-2"></i>Teacher Feedback Setup
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="feedbackFormsModalBody" style="background-color: #fcfcfc;">
+        <!-- Loaded via AJAX -->
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-2">Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
@@ -1557,6 +1639,107 @@
     }
 
     window.showToastMessage = showToastMessage;
+
+    // Load Feedback modal content lazily
+    const feedbackFormsModal = document.getElementById('feedbackFormsModal');
+    if(feedbackFormsModal) {
+      feedbackFormsModal.addEventListener('show.bs.modal', function() {
+        const body = document.getElementById('feedbackFormsModalBody');
+        if(body.innerHTML.includes('spinner-border')) {
+          fetch('/admin/feedback/setup-ajax')
+            .then(res => res.text())
+            .then(html => {
+              body.innerHTML = html;
+            })
+            .catch(err => {
+              body.innerHTML = '<div class="alert alert-danger">Error loading feedback setup interface.</div>';
+              console.error(err);
+            });
+        }
+      });
+    }
+
+    // Feedback Setup Modal Functions
+    window.addQuestion = function() {
+      const container = document.getElementById('questionsContainer');
+      const newRow = document.createElement('div');
+      newRow.className = 'input-group input-group-sm mb-2 question-row';
+      newRow.innerHTML = `
+          <input type="text" class="form-control" name="questions[]" placeholder="New question..." required>
+          <button type="button" class="btn btn-outline-danger" onclick="this.closest('.question-row').remove()"><i class="bi bi-trash"></i></button>
+      `;
+      container.appendChild(newRow);
+    };
+
+    window.saveFeedbackForm = function() {
+      const form = document.getElementById('feedbackSetupForm');
+      
+      // Ensure hidden date fields are populated before validation if using EPU calendar
+      const sdDisplay = document.getElementById('start_date_display');
+      const edDisplay = document.getElementById('end_date_display');
+      if (sdDisplay && document.getElementById('start_date')) {
+          document.getElementById('start_date').value = sdDisplay.value;
+      }
+      if (edDisplay && document.getElementById('end_date')) {
+          document.getElementById('end_date').value = edDisplay.value;
+      }
+
+      if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+      }
+      const formData = new FormData(form);
+      const questions = [];
+      const globalScale = parseInt(document.getElementById('globalScaleSelect').value) || 5;
+      const qInputs = form.querySelectorAll('input[name="questions[]"]');
+      
+      for (let i = 0; i < qInputs.length; i++) {
+          if (!qInputs[i].value.trim()) continue;
+          questions.push({
+              text: qInputs[i].value,
+              scale: globalScale
+          });
+      }
+
+      if (questions.length === 0) {
+          showToastMessage('Please add at least one question.', 'warning');
+          return;
+      }
+
+      const sem = formData.get('semester');
+      const autoTitle = "Semester " + sem + " Feedback";
+
+      const payload = {
+          title: autoTitle,
+          semester: sem,
+          start_date: formData.get('start_date'),
+          end_date: formData.get('end_date'),
+          questions: questions,
+          save_as_default: document.getElementById('saveAsDefault') ? document.getElementById('saveAsDefault').checked : false
+      };
+
+      fetch('/admin/feedback/save', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+      }).then(res => res.json()).then(data => {
+          if(data.success) {
+              showToastMessage('Feedback Form published successfully!', 'success');
+              const modalEl = document.getElementById('feedbackFormsModal');
+              const modalInstance = bootstrap.Modal.getInstance(modalEl);
+              if (modalInstance) {
+                  modalInstance.hide();
+              } else {
+                  document.querySelector('#feedbackFormsModal .btn-close').click();
+              }
+          } else {
+              showToastMessage('Error saving form: ' + (data.msg || data.message || 'Unknown error'), 'danger');
+          }
+      }).catch(err => {
+          console.error(err);
+          showToastMessage('An error occurred. Check browser console.', 'danger');
+      });
+    };
   });
 </script>
 {% endblock %}

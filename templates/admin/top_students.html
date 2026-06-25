@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Top Students Results{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('admin.students') }}" class="text-decoration-none text-muted">
+        <i class="bi bi-arrow-left"></i> Back to Student Management
+    </a>
+</div>
+
+<div class="row align-items-center mb-4">
+    <div class="col-md-8">
+        <h2 class="h4 text-navy fw-bold mb-0">Top Students Results</h2>
+        <p class="text-muted small mb-0">View student results after publishing</p>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light py-2">
+        <form method="GET" class="row gx-2 gy-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-medium text-navy">Semester:</label>
+                <select name="semester" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">-- All Semesters --</option>
+                    <option value="1" {% if selected_semester == 1 %}selected{% endif %}>Semester 1</option>
+                    <option value="2" {% if selected_semester == 2 %}selected{% endif %}>Semester 2</option>
+                    <option value="3" {% if selected_semester == 3 %}selected{% endif %}>Semester 3</option>
+                    <option value="4" {% if selected_semester == 4 %}selected{% endif %}>Semester 4</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label small fw-medium text-navy">Shift:</label>
+                <select name="shift" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">-- All Shifts --</option>
+                    <option value="morning" {% if selected_shift == 'morning' %}selected{% endif %}>Morning</option>
+                    <option value="night" {% if selected_shift == 'night' %}selected{% endif %}>Night</option>
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label small fw-medium text-navy">Class:</label>
+                <select name="class_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">-- All Classes --</option>
+                    {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ url_for('admin.top_students') }}" class="btn btn-sm btn-outline-secondary w-100">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+          
+          <!-- Table View -->
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 responsive-card-table">
+                <thead class="text-white" style="background: linear-gradient(135deg, #1C0770 0%, #150558 100%);">
+                    <tr>
+                        <th class="py-3 px-4 border-0">#</th>
+                        <th class="py-3 border-0">Student Name</th>
+                        <th class="py-3 border-0">Semester</th>
+                        <th class="py-3 border-0">Shift</th>
+                        <th class="py-3 border-0">Class</th>
+                        <th class="py-3 border-0">Total Credits</th>
+                        <th class="py-3 border-0 text-end">Sem. Results (Max 30)</th>
+                        <th class="py-3 px-4 border-0 text-end">Cum. Results (Total)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if results %}
+                        {% for r in results %}
+                        <tr>
+                            <td class="px-4 fw-bold text-muted" data-label="#">{{ loop.index }}</td>
+                            <td class="fw-bold text-navy" data-label="Student Name">
+                                <span class="d-md-none fs-5">{{ r.student_name }}</span>
+                                <span class="d-none d-md-inline">{{ r.student_name }}</span>
+                            </td>
+                            <td data-label="Semester"><span class="badge" style="background:#1C0770;">Sem {{ r.semester }}</span></td>
+                            <td data-label="Shift">
+                                {% set shift_val = (r.shift or '') | lower %}
+                                {% if shift_val == 'morning' %}
+                                    <span class="badge bg-light text-dark border"><i class="bi bi-brightness-high me-1" style="color:#1C0770;"></i>Morning</span>
+                                {% elif shift_val == 'night' or shift_val == 'evening' %}
+                                    <span class="badge" style="background:#3a3a5c;"><i class="bi bi-moon-stars me-1"></i>Night</span>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Class"><span class="badge bg-primary">Class {{ r.class_section or 'N/A' }}</span></td>
+                            <td data-label="Total Credits">{{ r.total_credits }}</td>
+                            <td class="text-end fw-bold 
+                                {% if r.total_weighted_score >= 25 %}text-success
+                                {% elif r.total_weighted_score >= 15 %}text-primary
+                                {% else %}text-danger{% endif %}" data-label="Sem. Results (Max 30)">
+                                {{ r.total_weighted_score }}
+                            </td>
+                            <td class="px-4 text-end fw-bold" style="color:#1C0770;" data-label="Cum. Results (Total)">
+                                {{ r.cumulative_weighted_score }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
+                                No published results found for the selected filters.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+          </div>
+
+          <!-- Removed redundant mobile view as responsive-card-table takes care of it -->
+      </div>
+  </div>
+</div>
+{% endblock %}

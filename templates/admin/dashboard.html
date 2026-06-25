@@ -208,7 +208,7 @@ content %}
   <!-- ========================================== -->
   <!-- SCHEDULE BUILDER SECTION - MODERN DESIGN -->
   <!-- ========================================== -->
-  <div class="scheduler-wrapper">
+  <div class="scheduler-wrapper mt-4">
     <!-- Header Bar -->
     <div class="scheduler-header">
       <div class="scheduler-brand">
@@ -227,9 +227,6 @@ content %}
         </div>
         <button class="ctrl-btn" onclick="window.print()" title="Print">
           <i class="bi bi-printer"></i>
-        </button>
-        <button class="ctrl-btn" id="generateScheduleBtn" title="Generate sample schedule from subjects">
-          <i class="bi bi-magic"></i>
         </button>
         <button class="ctrl-btn delete" id="clearScheduleBtn" title="Clear All">
           <i class="bi bi-trash3"></i>
@@ -278,7 +275,8 @@ content %}
 
     <!-- Schedule Grid -->
     <div class="scheduler-grid-area">
-      <table class="scheduler-table" id="scheduleTable">
+      <div class="table-responsive">
+<table class="scheduler-table" id="scheduleTable">
         <thead>
           <tr>
             <th><span class="day-full">Sunday</span><span class="day-abbr">Sun</span></th>
@@ -290,6 +288,7 @@ content %}
         </thead>
         <tbody id="scheduleBody"></tbody>
       </table>
+</div>
     </div>
   </div>
 </div>
@@ -1273,6 +1272,15 @@ content %}
     let currentSemester = '1';
     let currentShift = 'morning';
     let currentSection = 'A';
+    const scheduleLabels = {
+      semester: {{ t('Semester') | tojson }},
+      morning: {{ t('Morning') | tojson }},
+      evening: {{ t('Evening') | tojson }},
+      saved: {{ t('Saved') | tojson }},
+      generated: {{ t('Generated') | tojson }},
+      error: {{ t('Error') | tojson }},
+      clearConfirm: {{ t('Clear all entries from this timetable?') | tojson }},
+    };
 
     const timeSlots = [
       { label: '8:00 - 9:00', start: '8:00', end: '9:00' },
@@ -1343,9 +1351,9 @@ content %}
 
     // Update current view display
     function updateDisplayBar() {
-      document.getElementById('displaySem').textContent = '{{ t('"'"'Semester'"'"') }} ' + currentSemester;
+      document.getElementById('displaySem').textContent = `${scheduleLabels.semester} ${currentSemester}`;
       document.getElementById('displayShift').textContent =
-        currentShift === 'morning' ? '{{ t('"'"'Morning'"'"') }}' : '{{ t('"'"'Evening'"'"') }}';
+        currentShift === 'morning' ? scheduleLabels.morning : scheduleLabels.evening;
       document.getElementById('displaySection').textContent = currentSection;
     }
 
@@ -1937,41 +1945,15 @@ content %}
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_data: scheduleData }),
         });
-        updateSaveStatus('', '{{ t('"'"'Saved'"'"') }}');
+        updateSaveStatus('', scheduleLabels.saved);
       } catch (e) {
-        updateSaveStatus('error', '{{ t('"'"'Error'"'"') }}');
+        updateSaveStatus('error', scheduleLabels.error);
       }
     }
 
-    // Auto-generate sample schedule
-    document.getElementById('generateScheduleBtn').addEventListener('click', async function () {
-      if (scheduleData.length > 0) {
-        if (!confirm('This will replace the current schedule with a generated sample. Continue?')) return;
-      }
-      const btn = this;
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-      try {
-        const res = await fetch(`/admin/api/schedule/${currentSemester}/${currentShift}/${currentSection}/auto-generate`, { method: 'POST' });
-        const result = await res.json();
-        if (result.success) {
-          scheduleData = result.data || [];
-          renderGrid();
-          updateSaveStatus('', '{{ t('"'"'Generated'"'"') }}');
-        } else {
-          alert('Could not generate schedule: ' + (result.error || 'Unknown error'));
-        }
-      } catch (e) {
-        alert('Error generating schedule.');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-magic"></i>';
-      }
-    });
-
     // Clear schedule
     document.getElementById('clearScheduleBtn').addEventListener('click', async function () {
-      if (confirm('{{ t('"'"'Clear all entries from this timetable?'"'"') }}')) {
+      if (confirm(scheduleLabels.clearConfirm)) {
         scheduleData = [];
         renderGrid();
         await saveSchedule();

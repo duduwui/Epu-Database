@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Teacher Feedback Details{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/admin/feedback/results" class="text-decoration-none text-muted">
+        <i class="bi bi-arrow-left"></i> Back to Results
+    </a>
+</div>
+
+<div class="row align-items-center mb-3">
+    <div class="col-md-6">
+        <h2 class="h4 text-navy fw-bold mb-0">{{ teacher_name }}</h2>
+        <p class="text-muted small mb-0">Current Semester Focus View</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="/admin/feedback/teacher/{{ teacher_id }}/history{% if selected_subject_id %}?subject_id={{ selected_subject_id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-clock-history"></i> Previous Years History
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light">
+        <form method="GET" class="row gx-2 gy-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-medium text-navy">Filter by Subject</label>
+                <select name="subject_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for subj in subjects %}
+                    <option value="{{ subj.subject_id }}" {% if subj.subject_id == selected_subject_id %}selected{% endif %}>
+                        {{ subj.subject_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            {% if classes %}
+            <div class="col-md-4">
+                <label class="form-label small fw-medium text-navy">Filter by Class</label>
+                <select name="class_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for cls in classes %}
+                    <option value="{{ cls.class_id }}" {% if cls.class_id == selected_class_id %}selected{% endif %}>
+                        {{ cls.class_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<h5 class="h6 text-navy fw-bold mb-3">Current Semester Active Feedback</h5>
+
+{% if current_students %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 border-bottom-0">
+        <span class="fw-bold text-navy"><i class="bi bi-people-fill text-muted me-2"></i> Enrolled Students</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush" id="studentsAccordion">
+            {% for student in current_students %}
+            <div class="list-group-item p-0 border-bottom">
+                <a class="d-flex justify-content-between align-items-center p-3 text-decoration-none text-body" data-bs-toggle="collapse" href="#collapse-student-{{ loop.index }}" style="cursor: pointer;">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px; font-size: 1.1rem; font-weight: bold; background: linear-gradient(135deg, #1C0770, #3B1B9E) !important;">
+                            {{ student.student_name[:2] | upper }}
+                        </div>
+                        <div>
+                            <h6 class="mb-0 text-navy fw-bold">{{ student.student_name }}</h6>
+                            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ student.submitted_at.strftime('%b %d, %Y') if student.submitted_at else '---' }}</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        {% if student.avg_rating != 'N/A' %}
+                            <span class="badge bg-navy px-3 py-2 shadow-sm rounded-pill me-3" style="background: #1C0770;">
+                                <i class="bi bi-star-fill text-warning me-1"></i> {{ student.avg_rating }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border me-3 px-3 py-2 rounded-pill">Not Submitted</span>
+                        {% endif %}
+                        <i class="bi bi-chevron-down text-muted"></i>
+                    </div>
+                </a>
+                <div class="collapse bg-light border-top" id="collapse-student-{{ loop.index }}" data-bs-parent="#studentsAccordion">
+                    <div class="p-4 bg-white m-3 rounded shadow-sm border">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <h6 class="text-navy fw-bold mb-3"><i class="bi bi-ui-checks-grid me-2 text-primary"></i>Question Ratings</h6>
+                                {% if student.avg_rating != 'N/A' %}
+                                <div class="d-flex flex-column gap-2">
+                                {% for ans in student.answers %}
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded border border-light">
+                                        <span class="small text-muted">{{ ans.question }}</span>
+                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 px-2">{{ ans.rating }}/5</span>
+                                    </div>
+                                {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="p-3 bg-light rounded text-muted small fst-italic text-center border">
+                                    Student has not submitted feedback.
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-5">
+                                <h6 class="text-navy fw-bold mb-3 mt-4 mt-md-0"><i class="bi bi-chat-right-quote me-2 text-primary"></i>Student Note</h6>
+                                {% if student.comments %}
+                                    <div class="p-3 bg-light rounded shadow-sm border-start border-4 border-primary fst-italic text-muted small position-relative h-100">
+                                        "{{ student.comments }}"
+                                    </div>
+                                {% else %}
+                                    <div class="p-3 bg-light rounded text-muted small opacity-75 fst-italic text-center border h-100 d-flex align-items-center justify-content-center">
+                                        No additional comments provided.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info border-0 shadow-sm">
+    <i class="bi bi-info-circle me-2"></i> No active feedback submitted by students for this class/subject currently.
+</div>
+{% endif %}
+
+{% endblock %}

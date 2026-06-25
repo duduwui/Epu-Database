@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block title %}{{ subject['name'] }} - Engagement Stats{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3 align-items-center">
+        <div class="col">
+            <h2 class="mb-0 text-navy">
+                <i class="bi bi-bar-chart-fill me-2"></i>{{ t('Engagement Stats') }}
+            </h2>
+            <p class="text-muted"><i class="bi bi-building me-2"></i>{{ subject['name'] }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{{ url_for('teacher.moodle_hub', subject_id=subject['id'], class_id=class_id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>{{ t('Back to Hub') }}
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">{{ t('Subject / Class / Shift') }}</label>
+                    <select id="engagementAssignmentSelect" class="form-select">
+                        {% for item in assignments %}
+                        <option
+                            value="{{ url_for('teacher.moodle_engagement', subject_id=item['id'], class_id=item['class_id']) }}"
+                            {% if item['id'] == selected_subject_id and item['class_id'] == selected_class_id %}selected{% endif %}
+                        >
+                            {{ item['name'] }} - {{ item['class_name'] }}{% if item['shift'] %} - {{ item['shift']|title }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" id="engagementAssignmentGo" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-1"></i>{{ t('Apply Filter') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm border-0 border-top border-info border-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Student</th>
+                            <th>Last Access</th>
+                            <th>Active Days</th>
+                            <th>Sessions</th>
+                            <th>Total Time Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in stats %}
+                        {% set mins = (stat['time_spent_seconds'] / 60)|round(1) %}
+                        <tr class="engagement-summary-row" role="button" data-bs-toggle="collapse" data-bs-target="#studentDetail{{ stat['student_id'] }}" aria-expanded="false" aria-controls="studentDetail{{ stat['student_id'] }}">
+                            <td class="ps-4 fw-medium text-navy">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-chevron-right text-muted small"></i>
+                                    <span>{{ stat['student_name'] }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <i class="bi bi-calendar-event me-2 text-muted"></i>
+                                {{ stat['last_access_at'].strftime('%Y-%m-%d %H:%M') if stat['last_access_at'] else '-' }}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                                    {{ stat['active_days'] or 0 }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                                    {{ stat['session_count'] or 0 }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if mins > 30 %}bg-success{% elif mins > 10 %}bg-warning text-dark{% else %}bg-danger{% endif %} rounded-pill px-3 py-2">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {% if mins >= 60 %}
+                                        {{ (mins / 60)|round(1) }} hr
+                                    {% else %}
+                                        {{ mins }} min
+                                    {% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr class="collapse bg-light" id="studentDetail{{ stat['student_id'] }}">
+                            <td colspan="5" class="p-0">
+                                <div class="p-3 p-md-4">
+                                    <div class="fw-semibold text-navy mb-3">{{ t('Session Details') }}</div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>{{ t('Day') }}</th>
+                                                    <th>{{ t('Opened Resource') }}</th>
+                                                    <th>{{ t('Opened At') }}</th>
+                                                    <th>{{ t('Closed At') }}</th>
+                                                    <th>{{ t('Time Spent This Session') }}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for detail in stat['daily_details'] %}
+                                                <tr>
+                                                    <td>{{ detail['access_date'].strftime('%Y-%m-%d') if detail['access_date'] else '-' }}</td>
+                                                    <td>
+                                                        {% if detail['resource_title'] %}
+                                                            {{ detail['resource_title'] }}
+                                                            {% if detail['resource_type'] %}
+                                                                <span class="text-muted small">({{ detail['resource_type'] }})</span>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">{{ t('Subject Page') }}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ detail['started_at'].strftime('%H:%M:%S') if detail['started_at'] else '-' }}</td>
+                                                    <td>{{ detail['ended_at'].strftime('%H:%M:%S') if detail['ended_at'] else '-' }}</td>
+                                                    <td>
+                                                        {% set detail_minutes = (detail['time_spent_seconds'] / 60)|round(1) %}
+                                                        {% if detail_minutes >= 60 %}
+                                                            {{ (detail_minutes / 60)|round(1) }} hr
+                                                        {% else %}
+                                                            {{ detail_minutes }} min
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% else %}
+                                                <tr>
+                                                    <td colspan="5" class="text-muted">{{ t('No session details available.') }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-4 d-block mb-2"></i> No engagement tracked yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('engagementAssignmentSelect');
+    const goBtn = document.getElementById('engagementAssignmentGo');
+    if (select && goBtn) {
+        goBtn.addEventListener('click', function () {
+            if (select.value) {
+                window.location.href = select.value;
+            }
+        });
+        select.addEventListener('change', function () {
+            if (this.value) {
+                window.location.href = this.value;
+            }
+        });
+    }
+});
+</script>
+
+<style>
+    .engagement-summary-row {
+        cursor: pointer;
+    }
+
+    .engagement-summary-row:hover {
+        background: #f8f7ff;
+    }
+
+    .engagement-summary-row[aria-expanded="true"] .bi-chevron-right {
+        transform: rotate(90deg);
+    }
+
+    .engagement-summary-row .bi-chevron-right {
+        transition: transform 0.18s ease;
+    }
+</style>
+{% endblock %}

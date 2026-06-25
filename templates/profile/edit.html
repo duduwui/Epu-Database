@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% from 'profile/_sidebar.html' import profile_sidebar, profile_module_css %}
+{% block title %}Edit user{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+  .profile-shell { max-width: 1180px; margin: 0 auto; }
+  .profile-card { border: 0; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); }
+  .profile-photo { width: 148px; height: 148px; border-radius: 16px; object-fit: cover; background: #eef2f7; }
+  .profile-placeholder { width: 148px; height: 148px; border-radius: 16px; display: grid; place-items: center; background: #eef2f7; color: #64748b; font-size: 3rem; }
+  .profile-section-title { font-size: .9rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: .04em; }
+  .dynamic-list .list-group-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  #bioEditor { min-height: 180px; background: #fff; }
+  .required-dot::after { content: "*"; color: #dc2626; margin-left: .15rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container profile-shell">
+  {{ profile_module_css() }}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-2">
+          <li class="breadcrumb-item"><a href="{{ url_for('teacher.dashboard') }}">Dashboard</a></li>
+          <li class="breadcrumb-item">Users</li>
+          <li class="breadcrumb-item active" aria-current="page">Edit User</li>
+        </ol>
+      </nav>
+      <h1 class="h3 fw-bold text-navy mb-0">Edit user</h1>
+    </div>
+    {% if teacher.staff_id %}
+    <a class="btn btn-outline-primary" href="{{ url_for('profile.edit') }}">
+      <i class="bi bi-person-lines-fill me-2"></i>Profile
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="profile-module-layout">
+    {{ profile_sidebar('edit') }}
+    <section>
+  <div class="row g-4">
+    <aside class="col-lg-3">
+      <div class="card profile-card mb-4">
+        <div class="card-body text-center">
+          {% if teacher.photo %}
+            <img class="profile-photo mb-3" src="{{ url_for('static', filename=teacher.photo) }}" alt="Profile photo">
+          {% else %}
+            <div class="profile-placeholder mx-auto mb-3"><i class="bi bi-person"></i></div>
+          {% endif %}
+          <h2 class="h6 fw-bold mb-1">{{ teacher.full_name }}</h2>
+          <p class="text-muted small mb-3">{{ teacher.academic_title or 'Academic Staff' }}</p>
+          <form method="post" action="{{ url_for('profile.update_photo') }}" enctype="multipart/form-data">
+            <input class="form-control form-control-sm mb-3" type="file" name="photo" accept=".jpg,.jpeg,.png">
+            <button class="btn btn-primary btn-sm w-100" type="submit">Update Photo</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card profile-card">
+        <div class="card-body">
+          <div class="profile-section-title mb-3">Change Password</div>
+          <form method="post" action="{{ url_for('profile.change_password') }}">
+            <div class="mb-3">
+              <label class="form-label">Current Password</label>
+              <input class="form-control" type="password" name="current_password" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">New Password</label>
+              <input class="form-control" type="password" name="new_password" minlength="6" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Confirm Password</label>
+              <input class="form-control" type="password" name="confirm_password" minlength="6" required>
+            </div>
+            <button class="btn btn-outline-primary w-100" type="submit">Update Password</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <div class="col-lg-9">
+      <form method="post" action="{{ url_for('profile.edit') }}" id="profileForm">
+        <div class="card profile-card mb-4">
+          <div class="card-body">
+            <div class="profile-section-title mb-3">Personal Info</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">First Name</label>
+                <input class="form-control" name="first_name" value="{{ first_name }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Kurdish Full Name</label>
+                <input class="form-control" name="kurdish_full_name" value="{{ teacher.kurdish_full_name or '' }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Middle Name</label>
+                <input class="form-control" name="middle_name" value="{{ middle_name }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Date of Birth</label>
+                <input class="form-control" type="date" name="date_of_birth" value="{{ teacher.date_of_birth or '' }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Last Name</label>
+                <input class="form-control" name="last_name" value="{{ last_name }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Personal Email</label>
+                <input class="form-control" type="email" name="personal_email" value="{{ teacher.personal_email or '' }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Staff ID</label>
+                <input class="form-control" value="{{ teacher.staff_id or '' }}" readonly>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card profile-card mb-4">
+          <div class="card-body">
+            <div class="profile-section-title mb-3">Academic Details</div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">College</label>
+                <input class="form-control" name="college" value="{{ teacher.college or '' }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Department</label>
+                <input class="form-control" name="department" value="{{ teacher.department or '' }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Academic Title</label>
+                <select class="form-select" name="academic_title">
+                  {% for option in ['Lecturer', 'Assistant Professor', 'Associate Professor', 'Professor'] %}
+                  <option value="{{ option }}" {% if teacher.academic_title == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Qualification</label>
+                <select class="form-select" name="qualification">
+                  {% for option in ['Bachelor', 'Master', 'Doctor of Philosophy'] %}
+                  <option value="{{ option }}" {% if teacher.qualification == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Position</label>
+                <select class="form-select" name="position">
+                  {% for option in ['Teaching Staff', 'Admin Staff'] %}
+                  <option value="{{ option }}" {% if teacher.position == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                  {% for option in ['In work (full-time)', 'In work (part-time)', 'On leave'] %}
+                  <option value="{{ option }}" {% if teacher.status == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">General Specialization</label>
+                <input class="form-control" name="general_specialization" value="{{ teacher.general_specialization or '' }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Specific Specialization</label>
+                <input class="form-control" name="specific_specialization" value="{{ teacher.specific_specialization or '' }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Gender</label>
+                <select class="form-select" name="gender">
+                  <option value=""></option>
+                  {% for option in ['Male', 'Female'] %}
+                  <option value="{{ option }}" {% if teacher.gender == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card profile-card mb-4">
+          <div class="card-body">
+            <div class="profile-section-title mb-3">Biography</div>
+            <input type="hidden" name="biography" id="biographyInput" value="{{ teacher.biography or '' }}">
+            <div id="bioEditor">{{ teacher.biography|safe if teacher.biography else '' }}</div>
+            <div class="mt-3">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" name="address" rows="3">{{ teacher.address or '' }}</textarea>
+            </div>
+            <div class="text-end mt-3">
+              <button class="btn btn-primary" type="submit">Update Personal Info</button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="card profile-card mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="profile-section-title">CV</div>
+            {% if teacher.cv %}
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('static', filename=teacher.cv) }}" target="_blank">Open Current CV</a>
+            {% endif %}
+          </div>
+          <form method="post" action="{{ url_for('profile.update_cv') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label">Choose File</label>
+              <input class="form-control" type="file" name="cv" accept=".pdf,.jpg,.jpeg,.png,.docx">
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+              <button class="btn btn-primary flex-fill" type="submit">Update CV</button>
+              {% if teacher.cv %}
+              <button class="btn btn-outline-danger" type="submit" name="delete_cv" value="1">Delete</button>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <div class="card profile-card h-100">
+            <div class="card-body">
+              <div class="profile-section-title mb-3">Phone Numbers</div>
+              <div class="input-group mb-3">
+                <input class="form-control" id="phoneInput" placeholder="Phone number">
+                <button class="btn btn-primary" type="button" data-add="phone">Add</button>
+              </div>
+              <div class="list-group dynamic-list" id="phoneList">
+                {% for item in phones %}
+                <div class="list-group-item" data-id="{{ item.id }}"><span>{{ item.phone_number }}</span><button class="btn btn-sm btn-outline-danger" data-delete="phone">&times;</button></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card profile-card h-100">
+            <div class="card-body">
+              <div class="profile-section-title mb-3">Social Media</div>
+              <select class="form-select mb-2" id="socialTypeInput">
+                {% for option in social_types %}
+                <option value="{{ option }}">{{ option }}</option>
+                {% endfor %}
+              </select>
+              <div class="input-group mb-3">
+                <input class="form-control" id="socialLinkInput" placeholder="Link">
+                <button class="btn btn-primary" type="button" data-add="social">Add</button>
+              </div>
+              <div class="list-group dynamic-list" id="socialList">
+                {% for item in socials %}
+                <div class="list-group-item" data-id="{{ item.id }}"><span><strong>{{ item.social_type }}</strong><br><small>{{ item.link }}</small></span><button class="btn btn-sm btn-outline-danger" data-delete="social">&times;</button></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card profile-card h-100">
+            <div class="card-body">
+              <div class="profile-section-title mb-3">Languages</div>
+              <div class="input-group mb-3">
+                <input class="form-control" id="languageInput" placeholder="Language">
+                <button class="btn btn-primary" type="button" data-add="language">Add</button>
+              </div>
+              <div class="list-group dynamic-list" id="languageList">
+                {% for item in languages %}
+                <div class="list-group-item" data-id="{{ item.id }}"><span>{{ item.language }}</span><button class="btn btn-sm btn-outline-danger" data-delete="language">&times;</button></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+  const quill = new Quill('#bioEditor', { theme: 'snow' });
+  document.getElementById('profileForm').addEventListener('submit', () => {
+    document.getElementById('biographyInput').value = quill.root.innerHTML;
+  });
+
+  async function postJson(url, payload) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  async function deleteJson(url) {
+    const response = await fetch(url, { method: 'DELETE' });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  function showInlineMessage(message, isError = false) {
+    const alert = document.createElement('div');
+    alert.className = `alert ${isError ? 'alert-danger' : 'alert-success'} position-fixed top-0 start-50 translate-middle-x mt-3 shadow`;
+    alert.style.zIndex = '2000';
+    alert.textContent = message;
+    document.body.appendChild(alert);
+    setTimeout(() => alert.remove(), 2200);
+  }
+
+  document.querySelector('[data-add="phone"]').addEventListener('click', async () => {
+    const input = document.getElementById('phoneInput');
+    try {
+      const data = await postJson('{{ url_for("profile.add_phone") }}', { phone_number: input.value });
+      document.getElementById('phoneList').insertAdjacentHTML('beforeend', `<div class="list-group-item" data-id="${data.item.id}"><span>${data.item.phone_number}</span><button class="btn btn-sm btn-outline-danger" data-delete="phone">&times;</button></div>`);
+      input.value = '';
+      showInlineMessage('The Record Added');
+    } catch (error) { showInlineMessage(error.message, true); }
+  });
+
+  document.querySelector('[data-add="social"]').addEventListener('click', async () => {
+    const typeInput = document.getElementById('socialTypeInput');
+    const linkInput = document.getElementById('socialLinkInput');
+    try {
+      const data = await postJson('{{ url_for("profile.add_social_media") }}', { social_type: typeInput.value, link: linkInput.value });
+      document.getElementById('socialList').insertAdjacentHTML('beforeend', `<div class="list-group-item" data-id="${data.item.id}"><span><strong>${data.item.social_type}</strong><br><small>${data.item.link}</small></span><button class="btn btn-sm btn-outline-danger" data-delete="social">&times;</button></div>`);
+      linkInput.value = '';
+      showInlineMessage('The Record Added');
+    } catch (error) { showInlineMessage(error.message, true); }
+  });
+
+  document.querySelector('[data-add="language"]').addEventListener('click', async () => {
+    const input = document.getElementById('languageInput');
+    try {
+      const data = await postJson('{{ url_for("profile.add_language") }}', { language: input.value });
+      document.getElementById('languageList').insertAdjacentHTML('beforeend', `<div class="list-group-item" data-id="${data.item.id}"><span>${data.item.language}</span><button class="btn btn-sm btn-outline-danger" data-delete="language">&times;</button></div>`);
+      input.value = '';
+      showInlineMessage('The Record Added');
+    } catch (error) { showInlineMessage(error.message, true); }
+  });
+
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-delete]');
+    if (!button) return;
+    if (!confirm('Delete this record?')) return;
+    const row = button.closest('[data-id]');
+    const type = button.dataset.delete;
+    const urls = {
+      phone: '{{ url_for("profile.delete_phone", item_id=0) }}',
+      social: '{{ url_for("profile.delete_social_media", item_id=0) }}',
+      language: '{{ url_for("profile.delete_language", item_id=0) }}'
+    };
+    try {
+      await deleteJson(urls[type].replace('/0', `/${row.dataset.id}`));
+      row.remove();
+      showInlineMessage('The Record Deleted');
+    } catch (error) { showInlineMessage(error.message, true); }
+  });
+</script>
+{% endblock %}

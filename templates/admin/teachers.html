@@ -75,7 +75,7 @@ content %}
     <div class="card-body p-0">
       {% if teachers %}
       <div class="table-responsive">
-        <table class="table table-hover mb-0" id="teachersTable">
+        <table class="table table-hover mb-0 responsive-card-table" id="teachersTable">
           <thead class="table-light">
             <tr>
               <th style="width: 50px">#</th>
@@ -83,7 +83,7 @@ content %}
               <th>Department</th>
               <th>Contact</th>
               <th class="text-center">Subjects</th>
-              <th class="text-center" style="width: 120px">Actions</th>
+              <th class="text-center no-print" style="width: 120px">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -99,24 +99,24 @@ content %}
               data-teacher-department="{{ teacher.department or '' }}"
               data-teacher-key="{{ loop.index }}"
             >
-              <td class="text-muted">{{ loop.index }}</td>
-              <td>
-                <div class="d-flex align-items-center">
-                  <div class="avatar-circle me-3">{{ teacher.full_name[0] | upper }}</div>
-                  <div>
+              <td class="text-muted" data-label="#">{{ loop.index }}</td>
+              <td data-label="Teacher">
+                <div class="d-flex align-items-center justify-content-end justify-content-md-start">
+                  <div class="avatar-circle me-3 d-none d-md-flex">{{ teacher.full_name[0] | upper }}</div>
+                  <div class="text-end text-md-start">
                     <strong>{{ teacher.full_name }}</strong>
-                    <br /><small class="text-muted">@{{ teacher.username }}</small>
+                    <br class="d-none d-md-block" /><small class="text-muted ms-2 ms-md-0">@{{ teacher.username }}</small>
                   </div>
                 </div>
               </td>
-              <td>
+              <td data-label="Department">
                 {% if teacher.department %}
                 <span class="badge bg-light text-dark">{{ teacher.department }}</span>
                 {% else %}
                 <span class="text-muted">&mdash;</span>
                 {% endif %}
               </td>
-              <td>
+              <td data-label="Contact">
                 {% if teacher.email %}
                 <small><i class="bi bi-envelope me-1"></i>{{ teacher.email }}</small><br />
                 {% endif %} {% if teacher.phone %}
@@ -125,7 +125,7 @@ content %}
                 <span class="text-muted">&mdash;</span>
                 {% endif %}
               </td>
-              <td class="text-center">
+              <td class="text-center" data-label="Subjects">
                 {% set unique_subject_names = teacher.subjects | map(attribute='name') | list |
                 unique | list %} {% if unique_subject_names | length > 0 %}
                 <span
@@ -137,7 +137,7 @@ content %}
                 <span class="badge bg-warning text-dark">0</span>
                 {% endif %}
               </td>
-              <td class="text-center">
+              <td class="text-center no-print" data-label="Actions">
                 <button
                   class="btn btn-sm btn-outline-primary view-teacher-btn"
                   data-bs-toggle="modal"
