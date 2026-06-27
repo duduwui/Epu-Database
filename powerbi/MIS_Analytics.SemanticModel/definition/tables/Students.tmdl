@@ -1,0 +1,43 @@
+table Students
+	lineageTag: 6a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+
+	column id
+		dataType: int64
+		isHidden
+		lineageTag: a1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6
+		sourceColumn: id
+		summarizeBy: none
+
+	column user_id
+		dataType: int64
+		lineageTag: b2c3d4e5-f6a7-b8c9-d0e1-f2a3b4c5d6e7
+		sourceColumn: user_id
+		summarizeBy: none
+
+	column class_id
+		dataType: int64
+		lineageTag: c3d4e5f6-a7b8-c9d0-e1f2-a3b4c5d6e7f8
+		sourceColumn: class_id
+		summarizeBy: none
+
+	column student_number
+		dataType: string
+		lineageTag: d4e5f6a7-b8c9-d0e1-f2a3-b4c5d6e7f8a9
+		sourceColumn: student_number
+
+	column full_name
+		dataType: string
+		lineageTag: e5f6a7b8-c9d0-e1f2-a3b4-c5d6e7f8a9b0
+		sourceColumn: full_name
+
+	partition Students-5569b04b-3e15-449a-9fc9-4caaa6bc6c9e = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL_MIS,
+				    public_students = Source{[Schema="public",Item="students"]}[Data],
+				    joined = Table.NestedJoin(public_students, {"user_id"}, Source{[Schema="public",Item="users"]}[Data], {"id"}, "users", JoinKind.LeftOuter),
+				    expanded = Table.ExpandTableColumn(joined, "users", {"full_name"}, {"full_name"})
+				in
+				    expanded
+

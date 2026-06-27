@@ -1,0 +1,66 @@
+table Grades
+	lineageTag: 3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f
+
+	column id
+		dataType: int64
+		isHidden
+		lineageTag: 4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a
+		sourceColumn: id
+		summarizeBy: none
+
+	column student_id
+		dataType: int64
+		lineageTag: 5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b
+		sourceColumn: student_id
+		summarizeBy: none
+
+	column subject_id
+		dataType: int64
+		lineageTag: 6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c
+		sourceColumn: subject_id
+		summarizeBy: none
+
+	column grade_type
+		dataType: string
+		lineageTag: 7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d
+		sourceColumn: grade_type
+
+	column title
+		dataType: string
+		lineageTag: 8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e
+		sourceColumn: title
+
+	column score
+		dataType: decimal
+		lineageTag: 9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f
+		sourceColumn: score
+		summarizeBy: sum
+
+	column max_score
+		dataType: decimal
+		lineageTag: 0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a
+		sourceColumn: max_score
+		summarizeBy: none
+
+	column date
+		dataType: dateTime
+		lineageTag: 1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b
+		sourceColumn: date
+
+	measure 'Average Score' =
+			AVERAGEX(
+			    FILTER(Grades, Grades[max_score] > 0),
+			    DIVIDE(Grades[score], Grades[max_score]) * 100
+			)
+		lineageTag: 2f3a4b5c-6d7e-8f9a-0b1c-2d3e4f5a6b7c
+		formatString: 0.0"%"
+
+	partition Grades-3c4d5e6f = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL_MIS,
+				    public_grades = Source{[Schema="public",Item="grades"]}[Data]
+				in
+				    public_grades
+
